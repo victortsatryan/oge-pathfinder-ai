@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 
 type ViewMode = "list" | "calendar" | "analytics";
@@ -227,6 +228,8 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
   const completedCount = useMemo(() => planItems.filter((item) => item.status === "done").length, [planItems]);
   const statusLine = `${completedCount} из ${planItems.length} занятий отмечены как done`;
 
+  const [diagnosticAi, setDiagnosticAi] = useState<null | Awaited<ReturnType<typeof generateDiagnosticAiPlan>>>(null);
+
   const handleFieldChange = (id: string, field: EditablePlanField, value: string) => {
     setPlanItems((current) => current.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
@@ -242,6 +245,36 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
   const handleOpenDayById = (dayId: string) => {
     setExpandedDayId(dayId);
     setActiveView("calendar");
+  };
+
+  const handleGenerateAiPlan = async () => {
+    const subjectStats = subjectPrograms.map((subjectProgram) => {
+      const lessons = subjectRows.get(subjectProgram.subject) ?? [];
+      const completed = lessons.filter((item) => item.status === "done").length;
+      const accuracyValues = lessons
+        .map((item) => item.result?.accuracyPercent)
+        .filter((value): value is number => typeof value === "number");
+
+      return {
+        subject: subjectProgram.subject,
+        completed,
+        total: lessons.length,
+        accuracy: accuracyValues.length
+          ? Math.round(accuracyValues.reduce((acc, value) => acc + value, 0) / accuracyValues.length)
+          : null,
+      };
+    });
+
+    const response = await generateDiagnosticAiPlan({
+      data: {
+        completedLessons: data.results.completedLessons,
+        pendingLessons: data.results.pendingLessons,
+        averageAccuracy: data.results.averageAccuracy,
+        subjectStats,
+      },
+    });
+
+    setDiagnosticAi(response);
   };
 
   const contentTitle =
@@ -771,6 +804,43 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                   <span className="result-card__meta">{data.results.attemptsTotal} попыток в анализе</span>
                 </article>
                 <p className="status-line">{data.results.insight}</p>
+                <button type="button" className="action-link" onClick={handleGenerateAiPlan}>
+                  AI-анализ после диагностики
+                </button>
+                {diagnosticAi ? (
+                  <div className="analytics-list-stack">
+                    <article className="analytics-note-card analytics-note-card--accent">
+                      <div className="list-row__title">Краткий вывод</div>
+                      <p className="status-line">{diagnosticAi.summary}</p>
+                    </article>
+                    {diagnosticAi.weakTopics.length ? (
+                      <article className="analytics-note-card">
+                        <div className="list-row__title">Слабые темы</div>
+                        <div className="content-stack">
+                          {diagnosticAi.weakTopics.map((item) => (
+                            <div key={item} className="check-row">
+                              <span>•</span>
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ) : null}
+                    {diagnosticAi.recommendations.length ? (
+                      <article className="analytics-note-card">
+                        <div className="list-row__title">Что улучшить</div>
+                        <div className="content-stack">
+                          {diagnosticAi.recommendations.map((item) => (
+                            <div key={item} className="check-row">
+                              <span>•</span>
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ) : null}
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 

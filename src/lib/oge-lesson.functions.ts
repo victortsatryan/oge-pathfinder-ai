@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { generateLessonAiFeedback } from "@/lib/oge-ai.functions";
 import { getLessonDetail } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
 
@@ -60,22 +61,29 @@ export const checkLessonAnswers = createServerFn({ method: "POST" })
 
     const correctCount = taskResults.filter((item) => item.isCorrect).length;
     const scorePercent = Math.round((correctCount / taskResults.length) * 100);
+    const aiFeedback = await generateLessonAiFeedback({
+      data: {
+        lessonId: detail.lesson.id,
+        scorePercent,
+        answers: taskResults,
+      },
+    });
 
     return {
       scorePercent,
       correctCount,
       total: taskResults.length,
-      summary:
-        scorePercent >= 80
-          ? "Отлично: можно двигаться к усложнённой практике по этой теме."
-          : "Есть пробелы: после разбора решений стоит повторить теорию и сделать ещё один короткий сет.",
+      summary: aiFeedback.summary,
       taskResults,
       recommendations: {
-        review:
-          scorePercent >= 80
+        review: aiFeedback.recommendations.length
+          ? aiFeedback.recommendations
+          : scorePercent >= 80
             ? detail.recommendations.review.slice(0, 2)
             : detail.recommendations.review,
-        extraTasks: detail.recommendations.extraTasks,
+        extraTasks: aiFeedback.extraTasks.length ? aiFeedback.extraTasks : detail.recommendations.extraTasks,
+        weakTopics: aiFeedback.weakTopics,
+        difficulty: aiFeedback.difficulty,
       },
     };
   });
