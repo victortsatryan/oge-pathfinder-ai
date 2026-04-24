@@ -367,6 +367,114 @@
     padding: 14px 16px;
   }
 
+  .plan-editor-card {
+    display: grid;
+    gap: 14px;
+    border-radius: 20px;
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+    padding: 16px;
+  }
+
+  .plan-editor-head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .editor-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .editor-field {
+    display: grid;
+    gap: 8px;
+  }
+
+  .editor-field span {
+    color: var(--color-muted-foreground);
+    font-size: 0.82rem;
+  }
+
+  .editor-field input,
+  .editor-field textarea {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: color-mix(in oklab, var(--color-card) 94%, transparent);
+    padding: 11px 12px;
+    color: var(--color-foreground);
+  }
+
+  .editor-field textarea {
+    resize: vertical;
+    min-height: 92px;
+  }
+
+  .editor-field--full {
+    grid-column: 1 / -1;
+  }
+
+  .calendar-board {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .calendar-column {
+    display: grid;
+    gap: 12px;
+    min-height: 320px;
+    border-radius: 18px;
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+    padding: 14px;
+  }
+
+  .calendar-column__head {
+    display: grid;
+    gap: 2px;
+  }
+
+  .calendar-column__head span {
+    color: var(--color-muted-foreground);
+    font-size: 0.85rem;
+  }
+
+  .calendar-column__stack {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+
+  .calendar-entry {
+    display: grid;
+    gap: 4px;
+    border-radius: 16px;
+    background: var(--color-card);
+    padding: 12px;
+  }
+
+  .calendar-entry__time,
+  .calendar-entry__topic {
+    color: var(--color-muted-foreground);
+    font-size: 0.84rem;
+  }
+
+  .calendar-entry__subject {
+    font-weight: 600;
+  }
+
+  .calendar-empty {
+    border: 1px dashed var(--color-border);
+    border-radius: 16px;
+    padding: 14px;
+    color: var(--color-muted-foreground);
+    font-size: 0.88rem;
+    text-align: center;
+  }
+
   .list-row--calendar {
     min-height: 72px;
   }
@@ -412,8 +520,13 @@
   .two-column-layout,
   .content-grid,
   .stats-grid,
+  .calendar-board,
   .selection-grid,
   .subject-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-grid {
     grid-template-columns: 1fr;
   }
 
