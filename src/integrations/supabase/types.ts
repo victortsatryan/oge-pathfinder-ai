@@ -268,6 +268,42 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          exam_year: number | null
+          id: string
+          target_grade: number | null
+          target_score: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          exam_year?: number | null
+          id?: string
+          target_grade?: number | null
+          target_score?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          exam_year?: number | null
+          id?: string
+          target_grade?: number | null
+          target_score?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       study_plans: {
         Row: {
           created_at: string
@@ -425,6 +461,78 @@ export type Database = {
           },
           {
             foreignKeyName: "task_attempts_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          answer_type: string
+          correct_answer: Json | null
+          created_at: string
+          difficulty: Database["public"]["Enums"]["difficulty_level"]
+          exam_section: string | null
+          explanation: string | null
+          id: string
+          is_published: boolean
+          options: Json
+          prompt: string
+          source_url: string | null
+          subject_id: string
+          tags: string[]
+          task_key: string
+          topic_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          answer_type?: string
+          correct_answer?: Json | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          exam_section?: string | null
+          explanation?: string | null
+          id?: string
+          is_published?: boolean
+          options?: Json
+          prompt: string
+          source_url?: string | null
+          subject_id: string
+          tags?: string[]
+          task_key: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answer_type?: string
+          correct_answer?: Json | null
+          created_at?: string
+          difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          exam_section?: string | null
+          explanation?: string | null
+          id?: string
+          is_published?: boolean
+          options?: Json
+          prompt?: string
+          source_url?: string | null
+          subject_id?: string
+          tags?: string[]
+          task_key?: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
