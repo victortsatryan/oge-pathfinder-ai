@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { checkLessonAnswers, answerValueSchema } from "@/lib/oge-lesson.functions";
+import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 import { getLessonDetail } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
 
@@ -50,7 +51,7 @@ function LessonPage() {
   const validateAnswers = () => {
     const nextErrors: Record<string, string> = {};
 
-    detail.practiceTasks.forEach((task) => {
+    detail.practiceTasks.forEach((task: LessonPracticeTask) => {
       const parsed = answerValueSchema.safeParse(answers[task.id] ?? "");
       if (!parsed.success) {
         nextErrors[task.id] = parsed.error.issues[0]?.message ?? "Проверьте ответ";
@@ -135,7 +136,7 @@ function LessonPage() {
                 <CardDescription>Решаем задания формата ОГЭ по шагам, без перегруза интерфейса.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
-                {detail.practiceTasks.map((task, index) => (
+                {detail.practiceTasks.map((task: LessonPracticeTask, index: number) => (
                   <article key={task.id} className="practice-task-card">
                     <div className="practice-task-card__head">
                       <div>
@@ -218,7 +219,7 @@ function LessonPage() {
                 <div className="recommendation-block">
                   <strong>Что повторить</strong>
                   <div className="content-stack">
-                    {(result?.recommendations.review ?? detail.recommendations.review).map((item) => (
+                    {(result?.recommendations.review ?? detail.recommendations.review).map((item: string) => (
                       <div key={item} className="check-row">
                         <span>•</span>
                         <span>{item}</span>
@@ -229,7 +230,7 @@ function LessonPage() {
                 <div className="recommendation-block">
                   <strong>Дополнительные задания</strong>
                   <div className="content-stack">
-                    {(result?.recommendations.extraTasks ?? detail.recommendations.extraTasks).map((item) => (
+                    {(result?.recommendations.extraTasks ?? detail.recommendations.extraTasks).map((item: string) => (
                       <div key={item} className="check-row">
                         <span>•</span>
                         <span>{item}</span>
@@ -247,7 +248,7 @@ function LessonPage() {
               </CardHeader>
               <CardContent className="content-stack">
                 {detail.resourceLinks.length ? (
-                  detail.resourceLinks.map((item) => (
+                  detail.resourceLinks.map((item: { id: string; title: string; url: string | null }) => (
                     <article key={item.id} className="resource-card">
                       <div className="list-row__title">{item.title}</div>
                       {item.url ? (
