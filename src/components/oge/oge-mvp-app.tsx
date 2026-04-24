@@ -164,6 +164,81 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
   );
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [planItems, setPlanItems] = useState(initialPlanItems);
+  const [diagnosticAnswers, setDiagnosticAnswers] = useState<Record<string, string | string[]>>({});
+  const [diagnosticStarted, setDiagnosticStarted] = useState(false);
+  const [diagnosticSubmitted, setDiagnosticSubmitted] = useState(false);
+  const [diagnosticRemainingSeconds, setDiagnosticRemainingSeconds] = useState(WEEKLY_DIAGNOSTIC_DURATION_SECONDS);
+
+  const saturdayDays = useMemo(
+    () => calendarDays.filter((day) => !day.isRestDay && day.dayShort === "Сб"),
+    [calendarDays],
+  );
+  const nextDiagnosticDay = saturdayDays.find((day) => day.dateISO >= (expandedDay?.dateISO ?? calendarDays[0]?.dateISO ?? "")) ?? saturdayDays[0] ?? null;
+
+  const diagnosticTasks = useMemo(() => weeklyDiagnosticTasks, []);
+
+  const diagnosticResult = useMemo(() => {
+    if (!diagnosticSubmitted) return null;
+
+    const evaluatedTasks = diagnosticTasks.map((task) => {
+      const answer = diagnosticAnswers[task.id];
+      const normalizedUser = Array.isArray(answer)
+        ? [...answer].map((item) => item.trim().toLowerCase()).sort()
+        : typeof answer === "string"
+          ? answer.trim().toLowerCase()
+          : "";
+      const normalizedCorrect = Array.isArray(task.correctAnswer)
+        ? [...task.correctAnswer].map((item) => item.trim().toLowerCase()).sort()
+        : task.correctAnswer.trim().toLowerCase();
+      const isCorrect = Array.isArray(normalizedCorrect)
+        ? Array.isArray(normalizedUser) && normalizedUser.join("|") === normalizedCorrect.join("|")
+        : normalizedUser === normalizedCorrect;
+
+      return {
+        ...task,
+        answer,
+        isCorrect,
+      };
+    });
+
+    const correctCount = evaluatedTasks.filter((task) => task.isCorrect).length;
+    const scorePercent = Math.round((correctCount / Math.max(evaluatedTasks.length, 1)) * 100);
+    const topicStats = Array.from(
+      evaluatedTasks.reduce((map, task) => {
+        const current = map.get(task.topic) ?? { topic: task.topic, subject: task.subject, total: 0, correct: 0 };
+        current.total += 1;
+        current.correct += task.isCorrect ? 1 : 0;
+        map.set(task.topic, current);
+        return map;
+      }, new Map<string, { topic: string; subject: string; total: number; correct: number }>()).values(),
+    ).map((item) => ({
+      ...item,
+      percent: Math.round((item.correct / Math.max(item.total, 1)) * 100),
+    }));
+
+    const weakTopics = topicStats.filter((item) => item.percent < 70).sort((a, b) => a.percent - b.percent);
+
+    return {
+      evaluatedTasks,
+      scorePercent,
+      correctCount,
+      topicStats,
+      weakTopics,
+    };
+  }, [diagnosticAnswers, diagnosticSubmitted, diagnosticTasks]);
+
+  const diagnosticProgress = useMemo(() => {
+    const answered = diagnosticTasks.filter((task) => {
+      const value = diagnosticAnswers[task.id];
+      return Array.isArray(value) ? value.length > 0 : typeof value === "string" && value.trim().length > 0;
+    }).length;
+
+    return {
+      answered,
+      total: diagnosticTasks.length,
+      percent: Math.round((answered / Math.max(diagnosticTasks.length, 1)) * 100),
+    };
+  }, [diagnosticAnswers, diagnosticTasks]);
 
   const dayMetaById = useMemo(
     () => new Map(calendarDays.map((day) => [day.id, day])),
@@ -333,6 +408,30 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     setActiveView("calendar");
   };
 
+  const handleStartDiagnostic = () => {
+    setDiagnosticStarted(true);
+    setDiagnosticSubmitted(false);
+    setDiagnosticRemainingSeconds(WEEKLY_DIAGNOSTIC_DURATION_SECONDS);
+    setDiagnosticAnswers({});
+  };
+
+  const handleSubmitDiagnostic = () => {
+    setDiagnosticSubmitted(true);
+    setDiagnosticStarted(false);
+  };
+
+  const handleDiagnosticAnswerChange = (taskId: string, value: string) => {
+    setDiagnosticAnswers((current) => ({ ...current, [taskId]: value }));
+  };
+
+  const handleDiagnosticMultiToggle = (taskId: string, option: string) => {
+    setDiagnosticAnswers((current) => {
+      const existing = Array.isArray(current[taskId]) ? [...current[taskId]] : [];
+      const next = existing.includes(option) ? existing.filter((item) => item !== option) : [...existing, option];
+      return { ...current, [taskId]: next };
+    });
+  };
+
   const handleGenerateAiPlan = async () => {
     const subjectStats = subjectPrograms.map((subjectProgram) => {
       const lessons = subjectRows.get(subjectProgram.subject) ?? [];
@@ -368,14 +467,22 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
       ? "Календарь учебного плана"
       : activeView === "list"
         ? "Связанная программа"
-        : "Аналитика ученика";
+        : activeView === "analytics"
+          ? "Аналитика ученика"
+          : "Еженедельная диагностика";
 
   const contentDescription =
     activeView === "calendar"
       ? "Дневная сетка синхронизирована с программой: выберите день, раскройте 4 занятия и откройте карточку любого урока."
       : activeView === "list"
         ? "Любое изменение в программе сразу отражается в календаре и карточке занятия."
-        : "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы.";
+        : activeView === "analytics"
+          ? "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы."
+          : "По субботам ученик проходит 60-минутную диагностику в формате ОГЭ с быстрым разбором результата по темам.";
+
+  const diagnosticTimerLabel = `${String(Math.floor(diagnosticRemainingSeconds / 60)).padStart(2, "0")}:${String(
+    diagnosticRemainingSeconds % 60,
+  ).padStart(2, "0")}`;
 
   return (
     <main className="app-shell">
