@@ -11,8 +11,10 @@ import {
   ClipboardList,
   PencilLine,
 } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +25,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 
-type ViewMode = "list" | "calendar";
+type ViewMode = "list" | "calendar" | "analytics";
 type CalendarMode = "period" | "week";
 
 type EditablePlanField = keyof Pick<PlanItem, "topic" | "dateISO" | "time" | "note">;
@@ -35,6 +37,7 @@ const viewTabs: Array<{
 }> = [
   { id: "list", label: "Список программы", Icon: ClipboardList },
   { id: "calendar", label: "Календарь", Icon: CalendarDays },
+  { id: "analytics", label: "Аналитика", Icon: Brain },
 ];
 
 const calendarModeTabs: Array<{ id: CalendarMode; label: string }> = [
@@ -113,6 +116,103 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     );
   }, [planItems]);
 
+  const analytics = useMemo(() => {
+    const weeklyProgress = calendarWeeks.map((week) => {
+      const lessons = week.days.flatMap((day) => lessonsByDay.get(day.id) ?? []);
+      const completed = lessons.filter((item) => item.status === "done").length;
+      const accuracyValues = lessons
+        .map((item) => item.result?.accuracyPercent)
+        .filter((value): value is number => typeof value === "number");
+
+      return {
+        week: `Н${week.weekIndex + 1}`,
+        completed,
+        accuracy: accuracyValues.length
+          ? Math.round(accuracyValues.reduce((acc, value) => acc + value, 0) / accuracyValues.length)
+          : 0,
+      };
+    });
+
+    const subjectStats = subjectPrograms.map((subjectProgram) => {
+      const lessons = subjectRows.get(subjectProgram.subject) ?? [];
+      const completed = lessons.filter((item) => item.status === "done").length;
+      const accuracyValues = lessons
+        .map((item) => item.result?.accuracyPercent)
+        .filter((value): value is number => typeof value === "number");
+      const level = accuracyValues.length
+        ? Math.round(accuracyValues.reduce((acc, value) => acc + value, 0) / accuracyValues.length)
+        : Math.round((completed / Math.max(lessons.length, 1)) * 100);
+      const recentAccuracy = lessons
+        .slice(-4)
+        .map((item) => item.result?.accuracyPercent)
+        .filter((value): value is number => typeof value === "number");
+      const previousAccuracy = lessons
+        .slice(-8, -4)
+        .map((item) => item.result?.accuracyPercent)
+        .filter((value): value is number => typeof value === "number");
+      const currentAverage = recentAccuracy.length
+        ? Math.round(recentAccuracy.reduce((acc, value) => acc + value, 0) / recentAccuracy.length)
+        : level;
+      const previousAverage = previousAccuracy.length
+        ? Math.round(previousAccuracy.reduce((acc, value) => acc + value, 0) / previousAccuracy.length)
+        : currentAverage;
+
+      return {
+        subject: subjectProgram.subject,
+        level,
+        completed,
+        total: lessons.length,
+        dynamic: currentAverage - previousAverage,
+      };
+    });
+
+    const weakTopics = planItems
+      .map((item) => ({
+        id: item.id,
+        subject: item.subject,
+        topic: item.topic,
+        score: item.result?.accuracyPercent ?? (item.status === "done" ? 45 : null),
+        summary: item.result?.summary ?? item.note,
+      }))
+      .filter((item): item is { id: string; subject: string; topic: string; score: number; summary: string } => typeof item.score === "number")
+      .sort((left, right) => left.score - right.score)
+      .slice(0, 6);
+
+    const commonErrors = weakTopics.slice(0, 4).map((item) => ({
+      id: item.id,
+      subject: item.subject,
+      title: `Ошибки в теме «${item.topic}»`,
+      description:
+        item.score < 60
+          ? "Есть просадка в базовом алгоритме решения: стоит ещё раз пройти теорию и повторить 3–5 типовых номеров."
+          : "Ошибки появляются на внимательности и проверке ответа: нужен короткий повтор с самопроверкой по шагам.",
+    }));
+
+    const recommendationBase = weakTopics.slice(0, 3);
+
+    return {
+      weeklyProgress,
+      subjectStats,
+      weakTopics,
+      commonErrors,
+      recommendations: [
+        recommendationBase[0]
+          ? `Сфокусироваться на теме «${recommendationBase[0].topic}» по предмету ${recommendationBase[0].subject}: сначала повторить теорию, затем решить короткий набор заданий.`
+          : "Сохранять текущий темп и закреплять темы через короткие повторения каждые 2–3 дня.",
+        recommendationBase[1]
+          ? `Добавить ещё один мини-цикл практики по теме «${recommendationBase[1].topic}» и проверить, выросла ли точность после повторения.`
+          : "После каждого выполненного урока сверять ход решения с образцом, а не только итоговый ответ.",
+        subjectStats.length
+          ? `Самый сильный предмет сейчас — ${[...subjectStats].sort((a, b) => b.level - a.level)[0]?.subject ?? "—"}; его можно использовать для поддержания уверенности и темпа.`
+          : "Пока недостаточно данных для персональных советов — они появятся после первых решённых заданий.",
+      ],
+      completionShare: [
+        { name: "Пройдено", value: planItems.filter((item) => item.status === "done").length, fill: "oklch(0.8 0.16 150)" },
+        { name: "Не пройдено", value: planItems.filter((item) => item.status === "pending").length, fill: "oklch(0.93 0.01 250)" },
+      ],
+    };
+  }, [calendarWeeks, lessonsByDay, planItems, subjectPrograms, subjectRows]);
+
   const visibleWeeks = calendarWeeks;
   const activeWeek = visibleWeeks[selectedWeekIndex] ?? visibleWeeks[0];
   const visibleDays = calendarMode === "period" ? calendarDays : activeWeek?.days ?? [];
@@ -143,6 +243,20 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     setExpandedDayId(dayId);
     setActiveView("calendar");
   };
+
+  const contentTitle =
+    activeView === "calendar"
+      ? "Календарь учебного плана"
+      : activeView === "list"
+        ? "Связанная программа"
+        : "Аналитика ученика";
+
+  const contentDescription =
+    activeView === "calendar"
+      ? "Дневная сетка синхронизирована с программой: выберите день, раскройте 4 занятия и откройте карточку любого урока."
+      : activeView === "list"
+        ? "Любое изменение в программе сразу отражается в календаре и карточке занятия."
+        : "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы.";
 
   return (
     <main className="app-shell">
@@ -195,12 +309,8 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         <section className="content-grid">
           <Card className="panel content-panel">
             <CardHeader>
-              <CardTitle>{activeView === "calendar" ? "Календарь учебного плана" : "Связанная программа"}</CardTitle>
-              <CardDescription>
-                {activeView === "calendar"
-                  ? "Дневная сетка синхронизирована с программой: выберите день, раскройте 4 занятия и откройте карточку любого урока."
-                  : "Любое изменение в программе сразу отражается в календаре и карточке занятия."}
-              </CardDescription>
+              <CardTitle>{contentTitle}</CardTitle>
+              <CardDescription>{contentDescription}</CardDescription>
             </CardHeader>
             <CardContent className="content-stack">
               {activeView === "calendar" ? (
@@ -337,7 +447,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                     </section>
                   )}
                 </>
-              ) : (
+              ) : activeView === "list" ? (
                 <div className="program-subject-stack">
                   {subjectPrograms.map((subjectProgram) => {
                     const rows = subjectRows.get(subjectProgram.subject) ?? [];
@@ -443,6 +553,160 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                       </section>
                     );
                   })}
+                </div>
+              ) : (
+                <div className="analytics-stack">
+                  <div className="analytics-overview-grid">
+                    <article className="analytics-surface">
+                      <div className="analytics-surface__head">
+                        <div>
+                          <div className="list-row__title">Общий прогресс</div>
+                          <div className="list-row__meta">Динамика выполнения и средней точности по неделям.</div>
+                        </div>
+                      </div>
+                      <ChartContainer
+                        className="analytics-chart"
+                        config={{
+                          completed: { label: "Пройдено", color: "oklch(0.45 0.03 248)" },
+                          accuracy: { label: "Точность", color: "oklch(0.8 0.16 150)" },
+                        }}
+                      >
+                        <LineChart data={analytics.weeklyProgress} margin={{ left: 8, right: 8, top: 12 }}>
+                          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                          <XAxis dataKey="week" tickLine={false} axisLine={false} />
+                          <YAxis tickLine={false} axisLine={false} width={28} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line type="monotone" dataKey="completed" stroke="var(--color-completed)" strokeWidth={2.5} dot={false} />
+                          <Line type="monotone" dataKey="accuracy" stroke="var(--color-accuracy)" strokeWidth={2.5} dot={false} />
+                        </LineChart>
+                      </ChartContainer>
+                    </article>
+
+                    <article className="analytics-surface analytics-surface--compact">
+                      <div className="analytics-surface__head">
+                        <div>
+                          <div className="list-row__title">Статус подготовки</div>
+                          <div className="list-row__meta">Доля пройденных и оставшихся занятий.</div>
+                        </div>
+                      </div>
+                      <ChartContainer
+                        className="analytics-chart analytics-chart--compact"
+                        config={{
+                          done: { label: "Пройдено", color: "oklch(0.8 0.16 150)" },
+                          pending: { label: "Не пройдено", color: "oklch(0.9 0.004 250)" },
+                        }}
+                      >
+                        <PieChart>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
+                          <Pie data={analytics.completionShare} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={3}>
+                            {analytics.completionShare.map((entry) => (
+                              <Pie key={entry.name} data={[entry]} dataKey="value" nameKey="name" fill={entry.fill} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ChartContainer>
+                      <div className="analytics-legend-stack">
+                        {analytics.completionShare.map((entry) => (
+                          <div key={entry.name} className="analytics-legend-row">
+                            <span className="analytics-legend-dot" style={{ background: entry.fill }} />
+                            <span>{entry.name}</span>
+                            <strong>{entry.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  </div>
+
+                  <article className="analytics-surface">
+                    <div className="analytics-surface__head">
+                      <div>
+                        <div className="list-row__title">По предметам</div>
+                        <div className="list-row__meta">Уровень подготовки и динамика по каждому предмету.</div>
+                      </div>
+                    </div>
+                    <div className="analytics-subject-grid">
+                      <ChartContainer
+                        className="analytics-chart"
+                        config={{ level: { label: "Уровень", color: "oklch(0.74 0.15 250)" } }}
+                      >
+                        <BarChart data={analytics.subjectStats} margin={{ left: 8, right: 8, top: 12 }}>
+                          <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                          <XAxis dataKey="subject" tickLine={false} axisLine={false} interval={0} angle={-8} textAnchor="end" height={56} />
+                          <YAxis tickLine={false} axisLine={false} width={28} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="level" fill="var(--color-level)" radius={[8, 8, 0, 0]} />
+                        </BarChart>
+                      </ChartContainer>
+
+                      <div className="analytics-subject-cards">
+                        {analytics.subjectStats.map((item) => (
+                          <article key={item.subject} className="subject-analytics-card">
+                            <div className="subject-analytics-card__head">
+                              <div className="program-subject-title">
+                                <span className={subjectToneClass[item.subject] ?? "subject-tone"} />
+                                <span>{item.subject}</span>
+                              </div>
+                              <span className="list-badge">{item.level}%</span>
+                            </div>
+                            <div className="subject-analytics-card__meta">
+                              <span>Пройдено: {item.completed}/{item.total}</span>
+                              <span>Динамика: {item.dynamic > 0 ? `+${item.dynamic}` : item.dynamic}%</span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+
+                  <div className="analytics-detail-grid">
+                    <article className="analytics-surface">
+                      <div className="analytics-surface__head">
+                        <div>
+                          <div className="list-row__title">Слабые темы</div>
+                          <div className="list-row__meta">Темы с самой низкой точностью и требующие повторения.</div>
+                        </div>
+                      </div>
+                      <div className="analytics-list-stack">
+                        {analytics.weakTopics.length ? (
+                          analytics.weakTopics.map((item) => (
+                            <article key={item.id} className="analytics-list-card">
+                              <div className="analytics-list-card__head">
+                                <span className={subjectToneClass[item.subject] ?? "subject-chip"}>{item.subject}</span>
+                                <strong>{item.score}%</strong>
+                              </div>
+                              <div className="list-row__title">{item.topic}</div>
+                              <p className="status-line">{item.summary}</p>
+                            </article>
+                          ))
+                        ) : (
+                          <div className="calendar-empty">Слабые темы появятся после первых оценённых занятий.</div>
+                        )}
+                      </div>
+                    </article>
+
+                    <article className="analytics-surface">
+                      <div className="analytics-surface__head">
+                        <div>
+                          <div className="list-row__title">Ошибки и AI-рекомендации</div>
+                          <div className="list-row__meta">Типичные провалы и персональные советы для следующего шага.</div>
+                        </div>
+                      </div>
+                      <div className="analytics-list-stack">
+                        {analytics.commonErrors.map((item) => (
+                          <article key={item.id} className="analytics-note-card">
+                            <div className="list-row__title">{item.title}</div>
+                            <p className="status-line">{item.description}</p>
+                          </article>
+                        ))}
+                        {analytics.recommendations.map((item) => (
+                          <article key={item} className="analytics-note-card analytics-note-card--accent">
+                            <div className="list-row__title">AI-рекомендация</div>
+                            <p className="status-line">{item}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </article>
+                  </div>
                 </div>
               )}
             </CardContent>
