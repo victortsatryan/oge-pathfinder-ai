@@ -168,12 +168,16 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
   const [diagnosticStarted, setDiagnosticStarted] = useState(false);
   const [diagnosticSubmitted, setDiagnosticSubmitted] = useState(false);
   const [diagnosticRemainingSeconds, setDiagnosticRemainingSeconds] = useState(WEEKLY_DIAGNOSTIC_DURATION_SECONDS);
+  const currentFocusDay = calendarDays.find((day) => day.isCurrentFocus) ?? calendarDays[0] ?? null;
 
   const saturdayDays = useMemo(
     () => calendarDays.filter((day) => !day.isRestDay && day.dayShort === "Сб"),
     [calendarDays],
   );
-  const nextDiagnosticDay = saturdayDays.find((day) => day.isCurrentFocus) ?? saturdayDays[0] ?? null;
+  const nextDiagnosticDay =
+    saturdayDays.find((day) => (currentFocusDay ? day.dateISO >= currentFocusDay.dateISO : day.isCurrentFocus)) ??
+    saturdayDays[0] ??
+    null;
 
   const diagnosticTasks = useMemo(() => weeklyDiagnosticTasks, []);
 
