@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import type { Database } from "@/integrations/supabase/types";
 
 export const MVP_USER_ID = "00000000-0000-4000-8000-000000000001";
@@ -267,15 +269,7 @@ const RECOMMENDATION_SEED: Database["public"]["Tables"]["ai_recommendations"]["I
   ],
 };
 
-export async function ensureMvpSeed(supabaseAdmin: {
-  from: (table: string) => {
-    select: (columns: string, options?: { count?: "exact" | "planned" | "estimated"; head?: boolean }) => Promise<{
-      count: number | null;
-      error: { message: string } | null;
-    }>;
-    insert: (values: unknown) => Promise<{ error: { message: string } | null }>;
-  };
-}) {
+export async function ensureMvpSeed(supabaseAdmin: SupabaseClient<Database>) {
   const { count: subjectCount, error: subjectCountError } = await supabaseAdmin
     .from("subjects")
     .select("id", { count: "exact", head: true });
