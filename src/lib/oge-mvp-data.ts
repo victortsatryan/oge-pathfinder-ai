@@ -156,9 +156,19 @@ type AttemptInput = {
   submittedAt: string | null;
 };
 
+type LearningSourceInput = {
+  id: string;
+  subjectName: string; // BD subject name (e.g. "Английский", "Русский")
+  provider: string;
+  title: string;
+  url: string;
+  sourceKind: "theory" | "practice" | "mixed";
+};
+
 type LoadStateInput = {
   resources?: ResourceInput[];
   attempts?: AttemptInput[];
+  learningSources?: LearningSourceInput[];
 };
 
 type SubjectBlueprint = {
