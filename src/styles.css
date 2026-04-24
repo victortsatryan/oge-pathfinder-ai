@@ -857,6 +857,127 @@
     margin: 0;
     padding-inline: 4px;
   }
+
+  .diagnostic-stack,
+  .diagnostic-results-grid,
+  .diagnostic-task-stack,
+  .diagnostic-summary-grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .diagnostic-hero,
+  .diagnostic-focus-panel,
+  .diagnostic-task-card,
+  .diagnostic-feedback-card,
+  .diagnostic-empty-state {
+    border-radius: 20px;
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+  }
+
+  .diagnostic-hero,
+  .diagnostic-focus-panel,
+  .diagnostic-task-card,
+  .diagnostic-feedback-card,
+  .diagnostic-empty-state,
+  .diagnostic-topic-card {
+    padding: 16px;
+  }
+
+  .diagnostic-hero,
+  .diagnostic-hero__copy,
+  .diagnostic-hero__stats,
+  .diagnostic-focus-panel__head,
+  .diagnostic-task-card,
+  .diagnostic-task-card__head,
+  .diagnostic-feedback-card__head,
+  .diagnostic-empty-state {
+    display: flex;
+    gap: 12px;
+  }
+
+  .diagnostic-hero,
+  .diagnostic-focus-panel__head,
+  .diagnostic-task-card__head,
+  .diagnostic-feedback-card__head {
+    align-items: start;
+    justify-content: space-between;
+  }
+
+  .diagnostic-hero,
+  .diagnostic-hero__stats {
+    flex-wrap: wrap;
+  }
+
+  .diagnostic-hero__copy,
+  .diagnostic-task-card,
+  .diagnostic-empty-state {
+    align-items: start;
+  }
+
+  .diagnostic-hero__copy,
+  .diagnostic-task-card,
+  .diagnostic-empty-state {
+    flex-direction: column;
+  }
+
+  .diagnostic-hero__stats {
+    min-width: min(320px, 100%);
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .diagnostic-focus-panel {
+    display: grid;
+    gap: 16px;
+  }
+
+  .diagnostic-option-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diagnostic-option-grid .selection-card {
+    min-height: 72px;
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .diagnostic-task-card__prompt {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-foreground);
+  }
+
+  .diagnostic-answer-field {
+    max-width: 360px;
+  }
+
+  .diagnostic-feedback-card {
+    display: grid;
+    gap: 10px;
+    border: 1px solid var(--color-border);
+    background: var(--color-card);
+  }
+
+  .diagnostic-primary-action {
+    background: var(--color-foreground);
+    color: var(--color-background);
+    border-color: var(--color-foreground);
+  }
+
+  .diagnostic-empty-state {
+    border: 1px dashed var(--color-border);
+  }
+
+  .diagnostic-results-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .diagnostic-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
   .lesson-page-layout {
@@ -965,7 +1086,10 @@
   .selection-grid,
   .subject-grid,
   .lesson-main-grid,
-  .check-result-card__grid {
+  .check-result-card__grid,
+  .diagnostic-results-grid,
+  .diagnostic-summary-grid,
+  .diagnostic-option-grid {
     grid-template-columns: 1fr;
   }
 
