@@ -279,7 +279,7 @@ export async function ensureMvpSeed(supabaseAdmin: SupabaseClient<Database>) {
   }
 
   if (!subjectCount) {
-    const { error } = await supabaseAdmin.from("subjects").insert(SUBJECT_SEED);
+    const { error } = await supabaseAdmin.from("subjects").insert([...SUBJECT_SEED]);
     if (error) throw new Error(`Не удалось создать предметы: ${error.message}`);
 
     const { error: topicsError } = await supabaseAdmin.from("topics").insert(
