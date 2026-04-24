@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 
 type ViewMode = "list" | "calendar";
@@ -79,6 +80,24 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     [calendarDays],
   );
 
+  const subjectRows = useMemo(() => {
+    return planItems.reduce(
+      (map, item) => {
+        const list = map.get(item.subject) ?? [];
+        list.push(item);
+        map.set(
+          item.subject,
+          list.sort((left, right) => {
+            const dateCompare = left.dateISO.localeCompare(right.dateISO, "ru");
+            return dateCompare === 0 ? left.time.localeCompare(right.time, "ru") : dateCompare;
+          }),
+        );
+        return map;
+      },
+      new Map<string, PlanItem[]>(),
+    );
+  }, [planItems]);
+
   const lessonsByDay = useMemo(() => {
     return planItems.reduce(
       (map, item) => {
@@ -118,6 +137,11 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
 
   const handleOpenDay = (day: CalendarDay) => {
     setExpandedDayId(day.id);
+  };
+
+  const handleOpenDayById = (dayId: string) => {
+    setExpandedDayId(dayId);
+    setActiveView("calendar");
   };
 
   return (
@@ -314,67 +338,112 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                   )}
                 </>
               ) : (
-                planItems.map((item) => {
-                  const dayMeta = dayMetaById.get(item.dateISO);
-                  return (
-                    <article key={item.id} className="plan-editor-card">
-                      <div className="plan-editor-head">
-                        <div>
-                          <div className="list-row__title">{item.subject}</div>
-                          <div className="list-row__meta">
-                            {item.section} · {item.taskRange} · неделя {item.week} · {dayMeta?.dayName ?? item.dateISO}, {dayMeta?.dateLabel ?? item.dateISO}
+                <div className="program-subject-stack">
+                  {subjectPrograms.map((subjectProgram) => {
+                    const rows = subjectRows.get(subjectProgram.subject) ?? [];
+
+                    return (
+                      <section key={subjectProgram.subject} className="program-subject-panel">
+                        <div className="program-subject-panel__head">
+                          <div>
+                            <div className="program-subject-title">
+                              <span className={subjectToneClass[subjectProgram.subject] ?? "subject-tone"} />
+                              <span>{subjectProgram.subject}</span>
+                            </div>
+                            <div className="list-row__meta">
+                              {subjectProgram.tasksCoverage} · {subjectProgram.focus}
+                            </div>
                           </div>
+                          <span className="list-badge">{rows.length} занятий</span>
                         </div>
-                        <span className={item.status === "done" ? "status-pill status-pill--done" : "status-pill status-pill--pending"}>
-                          {statusLabel[item.status]}
-                        </span>
-                      </div>
 
-                      <div className="editor-grid editor-grid--program">
-                        <label className="editor-field">
-                          <span>Тема</span>
-                          <input value={item.topic} onChange={(event) => handleFieldChange(item.id, "topic", event.target.value)} />
-                        </label>
-                        <label className="editor-field">
-                          <span>Дата</span>
-                          <input type="date" min="2026-04-27" max="2026-05-30" value={item.dateISO} onChange={(event) => handleFieldChange(item.id, "dateISO", event.target.value)} />
-                        </label>
-                        <label className="editor-field">
-                          <span>Время</span>
-                          <input value={item.time} onChange={(event) => handleFieldChange(item.id, "time", event.target.value)} />
-                        </label>
-                      </div>
+                        <Table className="program-table">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Дата</TableHead>
+                              <TableHead>Тема</TableHead>
+                              <TableHead>Статус</TableHead>
+                              <TableHead>Результат</TableHead>
+                              <TableHead>Рекомендации</TableHead>
+                              <TableHead className="program-table__actions-head">Урок</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {rows.map((item) => {
+                              const dayMeta = dayMetaById.get(item.dateISO);
+                              const resultLabel =
+                                item.status === "done" && item.result
+                                  ? item.result.accuracyPercent !== null
+                                    ? `${item.result.accuracyPercent}% · ${item.result.solvedTotal}/${item.result.attemptsTotal}`
+                                    : item.result.summary
+                                  : "—";
 
-                      <label className="editor-field editor-field--full">
-                        <span>Заметка к блоку</span>
-                        <textarea value={item.note} onChange={(event) => handleFieldChange(item.id, "note", event.target.value)} rows={3} />
-                      </label>
+                              const recommendationLabel = item.result?.summary || item.note || "—";
 
-                      <div className="program-card__footer">
-                        <div className="program-card__meta">Материалы: {item.resources.length} · Задания: {item.tasks.length}</div>
-                        <div className="status-toggle-row">
-                          <button
-                            type="button"
-                            className={item.status === "pending" ? "status-toggle is-active" : "status-toggle"}
-                            onClick={() => handleStatusChange(item.id, "pending")}
-                          >
-                            Pending
-                          </button>
-                          <button
-                            type="button"
-                            className={item.status === "done" ? "status-toggle is-active" : "status-toggle"}
-                            onClick={() => handleStatusChange(item.id, "done")}
-                          >
-                            Done
-                          </button>
-                          <Link to="/lesson/$lessonId" params={{ lessonId: item.id }} className="action-link">
-                            В урок
-                          </Link>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })
+                              return (
+                                <TableRow key={item.id}>
+                                  <TableCell>
+                                    <button type="button" className="program-date-button" onClick={() => handleOpenDayById(item.dateISO)}>
+                                      <span className="list-row__title">{dayMeta?.dateLabel ?? item.dateISO}</span>
+                                      <span className="list-row__meta">{dayMeta?.dayName ?? "День"}</span>
+                                    </button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <button type="button" className="program-topic-button" onClick={() => setSelectedLessonId(item.id)}>
+                                      <span className="list-row__title">{item.topic}</span>
+                                      <span className="list-row__meta">
+                                        {item.section} · {item.taskRange} · {item.time}
+                                      </span>
+                                    </button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="program-status-cell">
+                                      <span className={item.status === "done" ? "status-pill status-pill--done" : "status-pill status-pill--pending"}>
+                                        {item.status === "done" ? "Пройдено" : "Не пройдено"}
+                                      </span>
+                                      <div className="status-toggle-row">
+                                        <button
+                                          type="button"
+                                          className={item.status === "pending" ? "status-toggle is-active" : "status-toggle"}
+                                          onClick={() => handleStatusChange(item.id, "pending")}
+                                        >
+                                          Нет
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={item.status === "done" ? "status-toggle is-active" : "status-toggle"}
+                                          onClick={() => handleStatusChange(item.id, "done")}
+                                        >
+                                          Да
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="program-cell-copy">{resultLabel}</div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="program-cell-copy">{recommendationLabel}</div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="program-table__actions">
+                                      <button type="button" className="action-link" onClick={() => setSelectedLessonId(item.id)}>
+                                        Карточка
+                                      </button>
+                                      <Link to="/lesson/$lessonId" params={{ lessonId: item.id }} className="action-link">
+                                        Открыть
+                                      </Link>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </section>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>
