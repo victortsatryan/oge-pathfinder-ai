@@ -139,6 +139,11 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     setExpandedDayId(day.id);
   };
 
+  const handleOpenDayById = (dayId: string) => {
+    setExpandedDayId(dayId);
+    setActiveView("calendar");
+  };
+
   return (
     <main className="app-shell">
       <div className="page-grid app-layout">
@@ -378,7 +383,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                               return (
                                 <TableRow key={item.id}>
                                   <TableCell>
-                                    <button type="button" className="program-date-button" onClick={() => handleOpenDay(dayMeta ?? { ...({} as CalendarDay), id: item.dateISO })}>
+                                    <button type="button" className="program-date-button" onClick={() => handleOpenDayById(item.dateISO)}>
                                       <span className="list-row__title">{dayMeta?.dateLabel ?? item.dateISO}</span>
                                       <span className="list-row__meta">{dayMeta?.dayName ?? "День"}</span>
                                     </button>
