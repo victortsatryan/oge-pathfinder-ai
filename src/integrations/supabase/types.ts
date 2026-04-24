@@ -186,6 +186,113 @@ export type Database = {
           },
         ]
       }
+      learning_sources: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean
+          provider: string
+          sort_order: number
+          source_kind: string
+          subject_id: string | null
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          provider: string
+          sort_order?: number
+          source_kind: string
+          subject_id?: string | null
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          provider?: string
+          sort_order?: number
+          source_kind?: string
+          subject_id?: string | null
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_sources_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_resources: {
+        Row: {
+          block_kind: string
+          block_title: string
+          block_url: string
+          created_at: string
+          id: string
+          lesson_id: string
+          note: string | null
+          sort_order: number
+          source_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          block_kind: string
+          block_title: string
+          block_url: string
+          created_at?: string
+          id?: string
+          lesson_id: string
+          note?: string | null
+          sort_order?: number
+          source_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          block_kind?: string
+          block_title?: string
+          block_url?: string
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          note?: string | null
+          sort_order?: number
+          source_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_resources_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_resources_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "learning_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           ai_feedback: string | null

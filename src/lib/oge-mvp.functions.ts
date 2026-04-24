@@ -5,7 +5,7 @@ import { loadDefaultMvpState } from "@/lib/oge-mvp-data";
 
 export const loadMvpState = createServerFn({ method: "GET" }).handler(async () => {
   try {
-    const [resourcesResponse, attemptsResponse] = await Promise.all([
+    const [resourcesResponse, attemptsResponse, sourcesResponse] = await Promise.all([
       supabaseAdmin
         .from("content_resources")
         .select("id, title, source_url, difficulty, tasks, content_markdown, video_url, solution_text, subjects(name), topics(title)")
@@ -16,14 +16,22 @@ export const loadMvpState = createServerFn({ method: "GET" }).handler(async () =
         .select("lesson_id, is_correct, score, submitted_at, subjects(name), topics(title)")
         .order("submitted_at", { ascending: false })
         .limit(500),
+      supabaseAdmin
+        .from("learning_sources")
+        .select("id, provider, title, url, source_kind, sort_order, subjects(name)")
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true })
+        .limit(200),
     ]);
 
     if (resourcesResponse.error) {
       console.error("Failed to load content resources", resourcesResponse.error);
     }
-
     if (attemptsResponse.error) {
       console.error("Failed to load task attempts", attemptsResponse.error);
+    }
+    if (sourcesResponse.error) {
+      console.error("Failed to load learning sources", sourcesResponse.error);
     }
 
     return loadDefaultMvpState({
@@ -48,6 +56,15 @@ export const loadMvpState = createServerFn({ method: "GET" }).handler(async () =
           isCorrect: attempt.is_correct,
           score: attempt.score === null ? null : Number(attempt.score),
           submittedAt: attempt.submitted_at,
+        })) ?? [],
+      learningSources:
+        sourcesResponse.data?.map((source) => ({
+          id: source.id,
+          subjectName: source.subjects?.name ?? "",
+          provider: source.provider,
+          title: source.title,
+          url: source.url,
+          sourceKind: source.source_kind as "theory" | "practice" | "mixed",
         })) ?? [],
     });
   } catch (error) {

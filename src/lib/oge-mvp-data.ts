@@ -22,6 +22,16 @@ export type LessonResult = {
   lastActivityLabel: string | null;
 };
 
+export type ExternalSourceLink = {
+  id: string;
+  provider: string;
+  title: string;
+  url: string;
+  blockKind: "theory" | "practice";
+  blockTitle: string;
+  note?: string | null;
+};
+
 export type PlanItem = {
   id: string;
   subject: string;
@@ -35,6 +45,7 @@ export type PlanItem = {
   status: PlanItemStatus;
   note: string;
   resources: LessonResource[];
+  externalSources: ExternalSourceLink[];
   tasks: string[];
   result: LessonResult | null;
 };
@@ -145,9 +156,19 @@ type AttemptInput = {
   submittedAt: string | null;
 };
 
+type LearningSourceInput = {
+  id: string;
+  subjectName: string; // BD subject name (e.g. "Английский", "Русский")
+  provider: string;
+  title: string;
+  url: string;
+  sourceKind: "theory" | "practice" | "mixed";
+};
+
 type LoadStateInput = {
   resources?: ResourceInput[];
   attempts?: AttemptInput[];
+  learningSources?: LearningSourceInput[];
 };
 
 type SubjectBlueprint = {
@@ -337,7 +358,12 @@ const SUBJECT_BLUEPRINTS: Record<(typeof SUBJECT_ORDER)[number], SubjectBlueprin
 export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
   const resourceMap = groupResources(input.resources ?? []);
   const attemptMap = groupAttempts(input.attempts ?? []);
+  const sourcesBySubject = groupLearningSources(input.learningSources ?? []);
   const { calendarDays, calendarWeeks, currentWeekIndex } = buildCalendar();
+
+  // Track lesson index per subject so we can attach external sources to the
+  // first two lessons of each subject as a test binding.
+  const subjectLessonCounters = new Map<string, number>();
 
   let globalLessonIndex = 0;
   const planList: PlanItem[] = calendarDays.flatMap((day) => {
@@ -355,6 +381,15 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
       const status = globalLessonIndex < 6 ? "done" : "pending";
       globalLessonIndex += 1;
 
+      const subjectLessonIndex = subjectLessonCounters.get(subject) ?? 0;
+      subjectLessonCounters.set(subject, subjectLessonIndex + 1);
+      const externalSources = buildExternalSourcesForLesson({
+        subject,
+        subjectLessonIndex,
+        topic: blueprint.focus,
+        sourcesBySubject,
+      });
+
       return {
         id,
         subject,
@@ -368,6 +403,7 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
         status,
         note: blueprint.notes[(day.weekIndex + sessionIndex) % blueprint.notes.length],
         resources: matchedResources,
+        externalSources,
         tasks: matchedResources.flatMap((resource) => resource.tasks).slice(0, 5),
         result: resolveLessonResult({
           attempts: attemptMap.get(id) ?? [],
@@ -662,3 +698,65 @@ function matchTopic(source: string | null, target: string) {
 function normalizeText(value: string) {
   return value.toLowerCase().replace(/[^a-zа-я0-9]+/gi, " ").trim();
 }
+
+const SUBJECT_NAME_MAP: Record<string, string> = {
+  "Математика": "Математика",
+  "Русский": "Русский язык",
+  "Русский язык": "Русский язык",
+  "Английский": "Английский язык",
+  "Английский язык": "Английский язык",
+  "Биология": "Биология",
+};
+
+function groupLearningSources(sources: LearningSourceInput[]) {
+  const map = new Map<string, LearningSourceInput[]>();
+  sources.forEach((source) => {
+    const planSubject = SUBJECT_NAME_MAP[source.subjectName] ?? source.subjectName;
+    const list = map.get(planSubject) ?? [];
+    list.push(source);
+    map.set(planSubject, list);
+  });
+  return map;
+}
+
+function buildExternalSourcesForLesson(args: {
+  subject: string;
+  subjectLessonIndex: number;
+  topic: string;
+  sourcesBySubject: Map<string, LearningSourceInput[]>;
+}): ExternalSourceLink[] {
+  if (args.subjectLessonIndex >= 2) return [];
+  const sources = args.sourcesBySubject.get(args.subject) ?? [];
+  if (sources.length === 0) return [];
+
+  const theory =
+    sources.find((s) => s.sourceKind === "theory") ?? sources.find((s) => s.sourceKind === "mixed");
+  const practice =
+    sources.find((s) => s.sourceKind === "practice") ?? sources.find((s) => s.sourceKind === "mixed");
+
+  const blocks: ExternalSourceLink[] = [];
+  if (theory) {
+    blocks.push({
+      id: `${theory.id}-theory-${args.subjectLessonIndex}`,
+      provider: theory.provider,
+      title: theory.title,
+      url: theory.url,
+      blockKind: "theory",
+      blockTitle: `Теория: ${args.topic}`,
+      note: `Разберите блок «${args.topic}» из источника ${theory.provider}.`,
+    });
+  }
+  if (practice && practice.id !== theory?.id) {
+    blocks.push({
+      id: `${practice.id}-practice-${args.subjectLessonIndex}`,
+      provider: practice.provider,
+      title: practice.title,
+      url: practice.url,
+      blockKind: "practice",
+      blockTitle: `Практика: ${args.topic}`,
+      note: `Решите 5–7 заданий формата ОГЭ по теме «${args.topic}» в ${practice.provider}.`,
+    });
+  }
+  return blocks;
+}
+
