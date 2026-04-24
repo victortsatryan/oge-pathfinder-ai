@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BookOpen,
   Brain,
@@ -9,33 +9,9 @@ import {
 } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { OgeMvpState } from "@/lib/oge-mvp-data";
 
 type ViewMode = "dashboard" | "calendar" | "diagnostics" | "analytics";
-
-const upcomingLessons = [
-  { subject: "Математика", time: "09:00–10:00", topic: "Квадратные уравнения", status: "Фокус дня" },
-  { subject: "Русский", time: "10:20–11:20", topic: "Сжатое изложение", status: "Практика" },
-  { subject: "Английский", time: "11:40–12:40", topic: "Word formation", status: "Повторение" },
-  { subject: "Биология", time: "13:30–14:30", topic: "Клетка и ткани", status: "Теория + тест" },
-];
-
-const weeklyChecks = [
-  "Суббота: короткая диагностика по пройденным темам",
-  "AI пересчитывает сложность после каждой проверки",
-  "Ошибки автоматически попадают в блок повторения",
-];
-
-const subjectStats = [
-  { subject: "Математика", progress: "62%", focus: "Текстовые задачи и геометрия" },
-  { subject: "Русский", progress: "71%", focus: "Аргументация и изложение" },
-  { subject: "Английский", progress: "68%", focus: "Грамматика и аудирование" },
-  { subject: "Биология", progress: "74%", focus: "Системы органов и генетика" },
-];
-
-const diagnostics = [
-  { title: "Входная диагностика", meta: "4 предмета · формат ОГЭ", state: "Готово к запуску" },
-  { title: "Недельная диагностика", meta: "Каждую субботу", state: "Автопроверка" },
-];
 
 const viewTabs: Array<{
   id: ViewMode;
@@ -48,8 +24,16 @@ const viewTabs: Array<{
   { id: "analytics", label: "Аналитика", Icon: ChartColumnBig },
 ];
 
-export function OgeMvpApp() {
+type OgeMvpAppProps = {
+  data: OgeMvpState;
+};
+
+export function OgeMvpApp({ data }: OgeMvpAppProps) {
   const [activeView, setActiveView] = useState<ViewMode>("dashboard");
+  const weakThemes = useMemo(
+    () => data.weakThemes.length ? data.weakThemes : ["Слабые темы появятся после первой диагностики"],
+    [data.weakThemes],
+  );
 
   return (
     <main className="app-shell">
@@ -59,8 +43,7 @@ export function OgeMvpApp() {
             <p className="eyebrow">ОГЭ AI Coach</p>
             <h1 className="display-title">Персональная подготовка к ОГЭ по 4 предметам.</h1>
             <p className="lead-copy">
-              Один базовый интерфейс для диагностики, календаря, ежедневных занятий и аналитики
-              прогресса ученика.
+              {data.plan.planSummary}
             </p>
           </div>
 
@@ -87,17 +70,17 @@ export function OgeMvpApp() {
         <section className="stats-grid">
           <article className="panel stat-block">
             <span className="stat-label">Период</span>
-            <strong className="stat-value">27 апр — 30 мая</strong>
-            <span className="stat-meta">Пн–Сб, 4 занятия в день</span>
+            <strong className="stat-value">{data.stats.period}</strong>
+            <span className="stat-meta">Пн–Сб, {data.plan.sessionsPerDay} занятия в день</span>
           </article>
           <article className="panel stat-block">
             <span className="stat-label">Сегодня</span>
-            <strong className="stat-value">4 слота</strong>
+            <strong className="stat-value">{data.stats.dailySlots}</strong>
             <span className="stat-meta">1 предмет = 1 час</span>
           </article>
           <article className="panel stat-block">
             <span className="stat-label">AI-фокус</span>
-            <strong className="stat-value">Геометрия + изложение</strong>
+            <strong className="stat-value">{data.stats.aiFocus}</strong>
             <span className="stat-meta">Приоритет следующей недели</span>
           </article>
         </section>
@@ -126,7 +109,7 @@ export function OgeMvpApp() {
             </CardHeader>
             <CardContent className="content-stack">
               {activeView === "dashboard" &&
-                upcomingLessons.map((lesson) => (
+                data.upcomingLessons.map((lesson) => (
                   <article key={lesson.subject} className="list-row">
                     <div>
                       <div className="list-row__title">{lesson.subject}</div>
@@ -139,18 +122,18 @@ export function OgeMvpApp() {
                 ))}
 
               {activeView === "calendar" &&
-                ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"].map((day) => (
-                  <article key={day} className="list-row list-row--calendar">
+                data.calendarDays.map((day) => (
+                  <article key={day.day} className="list-row list-row--calendar">
                     <div>
-                      <div className="list-row__title">{day}</div>
-                      <div className="list-row__meta">4 занятия · математика, русский, английский, биология</div>
+                      <div className="list-row__title">{day.day}</div>
+                      <div className="list-row__meta">{day.summary}</div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </article>
                 ))}
 
               {activeView === "diagnostics" &&
-                diagnostics.map((item) => (
+                data.diagnostics.map((item) => (
                   <article key={item.title} className="list-row">
                     <div>
                       <div className="list-row__title">{item.title}</div>
@@ -161,7 +144,7 @@ export function OgeMvpApp() {
                 ))}
 
               {activeView === "analytics" &&
-                subjectStats.map((item) => (
+                data.subjectStats.map((item) => (
                   <article key={item.subject} className="list-row">
                     <div>
                       <div className="list-row__title">{item.subject}</div>
@@ -180,7 +163,7 @@ export function OgeMvpApp() {
                 <CardDescription>После каждой практики система уточняет план.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
-                {weeklyChecks.map((item) => (
+                {data.weeklyChecks.map((item) => (
                   <div key={item} className="check-row">
                     <CheckCircle2 className="h-4 w-4" />
                     <span>{item}</span>
@@ -195,10 +178,11 @@ export function OgeMvpApp() {
                 <CardDescription>То, что будет усиливаться в следующих слотах.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
-                <div className="focus-pill">Математика · Геометрия</div>
-                <div className="focus-pill">Русский · Изложение</div>
-                <div className="focus-pill">Английский · Grammar</div>
-                <div className="focus-pill">Биология · Генетика</div>
+                {weakThemes.map((item) => (
+                  <div key={item} className="focus-pill">
+                    {item}
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </aside>
