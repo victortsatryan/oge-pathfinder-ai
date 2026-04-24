@@ -131,6 +131,9 @@ type ResourceInput = {
   subjectName: string;
   topicTitle: string | null;
   tasks: string[];
+  contentMarkdown?: string | null;
+  videoUrl?: string | null;
+  solutionText?: string | null;
 };
 
 type AttemptInput = {
@@ -449,6 +452,43 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
           ? "Карточки занятий уже готовы принимать материалы и отображать результаты попыток по мере работы ученика."
           : "Сетка занятий готова, но для автоподгрузки тем и заданий нужно загрузить ссылки и материалы в backend.",
     },
+  };
+}
+
+export function getLessonDetail(state: OgeMvpState, lessonId: string): LessonDetail | null {
+  const lesson = state.planList.find((item) => item.id === lessonId);
+
+  if (!lesson) return null;
+
+  const primaryResource = lesson.resources[0] ?? null;
+  const fallbackTasks = buildFallbackPracticeTasks(lesson);
+  const practiceTasks = (lesson.tasks.length ? lesson.tasks : fallbackTasks.map((item) => item.prompt)).map((task, index) => ({
+    id: `${lesson.id}-task-${index + 1}`,
+    prompt: task,
+    sourceLabel: primaryResource?.title ?? `Источник по теме ${lesson.topic}`,
+    expectedAnswer: fallbackTasks[index]?.expectedAnswer ?? `Ответ ${index + 1}`,
+    explanation:
+      fallbackTasks[index]?.explanation ??
+      `Сверьте решение с ключевой идеей темы «${lesson.topic}» и повторите правило перед следующей попыткой.`,
+  }));
+
+  return {
+    lesson,
+    theoryText:
+      primaryResource?.contentMarkdown?.trim() ||
+      `На этом занятии разбираем тему «${lesson.topic}» по предмету ${lesson.subject}. Сначала коротко фиксируем базовое правило, затем смотрим на типовые шаги решения, и только после этого переходим к практике в формате ОГЭ.`,
+    videoUrl: primaryResource?.videoUrl ?? primaryResource?.sourceUrl ?? null,
+    coachIntro: `Сейчас идём как на уроке с репетитором: сначала теория по теме «${lesson.topic}», затем практика, проверка и персональные рекомендации.`,
+    practiceTasks,
+    recommendations: {
+      review: buildReviewRecommendations(lesson),
+      extraTasks: buildExtraTasks(lesson),
+    },
+    resourceLinks: lesson.resources.map((resource) => ({
+      id: resource.id,
+      title: resource.title,
+      url: resource.sourceUrl,
+    })),
   };
 }
 
