@@ -227,6 +227,19 @@ function LessonPage() {
                     ))}
                   </div>
                 </div>
+                {result?.recommendations.weakTopics?.length ? (
+                  <div className="recommendation-block">
+                    <strong>Слабые места</strong>
+                    <div className="content-stack">
+                      {result.recommendations.weakTopics.map((item: string) => (
+                        <div key={item} className="check-row">
+                          <span>•</span>
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="recommendation-block">
                   <strong>Дополнительные задания</strong>
                   <div className="content-stack">
@@ -238,6 +251,15 @@ function LessonPage() {
                     ))}
                   </div>
                 </div>
+                {result?.recommendations.difficulty ? (
+                  <div className="recommendation-block">
+                    <strong>Следующая сложность</strong>
+                    <div className="check-row">
+                      <span>•</span>
+                      <span>{result.recommendations.difficulty}</span>
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 
