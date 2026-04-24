@@ -57,18 +57,25 @@ type OgeMvpAppProps = {
 };
 
 export function OgeMvpApp({ data }: OgeMvpAppProps) {
+  const calendarDays = Array.isArray(data?.calendarDays) ? data.calendarDays : [];
+  const calendarWeeks = Array.isArray(data?.calendarWeeks) ? data.calendarWeeks : [];
+  const initialPlanItems = Array.isArray(data?.planList) ? data.planList : [];
+  const weeklyChecks = Array.isArray(data?.weeklyChecks) ? data.weeklyChecks : [];
+  const subjectPrograms = Array.isArray(data?.subjectPrograms) ? data.subjectPrograms : [];
+  const editingHints = Array.isArray(data?.editingHints) ? data.editingHints : [];
+
   const [activeView, setActiveView] = useState<ViewMode>("calendar");
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("period");
-  const [selectedWeekIndex, setSelectedWeekIndex] = useState(data.currentWeekIndex);
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState(data?.currentWeekIndex ?? 0);
   const [expandedDayId, setExpandedDayId] = useState(
-    data.calendarDays.find((day) => day.isCurrentFocus)?.id ?? data.calendarDays[0]?.id ?? "",
+    calendarDays.find((day) => day.isCurrentFocus)?.id ?? calendarDays[0]?.id ?? "",
   );
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
-  const [planItems, setPlanItems] = useState(data.planList);
+  const [planItems, setPlanItems] = useState(initialPlanItems);
 
   const dayMetaById = useMemo(
-    () => new Map(data.calendarDays.map((day) => [day.id, day])),
-    [data.calendarDays],
+    () => new Map(calendarDays.map((day) => [day.id, day])),
+    [calendarDays],
   );
 
   const lessonsByDay = useMemo(() => {
@@ -86,13 +93,13 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     );
   }, [planItems]);
 
-  const visibleWeeks = data.calendarWeeks;
+  const visibleWeeks = calendarWeeks;
   const activeWeek = visibleWeeks[selectedWeekIndex] ?? visibleWeeks[0];
-  const visibleDays = calendarMode === "period" ? data.calendarDays : activeWeek?.days ?? [];
+  const visibleDays = calendarMode === "period" ? calendarDays : activeWeek?.days ?? [];
 
   const expandedDay = useMemo(() => {
-    return visibleDays.find((day) => day.id === expandedDayId) ?? visibleDays[0] ?? data.calendarDays[0] ?? null;
-  }, [data.calendarDays, expandedDayId, visibleDays]);
+    return visibleDays.find((day) => day.id === expandedDayId) ?? visibleDays[0] ?? calendarDays[0] ?? null;
+  }, [calendarDays, expandedDayId, visibleDays]);
 
   const expandedDayLessons = expandedDay ? lessonsByDay.get(expandedDay.id) ?? [] : [];
   const selectedLesson = selectedLessonId ? planItems.find((item) => item.id === selectedLessonId) ?? null : null;
@@ -370,7 +377,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                 <CardDescription>{statusLine}</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
-                {data.weeklyChecks.map((item) => (
+                {weeklyChecks.map((item) => (
                   <div key={item} className="check-row">
                     <CheckCircle2 className="h-4 w-4" />
                     <span>{item}</span>
@@ -385,7 +392,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                 <CardDescription>Цвет предмета в календаре, программе и карточке занятия совпадает.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
-                {data.subjectPrograms.map((item) => (
+                {subjectPrograms.map((item) => (
                   <article key={item.subject} className="subject-tile">
                     <div className="subject-tile__top">
                       <span className={subjectToneClass[item.subject] ?? "subject-tone"} />
@@ -431,7 +438,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                 <CardDescription>Что можно редактировать уже сейчас.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
-                {data.editingHints.map((item) => (
+                {editingHints.map((item) => (
                   <div key={item} className="check-row">
                     <PencilLine className="h-4 w-4" />
                     <span>{item}</span>
