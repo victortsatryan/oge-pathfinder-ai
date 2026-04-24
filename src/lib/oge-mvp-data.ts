@@ -9,6 +9,9 @@ export type LessonResource = {
   difficulty: string;
   topicTitle: string | null;
   tasks: string[];
+  contentMarkdown?: string | null;
+  videoUrl?: string | null;
+  solutionText?: string | null;
 };
 
 export type LessonResult = {
@@ -71,6 +74,31 @@ export type ResultsSummary = {
   attemptsTotal: number;
   averageAccuracy: number | null;
   insight: string;
+};
+
+export type LessonPracticeTask = {
+  id: string;
+  prompt: string;
+  sourceLabel: string;
+  expectedAnswer: string;
+  explanation: string;
+};
+
+export type LessonDetail = {
+  lesson: PlanItem;
+  theoryText: string;
+  videoUrl: string | null;
+  coachIntro: string;
+  practiceTasks: LessonPracticeTask[];
+  recommendations: {
+    review: string[];
+    extraTasks: string[];
+  };
+  resourceLinks: Array<{
+    id: string;
+    title: string;
+    url: string | null;
+  }>;
 };
 
 export type OgeMvpState = {
