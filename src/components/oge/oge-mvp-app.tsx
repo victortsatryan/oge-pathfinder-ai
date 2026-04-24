@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   BookOpen,
   Brain,
@@ -296,9 +297,14 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                                 <span className={lesson.status === "done" ? "status-pill status-pill--done" : "status-pill status-pill--pending"}>
                                   {statusLabel[lesson.status]}
                                 </span>
-                                <button type="button" className="action-link" onClick={() => setSelectedLessonId(lesson.id)}>
-                                  Открыть занятие
-                                </button>
+                                <div className="lesson-row__actions">
+                                  <button type="button" className="action-link" onClick={() => setSelectedLessonId(lesson.id)}>
+                                    Карточка
+                                  </button>
+                                  <Link to="/lesson/$lessonId" params={{ lessonId: lesson.id }} className="action-link">
+                                    Открыть занятие
+                                  </Link>
+                                </div>
                               </div>
                             </article>
                           ))}
@@ -361,6 +367,9 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                           >
                             Done
                           </button>
+                          <Link to="/lesson/$lessonId" params={{ lessonId: item.id }} className="action-link">
+                            В урок
+                          </Link>
                         </div>
                       </div>
                     </article>
@@ -505,6 +514,9 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
               </label>
 
               <div className="status-toggle-row">
+                <Link to="/lesson/$lessonId" params={{ lessonId: selectedLesson.id }} className="action-link">
+                  Перейти на страницу урока
+                </Link>
                 <button
                   type="button"
                   className={selectedLesson.status === "pending" ? "status-toggle is-active" : "status-toggle"}
