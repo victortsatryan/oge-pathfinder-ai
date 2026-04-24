@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   BookOpen,
@@ -173,7 +173,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     () => calendarDays.filter((day) => !day.isRestDay && day.dayShort === "Сб"),
     [calendarDays],
   );
-  const nextDiagnosticDay = saturdayDays.find((day) => day.dateISO >= (expandedDay?.dateISO ?? calendarDays[0]?.dateISO ?? "")) ?? saturdayDays[0] ?? null;
+  const nextDiagnosticDay = saturdayDays.find((day) => day.isCurrentFocus) ?? saturdayDays[0] ?? null;
 
   const diagnosticTasks = useMemo(() => weeklyDiagnosticTasks, []);
 
@@ -239,6 +239,25 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
       percent: Math.round((answered / Math.max(diagnosticTasks.length, 1)) * 100),
     };
   }, [diagnosticAnswers, diagnosticTasks]);
+
+  useEffect(() => {
+    if (!diagnosticStarted || diagnosticSubmitted) return;
+
+    const timer = window.setInterval(() => {
+      setDiagnosticRemainingSeconds((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          setDiagnosticSubmitted(true);
+          setDiagnosticStarted(false);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [diagnosticStarted, diagnosticSubmitted]);
 
   const dayMetaById = useMemo(
     () => new Map(calendarDays.map((day) => [day.id, day])),
