@@ -46,6 +46,19 @@ export type OgeMvpState = {
   weakThemes: string[];
 };
 
+type FocusTopic = { subject: string; topic: string };
+
+function isFocusTopic(value: unknown): value is FocusTopic {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "subject" in value &&
+    "topic" in value &&
+    typeof value.subject === "string" &&
+    typeof value.topic === "string"
+  );
+}
+
 const SUBJECT_SEED = [
   {
     id: "11111111-1111-4111-8111-111111111111",
@@ -335,7 +348,9 @@ export function buildMvpState(params: {
   const { subjects, plan, lessons, diagnostics, recommendations } = params;
   const subjectMap = new Map(subjects.map((subject) => [subject.id, subject.name]));
   const recommendation = recommendations[0];
-  const focusTopics = Array.isArray(recommendation?.focus_topics) ? recommendation.focus_topics : [];
+  const focusTopics = Array.isArray(recommendation?.focus_topics)
+    ? recommendation.focus_topics.filter(isFocusTopic)
+    : [];
   const nextSteps = Array.isArray(recommendation?.next_steps) ? recommendation.next_steps : [];
 
   const upcomingLessons = lessons
@@ -354,19 +369,15 @@ export function buildMvpState(params: {
     const subjectLessons = lessons.filter((lesson) => lesson.subject_id === subject.id);
     const completed = subjectLessons.filter((lesson) => lesson.status === "completed").length;
     const progress = subjectLessons.length ? Math.round((completed / subjectLessons.length) * 100) : 0;
-    const focusTopic = focusTopics.find(
-      (item): item is { subject: string; topic: string } =>
-        typeof item === "object" && item !== null && "subject" in item && "topic" in item,
-    );
+    const focusTopic = focusTopics.find((item) => item.subject === subject.name);
 
     return {
       subject: subject.name,
       progress: `${progress}%`,
       focus:
-        focusTopics.find(
-          (item): item is { subject: string; topic: string } =>
-            typeof item === "object" && item !== null && item.subject === subject.name && typeof item.topic === "string",
-        )?.topic ?? focusTopic?.topic ?? "Следующая слабая тема будет определена после диагностики",
+        focusTopics.find((item) => item.subject === subject.name)?.topic ??
+        focusTopic?.topic ??
+        "Следующая слабая тема будет определена после диагностики",
     };
   });
 
@@ -384,7 +395,7 @@ export function buildMvpState(params: {
       aiFocus:
         focusTopics
           .slice(0, 2)
-          .map((item) => (typeof item === "object" && item !== null ? `${item.subject} · ${item.topic}` : null))
+          .map((item) => `${item.subject} · ${item.topic}`)
           .filter(Boolean)
           .join(" + ") || "Фокус появится после первой диагностики",
     },
@@ -412,11 +423,7 @@ export function buildMvpState(params: {
         "Ошибки автоматически попадают в блок повторения",
       ],
     weakThemes: focusTopics
-      .map((item) =>
-        typeof item === "object" && item !== null && typeof item.subject === "string" && typeof item.topic === "string"
-          ? `${item.subject} · ${item.topic}`
-          : null,
-      )
+      .map((item) => `${item.subject} · ${item.topic}`)
       .filter((item): item is string => Boolean(item)),
   };
 }
