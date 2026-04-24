@@ -2,32 +2,78 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
 import { OgeMvpApp } from "@/components/oge/oge-mvp-app";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loadDefaultMvpState } from "@/lib/oge-mvp-data";
 
 const loadMvpState = createServerFn({ method: "GET" }).handler(async () => {
-  return loadDefaultMvpState();
+  try {
+    const [resourcesResponse, attemptsResponse] = await Promise.all([
+      supabaseAdmin
+        .from("content_resources")
+        .select("id, title, source_url, difficulty, tasks, subjects(name), topics(title)")
+        .eq("is_published", true)
+        .limit(200),
+      supabaseAdmin
+        .from("task_attempts")
+        .select("lesson_id, is_correct, score, submitted_at, subjects(name), topics(title)")
+        .order("submitted_at", { ascending: false })
+        .limit(500),
+    ]);
+
+    if (resourcesResponse.error) {
+      console.error("Failed to load content resources", resourcesResponse.error);
+    }
+
+    if (attemptsResponse.error) {
+      console.error("Failed to load task attempts", attemptsResponse.error);
+    }
+
+    return loadDefaultMvpState({
+      resources:
+        resourcesResponse.data?.map((resource) => ({
+          id: resource.id,
+          title: resource.title,
+          sourceUrl: resource.source_url,
+          difficulty: resource.difficulty,
+          subjectName: resource.subjects?.name ?? "",
+          topicTitle: resource.topics?.title ?? null,
+          tasks: Array.isArray(resource.tasks) ? resource.tasks.map((task) => String(task)) : [],
+        })) ?? [],
+      attempts:
+        attemptsResponse.data?.map((attempt) => ({
+          lessonId: attempt.lesson_id,
+          subjectName: attempt.subjects?.name ?? "",
+          topicTitle: attempt.topics?.title ?? null,
+          isCorrect: attempt.is_correct,
+          score: attempt.score === null ? null : Number(attempt.score),
+          submittedAt: attempt.submitted_at,
+        })) ?? [],
+    });
+  } catch (error) {
+    console.error("Failed to load MVP state", error);
+    return loadDefaultMvpState();
+  }
 });
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ОГЭ AI Coach — персональная подготовка" },
+      { title: "ОГЭ AI Coach — календарь подготовки" },
       {
         name: "description",
         content:
-          "MVP-платформа для персонализированной подготовки к ОГЭ: диагностика, календарь, аналитика и AI-рекомендации.",
+          "Календарь подготовки к ОГЭ на весь период: дневная сетка, недельный режим, статусы занятий и связанные материалы.",
       },
-      { property: "og:title", content: "ОГЭ AI Coach — персональная подготовка" },
+      { property: "og:title", content: "ОГЭ AI Coach — календарь подготовки" },
       {
         property: "og:description",
-        content:
-          "Персональный план, ежедневные занятия, диагностика и адаптивные рекомендации для подготовки к ОГЭ.",
+        content: "Учебный план по дням, неделям и предметам с карточками занятий, материалами и результатами.",
       },
     ],
   }),
   loader: () => loadMvpState(),
   staleTime: 30_000,
-  pendingComponent: () => <div className="p-6 text-sm text-muted-foreground">Загружаем учебный план…</div>,
+  pendingComponent: () => <div className="p-6 text-sm text-muted-foreground">Загружаем календарь обучения…</div>,
   component: Index,
 });
 
