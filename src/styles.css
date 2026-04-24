@@ -417,64 +417,336 @@
     grid-column: 1 / -1;
   }
 
-  .calendar-board {
-    display: grid;
+  .calendar-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .calendar-column {
-    display: grid;
-    gap: 12px;
-    min-height: 320px;
-    border-radius: 18px;
-    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
-    padding: 14px;
+  .segmented-control {
+    display: inline-flex;
+    gap: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--surface-strong) 94%, transparent);
+    padding: 4px;
   }
 
-  .calendar-column__head {
-    display: grid;
-    gap: 2px;
+  .segment-button,
+  .icon-button,
+  .status-toggle,
+  .action-link {
+    border-radius: 999px;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
   }
 
-  .calendar-column__head span {
+  .segment-button {
+    padding: 9px 14px;
     color: var(--color-muted-foreground);
-    font-size: 0.85rem;
   }
 
-  .calendar-column__stack {
-    display: grid;
-    align-content: start;
+  .segment-button.is-active {
+    background: var(--color-foreground);
+    color: var(--color-background);
+  }
+
+  .week-switcher {
+    display: inline-flex;
+    align-items: center;
     gap: 10px;
   }
 
-  .calendar-entry {
-    display: grid;
-    gap: 4px;
-    border-radius: 16px;
-    background: var(--color-card);
-    padding: 12px;
+  .icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--color-border);
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+    color: var(--color-foreground);
   }
 
-  .calendar-entry__time,
-  .calendar-entry__topic {
+  .icon-button:disabled {
+    opacity: 0.45;
+  }
+
+  .calendar-days-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .calendar-days-grid--week {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .calendar-day-card {
+    display: grid;
+    gap: 14px;
+    min-height: 134px;
+    border: 1px solid var(--color-border);
+    border-radius: 18px;
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+    padding: 14px;
+    text-align: left;
+  }
+
+  .calendar-day-card.is-expanded {
+    border-color: color-mix(in oklab, var(--color-foreground) 18%, var(--color-border));
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-foreground) 10%, transparent);
+  }
+
+  .calendar-day-card.is-today {
+    background: color-mix(in oklab, var(--accent) 60%, var(--color-card));
+  }
+
+  .calendar-day-card.is-rest {
+    background: color-mix(in oklab, var(--secondary) 86%, transparent);
+  }
+
+  .calendar-day-card__head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .calendar-day-card__head div {
+    display: grid;
+    gap: 4px;
+  }
+
+  .calendar-day-card__head span,
+  .calendar-day-card__stats,
+  .calendar-rest-state,
+  .program-card__meta,
+  .resource-card__footer,
+  .result-card__label {
     color: var(--color-muted-foreground);
     font-size: 0.84rem;
   }
 
-  .calendar-entry__subject {
+  .calendar-flag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    border-radius: 999px;
+    background: var(--color-foreground);
+    padding-inline: 10px;
+    color: var(--color-background);
+    font-size: 0.78rem;
+  }
+
+  .calendar-day-card__stats {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .calendar-subject-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .subject-tone {
+    display: inline-flex;
+    min-height: 10px;
+    min-width: 10px;
+    border-radius: 999px;
+    background: var(--subject-color, var(--color-muted));
+  }
+
+  .subject-tone--math {
+    --subject-color: oklch(0.74 0.15 250);
+  }
+
+  .subject-tone--russian {
+    --subject-color: oklch(0.76 0.13 22);
+  }
+
+  .subject-tone--english {
+    --subject-color: oklch(0.8 0.16 150);
+  }
+
+  .subject-tone--biology {
+    --subject-color: oklch(0.76 0.14 110);
+  }
+
+  .subject-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--subject-color, var(--surface-soft)) 24%, var(--color-card));
+    padding-inline: 12px;
+    color: var(--color-foreground);
+    font-size: 0.84rem;
+  }
+
+  .calendar-rest-state {
+    display: grid;
+    place-items: center;
+    min-height: 48px;
+    border: 1px dashed var(--color-border);
+    border-radius: 14px;
+  }
+
+  .day-detail-panel {
+    display: grid;
+    gap: 14px;
+    border-radius: 20px;
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+    padding: 16px;
+  }
+
+  .day-detail-panel__head,
+  .lesson-row,
+  .program-card__footer,
+  .lesson-dialog__hero,
+  .lesson-dialog__section-head,
+  .resource-card__footer,
+  .subject-tile__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .day-lesson-stack,
+  .resource-stack,
+  .lesson-dialog__stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .lesson-row,
+  .resource-card,
+  .result-card {
+    border-radius: 18px;
+    background: var(--color-card);
+    padding: 14px;
+  }
+
+  .lesson-row__left,
+  .lesson-row__right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .lesson-row__left {
+    min-width: 0;
+  }
+
+  .lesson-row__right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    border-radius: 999px;
+    padding-inline: 12px;
+    font-size: 0.82rem;
+  }
+
+  .status-pill--done {
+    background: color-mix(in oklab, oklch(0.8 0.16 150) 25%, var(--color-card));
+    color: color-mix(in oklab, var(--color-foreground) 84%, transparent);
+  }
+
+  .status-pill--pending {
+    background: color-mix(in oklab, var(--secondary) 88%, transparent);
+    color: var(--color-muted-foreground);
+  }
+
+  .action-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    padding: 8px 12px;
+    color: var(--color-foreground);
+  }
+
+  .action-link:hover {
+    background: color-mix(in oklab, var(--surface-soft) 96%, transparent);
+  }
+
+  .editor-grid--program {
+    grid-template-columns: 1.6fr 1fr 1fr;
+  }
+
+  .program-card__footer,
+  .status-toggle-row,
+  .task-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .status-toggle {
+    border: 1px solid var(--color-border);
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+    padding: 8px 12px;
+    color: var(--color-muted-foreground);
+  }
+
+  .status-toggle.is-active {
+    border-color: var(--color-foreground);
+    background: var(--color-foreground);
+    color: var(--color-background);
+  }
+
+  .result-card {
+    display: grid;
+    gap: 4px;
+  }
+
+  .result-card__value {
+    font-size: 1.6rem;
     font-weight: 600;
   }
 
-  .calendar-empty {
-    border: 1px dashed var(--color-border);
-    border-radius: 16px;
-    padding: 14px;
+  .result-card__meta {
     color: var(--color-muted-foreground);
     font-size: 0.88rem;
-    text-align: center;
+    line-height: 1.5;
   }
 
+  .lesson-dialog {
+    max-width: 760px;
+  }
+
+  .lesson-dialog__section {
+    display: grid;
+    gap: 10px;
+  }
+
+  .editor-grid--modal {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .resource-card {
+    display: grid;
+    gap: 10px;
+  }
+
+  .task-chip {
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--surface-soft) 96%, transparent);
+    padding: 8px 12px;
+    font-size: 0.84rem;
+  }
   .list-row--calendar {
     min-height: 72px;
   }
