@@ -698,3 +698,65 @@ function matchTopic(source: string | null, target: string) {
 function normalizeText(value: string) {
   return value.toLowerCase().replace(/[^a-zа-я0-9]+/gi, " ").trim();
 }
+
+const SUBJECT_NAME_MAP: Record<string, string> = {
+  "Математика": "Математика",
+  "Русский": "Русский язык",
+  "Русский язык": "Русский язык",
+  "Английский": "Английский язык",
+  "Английский язык": "Английский язык",
+  "Биология": "Биология",
+};
+
+function groupLearningSources(sources: LearningSourceInput[]) {
+  const map = new Map<string, LearningSourceInput[]>();
+  sources.forEach((source) => {
+    const planSubject = SUBJECT_NAME_MAP[source.subjectName] ?? source.subjectName;
+    const list = map.get(planSubject) ?? [];
+    list.push(source);
+    map.set(planSubject, list);
+  });
+  return map;
+}
+
+function buildExternalSourcesForLesson(args: {
+  subject: string;
+  subjectLessonIndex: number;
+  topic: string;
+  sourcesBySubject: Map<string, LearningSourceInput[]>;
+}): ExternalSourceLink[] {
+  if (args.subjectLessonIndex >= 2) return [];
+  const sources = args.sourcesBySubject.get(args.subject) ?? [];
+  if (sources.length === 0) return [];
+
+  const theory =
+    sources.find((s) => s.sourceKind === "theory") ?? sources.find((s) => s.sourceKind === "mixed");
+  const practice =
+    sources.find((s) => s.sourceKind === "practice") ?? sources.find((s) => s.sourceKind === "mixed");
+
+  const blocks: ExternalSourceLink[] = [];
+  if (theory) {
+    blocks.push({
+      id: `${theory.id}-theory-${args.subjectLessonIndex}`,
+      provider: theory.provider,
+      title: theory.title,
+      url: theory.url,
+      blockKind: "theory",
+      blockTitle: `Теория: ${args.topic}`,
+      note: `Разберите блок «${args.topic}» из источника ${theory.provider}.`,
+    });
+  }
+  if (practice && practice.id !== theory?.id) {
+    blocks.push({
+      id: `${practice.id}-practice-${args.subjectLessonIndex}`,
+      provider: practice.provider,
+      title: practice.title,
+      url: practice.url,
+      blockKind: "practice",
+      blockTitle: `Практика: ${args.topic}`,
+      note: `Решите 5–7 заданий формата ОГЭ по теме «${args.topic}» в ${practice.provider}.`,
+    });
+  }
+  return blocks;
+}
+
