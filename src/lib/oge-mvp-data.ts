@@ -1,4 +1,23 @@
-export type PlanItemStatus = "planned" | "in-progress" | "completed";
+import { eachDayOfInterval, format, getISOWeek, isSunday, parseISO } from "date-fns";
+
+export type PlanItemStatus = "pending" | "done";
+
+export type LessonResource = {
+  id: string;
+  title: string;
+  sourceUrl: string | null;
+  difficulty: string;
+  topicTitle: string | null;
+  tasks: string[];
+};
+
+export type LessonResult = {
+  attemptsTotal: number;
+  solvedTotal: number;
+  accuracyPercent: number | null;
+  summary: string;
+  lastActivityLabel: string | null;
+};
 
 export type PlanItem = {
   id: string;
@@ -7,12 +26,14 @@ export type PlanItem = {
   topic: string;
   taskRange: string;
   week: number;
-  day: string;
-  dateLabel: string;
+  dateISO: string;
   time: string;
   duration: string;
   status: PlanItemStatus;
   note: string;
+  resources: LessonResource[];
+  tasks: string[];
+  result: LessonResult | null;
 };
 
 export type SubjectProgram = {
@@ -23,15 +44,33 @@ export type SubjectProgram = {
   focus: string;
 };
 
-export type CalendarColumn = {
-  day: string;
+export type CalendarDay = {
+  id: string;
+  dateISO: string;
+  dayName: string;
+  dayShort: string;
   dateLabel: string;
-  entries: Array<{
-    id: string;
-    subject: string;
-    topic: string;
-    time: string;
-  }>;
+  isRestDay: boolean;
+  isToday: boolean;
+  isCurrentFocus: boolean;
+  weekIndex: number;
+};
+
+export type CalendarWeek = {
+  id: string;
+  label: string;
+  weekIndex: number;
+  days: CalendarDay[];
+};
+
+export type ResultsSummary = {
+  completedLessons: number;
+  pendingLessons: number;
+  restDays: number;
+  materialsCount: number;
+  attemptsTotal: number;
+  averageAccuracy: number | null;
+  insight: string;
 };
 
 export type OgeMvpState = {
@@ -47,249 +86,485 @@ export type OgeMvpState = {
     coverage: string;
   };
   planList: PlanItem[];
-  calendarColumns: CalendarColumn[];
+  calendarDays: CalendarDay[];
+  calendarWeeks: CalendarWeek[];
+  currentWeekIndex: number;
   subjectPrograms: SubjectProgram[];
   weeklyChecks: string[];
   editingHints: string[];
+  results: ResultsSummary;
 };
 
-export function loadDefaultMvpState(): OgeMvpState {
-  const planList: PlanItem[] = [
+type ResourceInput = {
+  id: string;
+  title: string;
+  sourceUrl: string | null;
+  difficulty: string;
+  subjectName: string;
+  topicTitle: string | null;
+  tasks: string[];
+};
+
+type AttemptInput = {
+  lessonId: string | null;
+  subjectName: string;
+  topicTitle: string | null;
+  isCorrect: boolean | null;
+  score: number | null;
+  submittedAt: string | null;
+};
+
+type LoadStateInput = {
+  resources?: ResourceInput[];
+  attempts?: AttemptInput[];
+};
+
+type SubjectBlueprint = {
+  subject: string;
+  section: string;
+  focus: string;
+  taskRange: string;
+  notes: string[];
+};
+
+const PLAN_START = "2026-04-27";
+const PLAN_END = "2026-05-30";
+const SESSION_TIMES = ["09:00–10:00", "10:20–11:20", "11:40–12:40", "13:30–14:30"];
+const SUBJECT_ORDER = ["Математика", "Русский язык", "Английский язык", "Биология"] as const;
+
+const SUBJECT_BLUEPRINTS: Record<(typeof SUBJECT_ORDER)[number], SubjectBlueprint[]> = {
+  "Математика": [
     {
-      id: "math-1",
       subject: "Математика",
       section: "Алгебра",
-      topic: "Числа, выражения, уравнения",
-      taskRange: "№1–5, №9",
-      week: 1,
-      day: "Понедельник",
-      dateLabel: "27 апр",
-      time: "09:00–10:00",
-      duration: "60 мин",
-      status: "in-progress",
-      note: "Базовый старт по обязательной части, затем перейти к уравнениям и преобразованиям.",
+      focus: "Числа, вычисления, выражения",
+      taskRange: "№1–5",
+      notes: [
+        "Разобрать базовые вычисления и типовые ловушки первой части.",
+        "Сделать 10 коротких заданий на скорость и точность.",
+      ],
     },
     {
-      id: "rus-1",
-      subject: "Русский язык",
-      section: "Орфография и текст",
-      topic: "Изложение, орфография, синтаксис",
-      taskRange: "№1, №2–8",
-      week: 1,
-      day: "Понедельник",
-      dateLabel: "27 апр",
-      time: "10:20–11:20",
-      duration: "60 мин",
-      status: "planned",
-      note: "Сразу держим связку: теория правила → короткие задания → мини-разбор ошибок.",
+      subject: "Математика",
+      section: "Алгебра",
+      focus: "Уравнения, неравенства, функции",
+      taskRange: "№6–11",
+      notes: [
+        "Проверить ход решения и оформление промежуточных шагов.",
+        "Закрепить шаблоны решений через короткий сет задач.",
+      ],
     },
     {
-      id: "eng-1",
-      subject: "Английский язык",
-      section: "Грамматика и лексика",
-      topic: "Grammar, word formation, vocabulary",
-      taskRange: "№19–32",
-      week: 1,
-      day: "Понедельник",
-      dateLabel: "27 апр",
-      time: "11:40–12:40",
-      duration: "60 мин",
-      status: "planned",
-      note: "Начать с типовых форматов ОГЭ и собрать базовую матрицу ошибок по grammar.",
-    },
-    {
-      id: "bio-1",
-      subject: "Биология",
-      section: "Общая биология",
-      topic: "Клетка, ткани, организм",
-      taskRange: "№1–6",
-      week: 1,
-      day: "Понедельник",
-      dateLabel: "27 апр",
-      time: "13:30–14:30",
-      duration: "60 мин",
-      status: "planned",
-      note: "Собрать фундамент по базовым понятиям перед блоками по человеку и генетике.",
-    },
-    {
-      id: "math-2",
       subject: "Математика",
       section: "Геометрия",
-      topic: "Треугольники, окружность, площадь",
-      taskRange: "№15–19, №23–25",
-      week: 1,
-      day: "Вторник",
-      dateLabel: "28 апр",
-      time: "09:00–10:00",
-      duration: "60 мин",
-      status: "planned",
-      note: "Отдельный большой блок под геометрию как обязательную зону покрытия плана.",
+      focus: "Треугольники, окружность, площади",
+      taskRange: "№15–19",
+      notes: [
+        "Собирать рисунок перед решением и подписывать данные.",
+        "Держать в фокусе формулы площадей и углы.",
+      ],
     },
     {
-      id: "rus-2",
-      subject: "Русский язык",
-      section: "Текст и речь",
-      topic: "Сочинение, аргументация, анализ текста",
-      taskRange: "№13.1–13.3",
-      week: 1,
-      day: "Вторник",
-      dateLabel: "28 апр",
-      time: "10:20–11:20",
-      duration: "60 мин",
-      status: "planned",
-      note: "План писать по шаблону: тезис, комментарий, аргумент, вывод.",
-    },
-    {
-      id: "eng-2",
-      subject: "Английский язык",
-      section: "Аудирование и чтение",
-      topic: "Listening, reading comprehension",
-      taskRange: "№1–18",
-      week: 1,
-      day: "Среда",
-      dateLabel: "29 апр",
-      time: "11:40–12:40",
-      duration: "60 мин",
-      status: "planned",
-      note: "Чередовать короткие тренировки аудирования и чтения, не смешивая форматы в одном слоте.",
-    },
-    {
-      id: "bio-2",
-      subject: "Биология",
-      section: "Человек и здоровье",
-      topic: "Системы органов, физиология",
-      taskRange: "№7–16",
-      week: 1,
-      day: "Среда",
-      dateLabel: "29 апр",
-      time: "13:30–14:30",
-      duration: "60 мин",
-      status: "planned",
-      note: "Сделать акцент на схемах и сравнительных таблицах по системам органов.",
-    },
-    {
-      id: "math-3",
       subject: "Математика",
       section: "Практика второй части",
-      topic: "Развёрнутые задачи и стратегия оформления",
+      focus: "Развёрнутые задачи и оформление",
       taskRange: "№20–26",
-      week: 2,
-      day: "Четверг",
-      dateLabel: "30 апр",
-      time: "09:00–10:00",
-      duration: "60 мин",
-      status: "planned",
-      note: "Вынести вторую часть в отдельные недели, но держать в основной программе по умолчанию.",
+      notes: [
+        "Отрабатывать структуру полного ответа и аргументацию.",
+        "Сравнивать решение с образцом после каждого задания.",
+      ],
     },
+  ],
+  "Русский язык": [
     {
-      id: "bio-3",
-      subject: "Биология",
-      section: "Эволюция и экология",
-      topic: "Генетика, экология, эволюция",
-      taskRange: "№17–26",
-      week: 2,
-      day: "Пятница",
-      dateLabel: "1 мая",
-      time: "13:30–14:30",
-      duration: "60 мин",
-      status: "planned",
-      note: "Финальный блок предмета покрывает всю вторую половину экзаменационной программы.",
-    },
-  ];
-
-  const subjectPrograms: SubjectProgram[] = [
-    {
-      subject: "Математика",
-      examLabel: "Полная программа ОГЭ",
-      topicsTotal: 6,
-      tasksCoverage: "№1–26",
-      focus: "Алгебра, геометрия, практика второй части",
+      subject: "Русский язык",
+      section: "Орфография",
+      focus: "Орфограммы и пунктуация",
+      taskRange: "№2–8",
+      notes: [
+        "После правила сразу решать мини-блок на закрепление.",
+        "Собирать собственный список повторяющихся ошибок.",
+      ],
     },
     {
       subject: "Русский язык",
-      examLabel: "Полная программа ОГЭ",
-      topicsTotal: 5,
-      tasksCoverage: "№1–13.3",
-      focus: "Изложение, тестовая часть, сочинение",
+      section: "Текст",
+      focus: "Изложение и смысловой анализ",
+      taskRange: "№1",
+      notes: [
+        "Тренировать сжатие текста по абзацам и микротемам.",
+        "Фиксировать опорные слова перед пересказом.",
+      ],
+    },
+    {
+      subject: "Русский язык",
+      section: "Синтаксис",
+      focus: "Словосочетания, предложения, грамматика",
+      taskRange: "№9–12",
+      notes: [
+        "Держать рядом таблицу конструкций и типов ошибок.",
+        "Разбирать каждый неверный ответ через правило.",
+      ],
+    },
+    {
+      subject: "Русский язык",
+      section: "Сочинение",
+      focus: "Аргументация и композиция",
+      taskRange: "№13.1–13.3",
+      notes: [
+        "Собирать заготовки тезисов и аргументов по темам.",
+        "Проверять связность и вывод в конце ответа.",
+      ],
+    },
+  ],
+  "Английский язык": [
+    {
+      subject: "Английский язык",
+      section: "Listening",
+      focus: "Аудирование и выделение ключевой информации",
+      taskRange: "№1–11",
+      notes: [
+        "Сначала слушать на общий смысл, затем на детали.",
+        "Отдельно выписывать слова-маркеры времени и места.",
+      ],
     },
     {
       subject: "Английский язык",
-      examLabel: "Полная программа ОГЭ",
-      topicsTotal: 5,
-      tasksCoverage: "№1–38",
-      focus: "Аудирование, чтение, grammar, письмо",
+      section: "Reading",
+      focus: "Чтение и понимание текста",
+      taskRange: "№12–18",
+      notes: [
+        "Тренировать сканирование текста до детального чтения.",
+        "Сопоставлять ответ с конкретной строкой текста.",
+      ],
+    },
+    {
+      subject: "Английский язык",
+      section: "Grammar",
+      focus: "Грамматика и словообразование",
+      taskRange: "№19–32",
+      notes: [
+        "Разложить ошибки по временам, пассиву и word formation.",
+        "Повторять через короткие циклы по 5–7 заданий.",
+      ],
+    },
+    {
+      subject: "Английский язык",
+      section: "Writing & Speaking",
+      focus: "Письмо, устный ответ, шаблоны высказывания",
+      taskRange: "№33–38",
+      notes: [
+        "Держать под рукой шаблоны начала, связок и завершения.",
+        "Проверять ответ по чек-листу критериев ОГЭ.",
+      ],
+    },
+  ],
+  "Биология": [
+    {
+      subject: "Биология",
+      section: "Общая биология",
+      focus: "Клетка, ткани, процессы жизнедеятельности",
+      taskRange: "№1–6",
+      notes: [
+        "Повторять через схемы, рисунки и короткие карточки.",
+        "Собирать базовые термины в отдельный словарь.",
+      ],
     },
     {
       subject: "Биология",
-      examLabel: "Полная программа ОГЭ",
-      topicsTotal: 5,
-      tasksCoverage: "№1–26",
-      focus: "Общая биология, человек, генетика, экология",
+      section: "Человек",
+      focus: "Системы органов и физиология",
+      taskRange: "№7–16",
+      notes: [
+        "Сравнивать системы органов в таблицах и схемах.",
+        "После теории решать 6–8 типовых заданий подряд.",
+      ],
     },
-  ];
+    {
+      subject: "Биология",
+      section: "Генетика",
+      focus: "Наследственность и изменчивость",
+      taskRange: "№17–21",
+      notes: [
+        "Разбирать каждую задачу через пошаговую схему решения.",
+        "Отмечать типы наследования в заметках к блоку.",
+      ],
+    },
+    {
+      subject: "Биология",
+      section: "Экология и эволюция",
+      focus: "Экосистемы, отбор, развитие органического мира",
+      taskRange: "№22–26",
+      notes: [
+        "Держать в памяти причинно-следственные связи и термины.",
+        "В конце блока собирать мини-конспект по темам.",
+      ],
+    },
+  ],
+};
 
-  const calendarColumns: CalendarColumn[] = [
-    {
-      day: "Пн",
-      dateLabel: "27 апр",
-      entries: planList.filter((item) => item.dateLabel === "27 апр").map(toCalendarEntry),
-    },
-    {
-      day: "Вт",
-      dateLabel: "28 апр",
-      entries: planList.filter((item) => item.dateLabel === "28 апр").map(toCalendarEntry),
-    },
-    {
-      day: "Ср",
-      dateLabel: "29 апр",
-      entries: planList.filter((item) => item.dateLabel === "29 апр").map(toCalendarEntry),
-    },
-    {
-      day: "Чт",
-      dateLabel: "30 апр",
-      entries: planList.filter((item) => item.dateLabel === "30 апр").map(toCalendarEntry),
-    },
-    {
-      day: "Пт",
-      dateLabel: "1 мая",
-      entries: planList.filter((item) => item.dateLabel === "1 мая").map(toCalendarEntry),
-    },
-  ];
+export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
+  const resourceMap = groupResources(input.resources ?? []);
+  const attemptMap = groupAttempts(input.attempts ?? []);
+  const { calendarDays, calendarWeeks, currentWeekIndex } = buildCalendar();
+
+  let globalLessonIndex = 0;
+  const planList: PlanItem[] = calendarDays.flatMap((day) => {
+    if (day.isRestDay) return [];
+
+    return SUBJECT_ORDER.map((subject, sessionIndex) => {
+      const blueprintList = SUBJECT_BLUEPRINTS[subject];
+      const blueprint = blueprintList[(day.weekIndex + sessionIndex) % blueprintList.length];
+      const subjectResources = resourceMap.get(subject) ?? [];
+      const matchedResources = subjectResources
+        .filter((resource) => matchTopic(resource.topicTitle, blueprint.focus))
+        .slice(0, 3);
+
+      const id = `${subject.toLowerCase().replace(/\s+/g, "-")}-${day.dateISO}-${sessionIndex + 1}`;
+      const status = globalLessonIndex < 6 ? "done" : "pending";
+      globalLessonIndex += 1;
+
+      return {
+        id,
+        subject,
+        section: blueprint.section,
+        topic: blueprint.focus,
+        taskRange: blueprint.taskRange,
+        week: day.weekIndex + 1,
+        dateISO: day.dateISO,
+        time: SESSION_TIMES[sessionIndex],
+        duration: "60 мин",
+        status,
+        note: blueprint.notes[(day.weekIndex + sessionIndex) % blueprint.notes.length],
+        resources: matchedResources,
+        tasks: matchedResources.flatMap((resource) => resource.tasks).slice(0, 5),
+        result: resolveLessonResult({
+          attempts: attemptMap.get(id) ?? [],
+          subjectAttempts: attemptMap.get(subject) ?? [],
+          topic: blueprint.focus,
+          status,
+        }),
+      } satisfies PlanItem;
+    });
+  });
+
+  const materialsCount = planList.reduce((acc, item) => acc + item.resources.length, 0);
+  const allAttempts = planList.flatMap((item) => (item.result ? [item.result] : []));
+  const accuracyValues = allAttempts.map((item) => item.accuracyPercent).filter((value): value is number => value !== null);
 
   return {
     plan: {
       title: "Учебный план ОГЭ по умолчанию",
-      periodLabel: "27 апр — 30 мая",
+      periodLabel: "27 апреля — 30 мая",
       sessionsPerDay: 4,
       planSummary:
-        "Стартовая программа покрывает все задания ОГЭ по математике, русскому, английскому и биологии; порядок, темы и заметки можно редактировать прямо в интерфейсе.",
+        "Календарь охватывает весь период подготовки по математике, русскому, английскому и биологии: 4 занятия в день, воскресенье как выходной, а редактирование занятий синхронизируется со страницей программы.",
     },
     stats: {
-      period: "27 апр — 30 мая",
-      totalBlocks: `${planList.length} блоков`,
-      coverage: "Все предметы · полное покрытие ОГЭ",
+      period: "27 апреля — 30 мая",
+      totalBlocks: `${planList.length} занятий`,
+      coverage: "Все задания ОГЭ по 4 предметам",
     },
     planList,
-    calendarColumns,
-    subjectPrograms,
+    calendarDays,
+    calendarWeeks,
+    currentWeekIndex,
+    subjectPrograms: [
+      {
+        subject: "Математика",
+        examLabel: "Полная программа ОГЭ",
+        topicsTotal: 6,
+        tasksCoverage: "№1–26",
+        focus: "Алгебра, геометрия, вторая часть",
+      },
+      {
+        subject: "Русский язык",
+        examLabel: "Полная программа ОГЭ",
+        topicsTotal: 5,
+        tasksCoverage: "№1–13.3",
+        focus: "Изложение, тест, сочинение",
+      },
+      {
+        subject: "Английский язык",
+        examLabel: "Полная программа ОГЭ",
+        topicsTotal: 5,
+        tasksCoverage: "№1–38",
+        focus: "Listening, reading, grammar, writing",
+      },
+      {
+        subject: "Биология",
+        examLabel: "Полная программа ОГЭ",
+        topicsTotal: 5,
+        tasksCoverage: "№1–26",
+        focus: "Клетка, человек, генетика, экология",
+      },
+    ],
     weeklyChecks: [
-      "Список и календарь показывают одну и ту же программу в двух форматах.",
-      "Любой блок можно редактировать: тему, день, время и заметку учителя.",
-      "Это базовая программа по умолчанию — дальше её можно адаптировать под ученика вручную.",
+      "Календарь переключается между режимами «весь период» и «неделя» без потери связки с программой.",
+      "Каждый учебный день включает 4 занятия по 60 минут, воскресенье автоматически отмечено как выходной.",
+      "Статусы done и pending сразу отражаются в дне, карточке занятия и общем результате.",
     ],
     editingHints: [
-      "Меняйте тему внутри блока, если хотите переназначить акцент недели.",
-      "Переставляйте дни и время, чтобы собрать свой ритм подготовки.",
-      "Добавляйте заметки, чтобы фиксировать приоритеты, материалы и формат работы.",
+      "Откройте день в календаре, чтобы увидеть все 4 занятия и быстро перейти в карточку любого из них.",
+      "В карточке можно менять тему, дату, время, заметку и статус выполнения — изменения сразу попадут и в программу, и в календарь.",
+      "Материалы и задания подтягиваются из backend, как только вы загрузите ссылки в библиотеку материалов.",
     ],
+    results: {
+      completedLessons: planList.filter((item) => item.status === "done").length,
+      pendingLessons: planList.filter((item) => item.status === "pending").length,
+      restDays: calendarDays.filter((day) => day.isRestDay).length,
+      materialsCount,
+      attemptsTotal: allAttempts.reduce((acc, item) => acc + item.attemptsTotal, 0),
+      averageAccuracy: accuracyValues.length ? Math.round(accuracyValues.reduce((acc, value) => acc + value, 0) / accuracyValues.length) : null,
+      insight:
+        materialsCount > 0
+          ? "Карточки занятий уже готовы принимать материалы и отображать результаты попыток по мере работы ученика."
+          : "Сетка занятий готова, но для автоподгрузки тем и заданий нужно загрузить ссылки и материалы в backend.",
+    },
   };
 }
 
-function toCalendarEntry(item: PlanItem) {
+function buildCalendar() {
+  const allDates = eachDayOfInterval({ start: parseISO(PLAN_START), end: parseISO(PLAN_END) });
+  const activeDates = allDates.filter((date) => !isSunday(date));
+  const now = new Date();
+  const fallbackCurrent = activeDates[0];
+  const inPlan = allDates.find((date) => format(date, "yyyy-MM-dd") === format(now, "yyyy-MM-dd"));
+  const focusDate = inPlan ?? fallbackCurrent;
+  const focusDateISO = format(focusDate, "yyyy-MM-dd");
+
+  const calendarDays: CalendarDay[] = allDates.map((date) => {
+    const dayIndex = dayIndexInRussian(date.getDay());
+    const dateISO = format(date, "yyyy-MM-dd");
+    const weekIndex = Math.floor((getDayOffset(dateISO) ?? 0) / 7);
+
+    return {
+      id: dateISO,
+      dateISO,
+      dayName: ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"][date.getDay()],
+      dayShort: ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"][date.getDay()],
+      dateLabel: format(date, "d MMM"),
+      isRestDay: isSunday(date),
+      isToday: dateISO === format(now, "yyyy-MM-dd"),
+      isCurrentFocus: dateISO === focusDateISO,
+      weekIndex,
+    };
+  });
+
+  const calendarWeeks: CalendarWeek[] = Array.from(new Set(calendarDays.map((day) => day.weekIndex))).map((weekIndex) => {
+    const days = calendarDays.filter((day) => day.weekIndex === weekIndex);
+    return {
+      id: `week-${weekIndex + 1}`,
+      label: `Неделя ${weekIndex + 1}`,
+      weekIndex,
+      days,
+    };
+  });
+
   return {
-    id: item.id,
-    subject: item.subject,
-    topic: item.topic,
-    time: item.time,
+    calendarDays,
+    calendarWeeks,
+    currentWeekIndex: calendarDays.find((day) => day.isCurrentFocus)?.weekIndex ?? 0,
   };
+
+  function getDayOffset(dateISO: string) {
+    const index = allDates.findIndex((date) => format(date, "yyyy-MM-dd") === dateISO);
+    return index >= 0 ? index : null;
+  }
+
+  function dayIndexInRussian(day: number) {
+    return day === 0 ? 6 : day - 1;
+  }
+}
+
+function groupResources(resources: ResourceInput[]) {
+  return resources.reduce((map, resource) => {
+    const list = map.get(resource.subjectName) ?? [];
+    list.push(resource);
+    map.set(resource.subjectName, list);
+    return map;
+  }, new Map<string, ResourceInput[]>());
+}
+
+function groupAttempts(attempts: AttemptInput[]) {
+  const map = new Map<string, AttemptInput[]>();
+
+  attempts.forEach((attempt) => {
+    if (attempt.lessonId) {
+      const lessonAttempts = map.get(attempt.lessonId) ?? [];
+      lessonAttempts.push(attempt);
+      map.set(attempt.lessonId, lessonAttempts);
+    }
+
+    const subjectAttempts = map.get(attempt.subjectName) ?? [];
+    subjectAttempts.push(attempt);
+    map.set(attempt.subjectName, subjectAttempts);
+  });
+
+  return map;
+}
+
+function resolveLessonResult({
+  attempts,
+  subjectAttempts,
+  topic,
+  status,
+}: {
+  attempts: AttemptInput[];
+  subjectAttempts: AttemptInput[];
+  topic: string;
+  status: PlanItemStatus;
+}): LessonResult | null {
+  const topicAttempts = attempts.length
+    ? attempts
+    : subjectAttempts.filter((attempt) => matchTopic(attempt.topicTitle, topic)).slice(0, 5);
+
+  if (!topicAttempts.length) {
+    if (status === "done") {
+      return {
+        attemptsTotal: 0,
+        solvedTotal: 0,
+        accuracyPercent: null,
+        summary: "Занятие отмечено выполненным; аналитика появится после первых ответов по заданиям.",
+        lastActivityLabel: null,
+      };
+    }
+
+    return null;
+  }
+
+  const solvedTotal = topicAttempts.filter((attempt) => attempt.isCorrect === true).length;
+  const scoredAttempts = topicAttempts.filter((attempt) => typeof attempt.score === "number");
+  const accuracyPercent = scoredAttempts.length
+    ? Math.round(
+        (scoredAttempts.reduce((acc, attempt) => acc + Number(attempt.score ?? 0), 0) / scoredAttempts.length) * 100,
+      )
+    : Math.round((solvedTotal / topicAttempts.length) * 100);
+  const lastSubmitted = topicAttempts
+    .map((attempt) => attempt.submittedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
+
+  return {
+    attemptsTotal: topicAttempts.length,
+    solvedTotal,
+    accuracyPercent,
+    summary:
+      accuracyPercent >= 75
+        ? "Тема закрепляется уверенно: можно поднимать сложность и добавлять задания второй волны."
+        : "Нужен ещё один цикл практики: сначала короткий разбор ошибок, затем новый мини-набор заданий.",
+    lastActivityLabel: lastSubmitted ? format(parseISO(lastSubmitted), "d MMM") : null,
+  };
+}
+
+function matchTopic(source: string | null, target: string) {
+  if (!source) return true;
+  const sourceWords = normalizeText(source).split(" ").filter(Boolean);
+  const targetText = normalizeText(target);
+  return sourceWords.some((word) => targetText.includes(word));
+}
+
+function normalizeText(value: string) {
+  return value.toLowerCase().replace(/[^a-zа-я0-9]+/gi, " ").trim();
 }
