@@ -101,6 +101,21 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     );
   }, [planItems]);
 
+  const lessonsByDay = useMemo(() => {
+    return planItems.reduce(
+      (map, item) => {
+        const list = map.get(item.dateISO) ?? [];
+        list.push(item);
+        map.set(
+          item.dateISO,
+          list.sort((left, right) => left.time.localeCompare(right.time, "ru")),
+        );
+        return map;
+      },
+      new Map<string, PlanItem[]>(),
+    );
+  }, [planItems]);
+
   const analytics = useMemo(() => {
     const weeklyProgress = calendarWeeks.map((week) => {
       const lessons = week.days.flatMap((day) => lessonsByDay.get(day.id) ?? []);
@@ -197,21 +212,6 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
       ],
     };
   }, [calendarWeeks, lessonsByDay, planItems, subjectPrograms, subjectRows]);
-
-  const lessonsByDay = useMemo(() => {
-    return planItems.reduce(
-      (map, item) => {
-        const list = map.get(item.dateISO) ?? [];
-        list.push(item);
-        map.set(
-          item.dateISO,
-          list.sort((left, right) => left.time.localeCompare(right.time, "ru")),
-        );
-        return map;
-      },
-      new Map<string, PlanItem[]>(),
-    );
-  }, [planItems]);
 
   const visibleWeeks = calendarWeeks;
   const activeWeek = visibleWeeks[selectedWeekIndex] ?? visibleWeeks[0];
