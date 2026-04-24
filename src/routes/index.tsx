@@ -1,26 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { OgeMvpApp } from "@/components/oge/oge-mvp-app";
+
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "ОГЭ AI Coach — персональная подготовка" },
+      {
+        name: "description",
+        content:
+          "MVP-платформа для персонализированной подготовки к ОГЭ: диагностика, календарь, аналитика и AI-рекомендации.",
+      },
+      { property: "og:title", content: "ОГЭ AI Coach — персональная подготовка" },
+      {
+        property: "og:description",
+        content:
+          "Персональный план, ежедневные занятия, диагностика и адаптивные рекомендации для подготовки к ОГЭ.",
+      },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
-
 function Index() {
-  return <PlaceholderIndex />;
+  return <OgeMvpApp />;
 }
