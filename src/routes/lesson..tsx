@@ -6,7 +6,7 @@ import { checkLessonAnswers, answerValueSchema } from "@/lib/oge-lesson.function
 import { getLessonDetail } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
 
-export const Route = createFileRoute("/lesson/$lessonId")({
+export const Route = createFileRoute("/lesson/")({
   loader: async ({ params }) => {
     const state = await loadMvpState();
     const detail = getLessonDetail(state, params.lessonId);
