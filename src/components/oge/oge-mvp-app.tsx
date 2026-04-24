@@ -1365,6 +1365,37 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                 </button>
               </div>
 
+              {selectedLesson.externalSources.length ? (
+                <section className="lesson-dialog__section">
+                  <div className="lesson-dialog__section-head">
+                    <BookOpen className="h-4 w-4" />
+                    <strong>Источники по теме</strong>
+                  </div>
+                  <div className="resource-stack">
+                    {selectedLesson.externalSources.map((src) => (
+                      <article key={src.id} className="resource-card">
+                        <div>
+                          <div className="list-row__title">
+                            {src.blockKind === "theory" ? "📘 " : "📝 "}
+                            {src.blockTitle}
+                          </div>
+                          <div className="list-row__meta">
+                            {src.provider} · {src.title}
+                          </div>
+                          {src.note ? <div className="list-row__meta">{src.note}</div> : null}
+                        </div>
+                        <div className="resource-card__footer">
+                          <span>{src.blockKind === "theory" ? "Теория" : "Практика"}</span>
+                          <a className="action-link" href={src.url} target="_blank" rel="noreferrer">
+                            Открыть источник
+                          </a>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
               <section className="lesson-dialog__section">
                 <div className="lesson-dialog__section-head">
                   <BookOpen className="h-4 w-4" />
