@@ -37,6 +37,13 @@ export const Route = createRootRoute({
       { name: "author", content: "Lovable" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { property: "og:title", content: "ОГЭ AI Coach" },
+      { name: "twitter:title", content: "ОГЭ AI Coach" },
+      { name: "description", content: "Your OGE Coach is an AI-powered web app for personalized OGE exam preparation for 9th graders." },
+      { property: "og:description", content: "Your OGE Coach is an AI-powered web app for personalized OGE exam preparation for 9th graders." },
+      { name: "twitter:description", content: "Your OGE Coach is an AI-powered web app for personalized OGE exam preparation for 9th graders." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/77aa4795-ccaf-4737-be5c-dc0e21339643/id-preview-5f235a8b--6be1e37b-2ce0-4f75-8d64-751227ba3518.lovable.app-1777058603657.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/77aa4795-ccaf-4737-be5c-dc0e21339643/id-preview-5f235a8b--6be1e37b-2ce0-4f75-8d64-751227ba3518.lovable.app-1777058603657.png" },
     ],
     links: [
       {
