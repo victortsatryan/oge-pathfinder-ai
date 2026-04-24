@@ -492,6 +492,32 @@ export function getLessonDetail(state: OgeMvpState, lessonId: string): LessonDet
   };
 }
 
+function buildFallbackPracticeTasks(lesson: PlanItem): LessonPracticeTask[] {
+  return [1, 2, 3].map((step) => ({
+    id: `${lesson.id}-fallback-${step}`,
+    prompt: `${lesson.subject}: задание ${step} по теме «${lesson.topic}». Кратко решите типовой номер формата ОГЭ.` ,
+    sourceLabel: `Базовый шаблон занятия · ${lesson.taskRange}`,
+    expectedAnswer: `Ключ ${step}`,
+    explanation: `Проверьте, используете ли вы основное правило темы «${lesson.topic}», и сравните ход решения с эталонным алгоритмом.` ,
+  }));
+}
+
+function buildReviewRecommendations(lesson: PlanItem): string[] {
+  return [
+    `Повторить опорное правило темы «${lesson.topic}».`,
+    `Вернуться к блоку ${lesson.taskRange} и ещё раз проговорить ход решения вслух.`,
+    `Сравнить собственные ответы с образцом и отметить 1–2 типовые ошибки в заметке занятия.`,
+  ];
+}
+
+function buildExtraTasks(lesson: PlanItem): string[] {
+  return [
+    `Дополнительный мини-набор по теме «${lesson.topic}» на 3 задания.`,
+    `Повторный короткий сет по диапазону ${lesson.taskRange} с таймером 12 минут.`,
+    `Одно задание повышенной сложности по разделу «${lesson.section}».`,
+  ];
+}
+
 function buildCalendar() {
   const allDates = eachDayOfInterval({ start: parseISO(PLAN_START), end: parseISO(PLAN_END) });
   const activeDates = allDates.filter((date) => !isSunday(date));
