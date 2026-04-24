@@ -71,6 +71,17 @@ const diagnostics = [
   { title: "Недельная диагностика", meta: "Каждую субботу", state: "Автопроверка" },
 ];
 
+const viewTabs: Array<{
+  id: ViewMode;
+  label: string;
+  Icon: typeof Brain;
+}> = [
+  { id: "dashboard", label: "Dashboard", Icon: Brain },
+  { id: "calendar", label: "Календарь", Icon: CalendarDays },
+  { id: "diagnostics", label: "Диагностика", Icon: BookOpen },
+  { id: "analytics", label: "Аналитика", Icon: ChartColumnBig },
+];
+
 function applyScreenStyle(style: ScreenStyle) {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.screenStyle = style;
@@ -349,17 +360,12 @@ export function OgeMvpApp() {
           </div>
 
           <div className="tab-row" role="tablist" aria-label="Разделы приложения">
-            {[
-              ["dashboard", "Dashboard", Brain],
-              ["calendar", "Календарь", CalendarDays],
-              ["diagnostics", "Диагностика", BookOpen],
-              ["analytics", "Аналитика", ChartColumnBig],
-            ].map(([id, label, Icon]) => (
+            {viewTabs.map(({ id, label, Icon }) => (
               <button
                 key={id}
                 type="button"
                 className={activeView === id ? "tab-chip is-active" : "tab-chip"}
-                onClick={() => setActiveView(id as ViewMode)}
+                onClick={() => setActiveView(id)}
               >
                 <Icon className="h-4 w-4" />
                 <span>{label}</span>
