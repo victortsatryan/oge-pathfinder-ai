@@ -358,7 +358,12 @@ const SUBJECT_BLUEPRINTS: Record<(typeof SUBJECT_ORDER)[number], SubjectBlueprin
 export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
   const resourceMap = groupResources(input.resources ?? []);
   const attemptMap = groupAttempts(input.attempts ?? []);
+  const sourcesBySubject = groupLearningSources(input.learningSources ?? []);
   const { calendarDays, calendarWeeks, currentWeekIndex } = buildCalendar();
+
+  // Track lesson index per subject so we can attach external sources to the
+  // first two lessons of each subject as a test binding.
+  const subjectLessonCounters = new Map<string, number>();
 
   let globalLessonIndex = 0;
   const planList: PlanItem[] = calendarDays.flatMap((day) => {
@@ -376,6 +381,15 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
       const status = globalLessonIndex < 6 ? "done" : "pending";
       globalLessonIndex += 1;
 
+      const subjectLessonIndex = subjectLessonCounters.get(subject) ?? 0;
+      subjectLessonCounters.set(subject, subjectLessonIndex + 1);
+      const externalSources = buildExternalSourcesForLesson({
+        subject,
+        subjectLessonIndex,
+        topic: blueprint.focus,
+        sourcesBySubject,
+      });
+
       return {
         id,
         subject,
@@ -389,6 +403,7 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
         status,
         note: blueprint.notes[(day.weekIndex + sessionIndex) % blueprint.notes.length],
         resources: matchedResources,
+        externalSources,
         tasks: matchedResources.flatMap((resource) => resource.tasks).slice(0, 5),
         result: resolveLessonResult({
           attempts: attemptMap.get(id) ?? [],
