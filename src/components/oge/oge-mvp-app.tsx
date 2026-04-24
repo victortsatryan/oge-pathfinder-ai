@@ -1,27 +1,24 @@
 import { useMemo, useState } from "react";
 import {
-  BookOpen,
   Brain,
   CalendarDays,
-  ChartColumnBig,
+  ClipboardList,
   CheckCircle2,
-  ChevronRight,
+  PencilLine,
 } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { OgeMvpState } from "@/lib/oge-mvp-data";
+import type { OgeMvpState, PlanItem } from "@/lib/oge-mvp-data";
 
-type ViewMode = "dashboard" | "calendar" | "diagnostics" | "analytics";
+type ViewMode = "list" | "calendar";
 
 const viewTabs: Array<{
   id: ViewMode;
   label: string;
   Icon: typeof Brain;
 }> = [
-  { id: "dashboard", label: "Dashboard", Icon: Brain },
+  { id: "list", label: "Список программы", Icon: ClipboardList },
   { id: "calendar", label: "Календарь", Icon: CalendarDays },
-  { id: "diagnostics", label: "Диагностика", Icon: BookOpen },
-  { id: "analytics", label: "Аналитика", Icon: ChartColumnBig },
 ];
 
 type OgeMvpAppProps = {
@@ -29,11 +26,28 @@ type OgeMvpAppProps = {
 };
 
 export function OgeMvpApp({ data }: OgeMvpAppProps) {
-  const [activeView, setActiveView] = useState<ViewMode>("dashboard");
-  const weakThemes = useMemo(
-    () => data.weakThemes.length ? data.weakThemes : ["Слабые темы появятся после первой диагностики"],
-    [data.weakThemes],
+  const [activeView, setActiveView] = useState<ViewMode>("list");
+  const [planItems, setPlanItems] = useState(data.planList);
+
+  const calendarColumns = useMemo(() => {
+    return data.calendarColumns.map((column) => ({
+      ...column,
+      entries: planItems
+        .filter((item) => item.dateLabel === column.dateLabel)
+        .map((item) => ({ id: item.id, subject: item.subject, topic: item.topic, time: item.time })),
+    }));
+  }, [data.calendarColumns, planItems]);
+
+  const statusLabel = useMemo(
+    () => `${planItems.filter((item) => item.status !== "completed").length} блоков можно редактировать сейчас`,
+    [planItems],
   );
+
+  const handleFieldChange = (id: string, field: keyof Pick<PlanItem, "topic" | "day" | "time" | "note">, value: string) => {
+    setPlanItems((current) =>
+      current.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
+    );
+  };
 
   return (
     <main className="app-shell">
@@ -41,15 +55,13 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         <section className="panel panel-hero">
           <div className="hero-stack">
             <p className="eyebrow">ОГЭ AI Coach</p>
-            <h1 className="display-title">Персональная подготовка к ОГЭ по 4 предметам.</h1>
-            <p className="lead-copy">
-              {data.plan.planSummary}
-            </p>
+            <h1 className="display-title">Учебный план ОГЭ по всем заданиям.</h1>
+            <p className="lead-copy">{data.plan.planSummary}</p>
           </div>
 
           <div className="info-strip">
             <Brain className="h-4 w-4" />
-            <span>Базовый MVP-режим: без авторизации, без выбора тем, с фокусом на учебном плане.</span>
+            <span>Сейчас в MVP нет диагностики: стартуем с полной программы по умолчанию и редактируем её вручную.</span>
           </div>
 
           <div className="tab-row" role="tablist" aria-label="Разделы приложения">
@@ -75,92 +87,95 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
           </article>
           <article className="panel stat-block">
             <span className="stat-label">Сегодня</span>
-            <strong className="stat-value">{data.stats.dailySlots}</strong>
-            <span className="stat-meta">1 предмет = 1 час</span>
+            <strong className="stat-value">{data.stats.totalBlocks}</strong>
+            <span className="stat-meta">Редактируемые блоки программы</span>
           </article>
           <article className="panel stat-block">
-            <span className="stat-label">AI-фокус</span>
-            <strong className="stat-value">{data.stats.aiFocus}</strong>
-            <span className="stat-meta">Приоритет следующей недели</span>
+            <span className="stat-label">Покрытие</span>
+            <strong className="stat-value">{data.stats.coverage}</strong>
+            <span className="stat-meta">Все задания по каждому предмету включены</span>
           </article>
         </section>
 
         <section className="content-grid">
           <Card className="panel content-panel">
             <CardHeader>
-              <CardTitle>
-                {activeView === "dashboard"
-                  ? "Ближайшие занятия"
-                  : activeView === "calendar"
-                    ? "Календарь подготовки"
-                    : activeView === "diagnostics"
-                      ? "Диагностика"
-                      : "Аналитика ошибок"}
-              </CardTitle>
+              <CardTitle>{activeView === "list" ? "Список учебной программы" : "Календарь учебной программы"}</CardTitle>
               <CardDescription>
-                {activeView === "dashboard"
-                  ? "AI учитывает ошибки, слабые темы и перестраивает ежедневный план."
-                  : activeView === "calendar"
-                    ? "Каждый учебный день содержит по одному занятию на предмет."
-                    : activeView === "diagnostics"
-                      ? "Входная и еженедельная диагностика в формате ОГЭ с автопроверкой."
-                      : "Собираем проблемные темы, динамику и рекомендации после каждого занятия."}
+                {activeView === "list"
+                  ? "Каждый блок можно сразу отредактировать: тему, день, время и рабочую заметку."
+                  : "Календарь собирается из того же списка блоков и обновляется прямо по вашим изменениям."}
               </CardDescription>
             </CardHeader>
             <CardContent className="content-stack">
-              {activeView === "dashboard" &&
-                data.upcomingLessons.map((lesson) => (
-                  <article key={lesson.subject} className="list-row">
-                    <div>
-                      <div className="list-row__title">{lesson.subject}</div>
-                      <div className="list-row__meta">
-                        {lesson.time} · {lesson.topic}
+              {activeView === "list" &&
+                planItems.map((item) => (
+                  <article key={item.id} className="plan-editor-card">
+                    <div className="plan-editor-head">
+                      <div>
+                        <div className="list-row__title">{item.subject}</div>
+                        <div className="list-row__meta">
+                          {item.section} · {item.taskRange} · неделя {item.week}
+                        </div>
                       </div>
+                      <span className="list-badge">{item.status === "completed" ? "Готово" : "В работе"}</span>
                     </div>
-                    <span className="list-badge">{lesson.status}</span>
+
+                    <div className="editor-grid">
+                      <label className="editor-field">
+                        <span>Тема</span>
+                        <input value={item.topic} onChange={(event) => handleFieldChange(item.id, "topic", event.target.value)} />
+                      </label>
+                      <label className="editor-field">
+                        <span>День</span>
+                        <input value={item.day} onChange={(event) => handleFieldChange(item.id, "day", event.target.value)} />
+                      </label>
+                      <label className="editor-field">
+                        <span>Время</span>
+                        <input value={item.time} onChange={(event) => handleFieldChange(item.id, "time", event.target.value)} />
+                      </label>
+                    </div>
+
+                    <label className="editor-field editor-field--full">
+                      <span>Заметка к блоку</span>
+                      <textarea value={item.note} onChange={(event) => handleFieldChange(item.id, "note", event.target.value)} rows={3} />
+                    </label>
                   </article>
                 ))}
 
-              {activeView === "calendar" &&
-                data.calendarDays.map((day) => (
-                  <article key={day.day} className="list-row list-row--calendar">
-                    <div>
-                      <div className="list-row__title">{day.day}</div>
-                      <div className="list-row__meta">{day.summary}</div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </article>
-                ))}
-
-              {activeView === "diagnostics" &&
-                data.diagnostics.map((item) => (
-                  <article key={item.title} className="list-row">
-                    <div>
-                      <div className="list-row__title">{item.title}</div>
-                      <div className="list-row__meta">{item.meta}</div>
-                    </div>
-                    <span className="list-badge">{item.state}</span>
-                  </article>
-                ))}
-
-              {activeView === "analytics" &&
-                data.subjectStats.map((item) => (
-                  <article key={item.subject} className="list-row">
-                    <div>
-                      <div className="list-row__title">{item.subject}</div>
-                      <div className="list-row__meta">Слабое место: {item.focus}</div>
-                    </div>
-                    <span className="list-badge">{item.progress}</span>
-                  </article>
-                ))}
+              {activeView === "calendar" && (
+                <div className="calendar-board">
+                  {calendarColumns.map((column) => (
+                    <article key={column.dateLabel} className="calendar-column">
+                      <div className="calendar-column__head">
+                        <strong>{column.day}</strong>
+                        <span>{column.dateLabel}</span>
+                      </div>
+                      <div className="calendar-column__stack">
+                        {column.entries.length ? (
+                          column.entries.map((entry) => (
+                            <div key={entry.id} className="calendar-entry">
+                              <div className="calendar-entry__time">{entry.time}</div>
+                              <div className="calendar-entry__subject">{entry.subject}</div>
+                              <div className="calendar-entry__topic">{entry.topic}</div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="calendar-empty">Свободно</div>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <aside className="rail-stack">
             <Card className="panel rail-panel">
               <CardHeader>
-                <CardTitle>Рекомендации AI</CardTitle>
-                <CardDescription>После каждой практики система уточняет план.</CardDescription>
+                <CardTitle>Как редактировать план</CardTitle>
+                <CardDescription>{statusLabel}</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
                 {data.weeklyChecks.map((item) => (
@@ -174,13 +189,30 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
 
             <Card className="panel rail-panel">
               <CardHeader>
-                <CardTitle>Слабые темы недели</CardTitle>
-                <CardDescription>То, что будет усиливаться в следующих слотах.</CardDescription>
+                <CardTitle>Предметные блоки программы</CardTitle>
+                <CardDescription>Стартовая раскладка по полному покрытию заданий ОГЭ.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
-                {weakThemes.map((item) => (
-                  <div key={item} className="focus-pill">
-                    {item}
+                {data.subjectPrograms.map((item) => (
+                  <article key={item.subject} className="subject-tile">
+                    <span className="subject-tile__name">{item.subject}</span>
+                    <strong className="subject-tile__value">{item.tasksCoverage}</strong>
+                    <span className="subject-tile__meta">{item.focus}</span>
+                  </article>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="panel rail-panel">
+              <CardHeader>
+                <CardTitle>Подсказки для правок</CardTitle>
+                <CardDescription>То, что уже можно менять прямо сейчас, без отдельного мастера.</CardDescription>
+              </CardHeader>
+              <CardContent className="content-stack">
+                {data.editingHints.map((item) => (
+                  <div key={item} className="check-row">
+                    <PencilLine className="h-4 w-4" />
+                    <span>{item}</span>
                   </div>
                 ))}
               </CardContent>
