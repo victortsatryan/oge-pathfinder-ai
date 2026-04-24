@@ -9,7 +9,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  CircleHelp,
+  Clock3,
   PencilLine,
+  TimerReset,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 
@@ -26,8 +29,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 
-type ViewMode = "list" | "calendar" | "analytics";
+type ViewMode = "list" | "calendar" | "analytics" | "diagnostic";
 type CalendarMode = "period" | "week";
+type DiagnosticTaskType = "single" | "multiple" | "text";
+
+type DiagnosticTask = {
+  id: string;
+  subject: string;
+  topic: string;
+  type: DiagnosticTaskType;
+  prompt: string;
+  sourceLabel: string;
+  options?: string[];
+  correctAnswer: string | string[];
+  explanation: string;
+};
 
 type EditablePlanField = keyof Pick<PlanItem, "topic" | "dateISO" | "time" | "note">;
 
@@ -39,6 +55,76 @@ const viewTabs: Array<{
   { id: "list", label: "Список программы", Icon: ClipboardList },
   { id: "calendar", label: "Календарь", Icon: CalendarDays },
   { id: "analytics", label: "Аналитика", Icon: Brain },
+  { id: "diagnostic", label: "Диагностика", Icon: CircleHelp },
+];
+
+const WEEKLY_DIAGNOSTIC_DURATION_SECONDS = 60 * 60;
+
+const weeklyDiagnosticTasks: DiagnosticTask[] = [
+  {
+    id: "diag-math-1",
+    subject: "Математика",
+    topic: "Уравнения и вычисления",
+    type: "single",
+    prompt: "Решите уравнение: 3x - 9 = 12",
+    sourceLabel: "ОГЭ · математика · задание базового уровня",
+    options: ["5", "6", "7", "8"],
+    correctAnswer: "7",
+    explanation: "Сначала переносим -9 вправо: 3x = 21, затем делим обе части на 3 и получаем x = 7.",
+  },
+  {
+    id: "diag-rus-1",
+    subject: "Русский язык",
+    topic: "Пунктуация в сложном предложении",
+    type: "single",
+    prompt: "Укажите вариант, где нужна одна запятая: «Когда начался дождь ___ мы вернулись домой».",
+    sourceLabel: "ОГЭ · русский язык · пунктуационный анализ",
+    options: ["запятая не нужна", "перед словом «мы»", "после слова «мы»", "нужны две запятые"],
+    correctAnswer: "перед словом «мы»",
+    explanation: "Придаточная часть заканчивается перед главной, поэтому ставим одну запятую перед словом «мы».",
+  },
+  {
+    id: "diag-eng-1",
+    subject: "Английский язык",
+    topic: "Grammar · Present Perfect",
+    type: "text",
+    prompt: "Complete the sentence with the correct verb form: ‘She ___ already ___ her homework.’ (do)",
+    sourceLabel: "ОГЭ · English · grammar",
+    correctAnswer: "has done",
+    explanation: "Для Present Perfect with she используем has + V3, поэтому правильный ответ: has done.",
+  },
+  {
+    id: "diag-bio-1",
+    subject: "Биология",
+    topic: "Клетка и органоиды",
+    type: "multiple",
+    prompt: "Выберите органоиды, которые участвуют в синтезе и транспорте веществ в клетке.",
+    sourceLabel: "ОГЭ · биология · клетка",
+    options: ["рибосомы", "эндоплазматическая сеть", "лейкоциты", "аппарат Гольджи"],
+    correctAnswer: ["рибосомы", "эндоплазматическая сеть", "аппарат Гольджи"],
+    explanation: "Рибосомы синтезируют белок, ЭПС и аппарат Гольджи обеспечивают транспорт и модификацию веществ.",
+  },
+  {
+    id: "diag-math-2",
+    subject: "Математика",
+    topic: "Геометрия · площадь",
+    type: "text",
+    prompt: "Найдите площадь прямоугольника со сторонами 6 и 4. Запишите только число.",
+    sourceLabel: "ОГЭ · математика · геометрия",
+    correctAnswer: "24",
+    explanation: "Площадь прямоугольника равна произведению сторон: 6 × 4 = 24.",
+  },
+  {
+    id: "diag-rus-2",
+    subject: "Русский язык",
+    topic: "Орфография",
+    type: "single",
+    prompt: "Выберите слово с проверяемой безударной гласной в корне.",
+    sourceLabel: "ОГЭ · русский язык · орфография",
+    options: ["заг..реть", "т..варищ", "лесн..к", "к..саться"],
+    correctAnswer: "лесн..к",
+    explanation: "В слове «лесник» безударную гласную можно проверить словом «лес». Остальные случаи относятся к другим орфограммам.",
+  },
 ];
 
 const calendarModeTabs: Array<{ id: CalendarMode; label: string }> = [
