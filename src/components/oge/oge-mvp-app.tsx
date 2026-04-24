@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   BookOpen,
@@ -9,7 +9,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  CircleHelp,
+  Clock3,
   PencilLine,
+  TimerReset,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 
@@ -26,8 +29,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 
-type ViewMode = "list" | "calendar" | "analytics";
+type ViewMode = "list" | "calendar" | "analytics" | "diagnostic";
 type CalendarMode = "period" | "week";
+type DiagnosticTaskType = "single" | "multiple" | "text";
+
+type DiagnosticTask = {
+  id: string;
+  subject: string;
+  topic: string;
+  type: DiagnosticTaskType;
+  prompt: string;
+  sourceLabel: string;
+  options?: string[];
+  correctAnswer: string | string[];
+  explanation: string;
+};
 
 type EditablePlanField = keyof Pick<PlanItem, "topic" | "dateISO" | "time" | "note">;
 
@@ -39,6 +55,76 @@ const viewTabs: Array<{
   { id: "list", label: "Список программы", Icon: ClipboardList },
   { id: "calendar", label: "Календарь", Icon: CalendarDays },
   { id: "analytics", label: "Аналитика", Icon: Brain },
+  { id: "diagnostic", label: "Диагностика", Icon: CircleHelp },
+];
+
+const WEEKLY_DIAGNOSTIC_DURATION_SECONDS = 60 * 60;
+
+const weeklyDiagnosticTasks: DiagnosticTask[] = [
+  {
+    id: "diag-math-1",
+    subject: "Математика",
+    topic: "Уравнения и вычисления",
+    type: "single",
+    prompt: "Решите уравнение: 3x - 9 = 12",
+    sourceLabel: "ОГЭ · математика · задание базового уровня",
+    options: ["5", "6", "7", "8"],
+    correctAnswer: "7",
+    explanation: "Сначала переносим -9 вправо: 3x = 21, затем делим обе части на 3 и получаем x = 7.",
+  },
+  {
+    id: "diag-rus-1",
+    subject: "Русский язык",
+    topic: "Пунктуация в сложном предложении",
+    type: "single",
+    prompt: "Укажите вариант, где нужна одна запятая: «Когда начался дождь ___ мы вернулись домой».",
+    sourceLabel: "ОГЭ · русский язык · пунктуационный анализ",
+    options: ["запятая не нужна", "перед словом «мы»", "после слова «мы»", "нужны две запятые"],
+    correctAnswer: "перед словом «мы»",
+    explanation: "Придаточная часть заканчивается перед главной, поэтому ставим одну запятую перед словом «мы».",
+  },
+  {
+    id: "diag-eng-1",
+    subject: "Английский язык",
+    topic: "Grammar · Present Perfect",
+    type: "text",
+    prompt: "Complete the sentence with the correct verb form: ‘She ___ already ___ her homework.’ (do)",
+    sourceLabel: "ОГЭ · English · grammar",
+    correctAnswer: "has done",
+    explanation: "Для Present Perfect with she используем has + V3, поэтому правильный ответ: has done.",
+  },
+  {
+    id: "diag-bio-1",
+    subject: "Биология",
+    topic: "Клетка и органоиды",
+    type: "multiple",
+    prompt: "Выберите органоиды, которые участвуют в синтезе и транспорте веществ в клетке.",
+    sourceLabel: "ОГЭ · биология · клетка",
+    options: ["рибосомы", "эндоплазматическая сеть", "лейкоциты", "аппарат Гольджи"],
+    correctAnswer: ["рибосомы", "эндоплазматическая сеть", "аппарат Гольджи"],
+    explanation: "Рибосомы синтезируют белок, ЭПС и аппарат Гольджи обеспечивают транспорт и модификацию веществ.",
+  },
+  {
+    id: "diag-math-2",
+    subject: "Математика",
+    topic: "Геометрия · площадь",
+    type: "text",
+    prompt: "Найдите площадь прямоугольника со сторонами 6 и 4. Запишите только число.",
+    sourceLabel: "ОГЭ · математика · геометрия",
+    correctAnswer: "24",
+    explanation: "Площадь прямоугольника равна произведению сторон: 6 × 4 = 24.",
+  },
+  {
+    id: "diag-rus-2",
+    subject: "Русский язык",
+    topic: "Орфография",
+    type: "single",
+    prompt: "Выберите слово с проверяемой безударной гласной в корне.",
+    sourceLabel: "ОГЭ · русский язык · орфография",
+    options: ["заг..реть", "т..варищ", "лесн..к", "к..саться"],
+    correctAnswer: "лесн..к",
+    explanation: "В слове «лесник» безударную гласную можно проверить словом «лес». Остальные случаи относятся к другим орфограммам.",
+  },
 ];
 
 const calendarModeTabs: Array<{ id: CalendarMode; label: string }> = [
@@ -78,6 +164,100 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
   );
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [planItems, setPlanItems] = useState(initialPlanItems);
+  const [diagnosticAnswers, setDiagnosticAnswers] = useState<Record<string, string | string[]>>({});
+  const [diagnosticStarted, setDiagnosticStarted] = useState(false);
+  const [diagnosticSubmitted, setDiagnosticSubmitted] = useState(false);
+  const [diagnosticRemainingSeconds, setDiagnosticRemainingSeconds] = useState(WEEKLY_DIAGNOSTIC_DURATION_SECONDS);
+
+  const saturdayDays = useMemo(
+    () => calendarDays.filter((day) => !day.isRestDay && day.dayShort === "Сб"),
+    [calendarDays],
+  );
+  const nextDiagnosticDay = saturdayDays.find((day) => day.isCurrentFocus) ?? saturdayDays[0] ?? null;
+
+  const diagnosticTasks = useMemo(() => weeklyDiagnosticTasks, []);
+
+  const diagnosticResult = useMemo(() => {
+    if (!diagnosticSubmitted) return null;
+
+    const evaluatedTasks = diagnosticTasks.map((task) => {
+      const answer = diagnosticAnswers[task.id];
+      const normalizedUser = Array.isArray(answer)
+        ? [...answer].map((item) => item.trim().toLowerCase()).sort()
+        : typeof answer === "string"
+          ? answer.trim().toLowerCase()
+          : "";
+      const normalizedCorrect = Array.isArray(task.correctAnswer)
+        ? [...task.correctAnswer].map((item) => item.trim().toLowerCase()).sort()
+        : task.correctAnswer.trim().toLowerCase();
+      const isCorrect = Array.isArray(normalizedCorrect)
+        ? Array.isArray(normalizedUser) && normalizedUser.join("|") === normalizedCorrect.join("|")
+        : normalizedUser === normalizedCorrect;
+
+      return {
+        ...task,
+        answer,
+        isCorrect,
+      };
+    });
+
+    const correctCount = evaluatedTasks.filter((task) => task.isCorrect).length;
+    const scorePercent = Math.round((correctCount / Math.max(evaluatedTasks.length, 1)) * 100);
+    const topicStats = Array.from(
+      evaluatedTasks.reduce((map, task) => {
+        const current = map.get(task.topic) ?? { topic: task.topic, subject: task.subject, total: 0, correct: 0 };
+        current.total += 1;
+        current.correct += task.isCorrect ? 1 : 0;
+        map.set(task.topic, current);
+        return map;
+      }, new Map<string, { topic: string; subject: string; total: number; correct: number }>()).values(),
+    ).map((item) => ({
+      ...item,
+      percent: Math.round((item.correct / Math.max(item.total, 1)) * 100),
+    }));
+
+    const weakTopics = topicStats.filter((item) => item.percent < 70).sort((a, b) => a.percent - b.percent);
+
+    return {
+      evaluatedTasks,
+      scorePercent,
+      correctCount,
+      topicStats,
+      weakTopics,
+    };
+  }, [diagnosticAnswers, diagnosticSubmitted, diagnosticTasks]);
+
+  const diagnosticProgress = useMemo(() => {
+    const answered = diagnosticTasks.filter((task) => {
+      const value = diagnosticAnswers[task.id];
+      return Array.isArray(value) ? value.length > 0 : typeof value === "string" && value.trim().length > 0;
+    }).length;
+
+    return {
+      answered,
+      total: diagnosticTasks.length,
+      percent: Math.round((answered / Math.max(diagnosticTasks.length, 1)) * 100),
+    };
+  }, [diagnosticAnswers, diagnosticTasks]);
+
+  useEffect(() => {
+    if (!diagnosticStarted || diagnosticSubmitted) return;
+
+    const timer = window.setInterval(() => {
+      setDiagnosticRemainingSeconds((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          setDiagnosticSubmitted(true);
+          setDiagnosticStarted(false);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [diagnosticStarted, diagnosticSubmitted]);
 
   const dayMetaById = useMemo(
     () => new Map(calendarDays.map((day) => [day.id, day])),
@@ -247,6 +427,30 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     setActiveView("calendar");
   };
 
+  const handleStartDiagnostic = () => {
+    setDiagnosticStarted(true);
+    setDiagnosticSubmitted(false);
+    setDiagnosticRemainingSeconds(WEEKLY_DIAGNOSTIC_DURATION_SECONDS);
+    setDiagnosticAnswers({});
+  };
+
+  const handleSubmitDiagnostic = () => {
+    setDiagnosticSubmitted(true);
+    setDiagnosticStarted(false);
+  };
+
+  const handleDiagnosticAnswerChange = (taskId: string, value: string) => {
+    setDiagnosticAnswers((current) => ({ ...current, [taskId]: value }));
+  };
+
+  const handleDiagnosticMultiToggle = (taskId: string, option: string) => {
+    setDiagnosticAnswers((current) => {
+      const existing = Array.isArray(current[taskId]) ? [...current[taskId]] : [];
+      const next = existing.includes(option) ? existing.filter((item) => item !== option) : [...existing, option];
+      return { ...current, [taskId]: next };
+    });
+  };
+
   const handleGenerateAiPlan = async () => {
     const subjectStats = subjectPrograms.map((subjectProgram) => {
       const lessons = subjectRows.get(subjectProgram.subject) ?? [];
@@ -282,14 +486,22 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
       ? "Календарь учебного плана"
       : activeView === "list"
         ? "Связанная программа"
-        : "Аналитика ученика";
+        : activeView === "analytics"
+          ? "Аналитика ученика"
+          : "Еженедельная диагностика";
 
   const contentDescription =
     activeView === "calendar"
       ? "Дневная сетка синхронизирована с программой: выберите день, раскройте 4 занятия и откройте карточку любого урока."
       : activeView === "list"
         ? "Любое изменение в программе сразу отражается в календаре и карточке занятия."
-        : "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы.";
+        : activeView === "analytics"
+          ? "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы."
+          : "По субботам ученик проходит 60-минутную диагностику в формате ОГЭ с быстрым разбором результата по темам.";
+
+  const diagnosticTimerLabel = `${String(Math.floor(diagnosticRemainingSeconds / 60)).padStart(2, "0")}:${String(
+    diagnosticRemainingSeconds % 60,
+  ).padStart(2, "0")}`;
 
   return (
     <main className="app-shell">
@@ -587,7 +799,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                     );
                   })}
                 </div>
-              ) : (
+              ) : activeView === "analytics" ? (
                 <div className="analytics-stack">
                   <div className="analytics-overview-grid">
                     <article className="analytics-surface">
@@ -740,6 +952,219 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                       </div>
                     </article>
                   </div>
+                </div>
+              ) : (
+                <div className="diagnostic-stack">
+                  <section className="diagnostic-hero">
+                    <div className="diagnostic-hero__copy">
+                      <span className="focus-pill">Субботняя диагностика</span>
+                      <div>
+                        <div className="list-row__title">Формат: 60 минут, задания ОГЭ, минимальные отвлечения.</div>
+                        <div className="list-row__meta">
+                          Следующее окно: {nextDiagnosticDay ? `${nextDiagnosticDay.dayName}, ${nextDiagnosticDay.dateLabel}` : "в ближайшую субботу"}.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="diagnostic-hero__stats">
+                      <article className="result-card result-card--lesson-page">
+                        <span className="result-card__label">Таймер</span>
+                        <strong className="result-card__value">{diagnosticTimerLabel}</strong>
+                        <span className="result-card__meta">1 час на весь тест</span>
+                      </article>
+                      <article className="result-card">
+                        <span className="result-card__label">Прогресс</span>
+                        <strong className="result-card__value">{diagnosticProgress.answered}/{diagnosticProgress.total}</strong>
+                        <span className="result-card__meta">Отвечено на {diagnosticProgress.percent}% заданий</span>
+                      </article>
+                    </div>
+                  </section>
+
+                  <section className="diagnostic-focus-panel">
+                    <div className="diagnostic-focus-panel__head">
+                      <div>
+                        <div className="list-row__title">Прохождение теста</div>
+                        <div className="list-row__meta">Сначала запуск, затем спокойное решение заданий без лишних блоков на экране.</div>
+                      </div>
+                      <div className="lesson-actions-row">
+                        {!diagnosticStarted && !diagnosticSubmitted ? (
+                          <button type="button" className="action-link diagnostic-primary-action" onClick={handleStartDiagnostic}>
+                            Начать диагностику
+                          </button>
+                        ) : null}
+                        {diagnosticStarted ? (
+                          <button type="button" className="action-link diagnostic-primary-action" onClick={handleSubmitDiagnostic}>
+                            Проверить результат
+                          </button>
+                        ) : null}
+                        {(diagnosticSubmitted || diagnosticStarted) ? (
+                          <button type="button" className="action-link" onClick={handleStartDiagnostic}>
+                            <TimerReset className="h-4 w-4" />
+                            <span>Начать заново</span>
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {diagnosticStarted || diagnosticSubmitted ? (
+                      <div className="diagnostic-task-stack">
+                        {diagnosticTasks.map((task, index) => {
+                          const value = diagnosticAnswers[task.id];
+
+                          return (
+                            <article key={task.id} className="diagnostic-task-card">
+                              <div className="diagnostic-task-card__head">
+                                <div>
+                                  <div className="program-subject-title">
+                                    <span className={subjectToneClass[task.subject] ?? "subject-tone"} />
+                                    <span>{task.subject}</span>
+                                  </div>
+                                  <div className="list-row__meta">Задание {index + 1} · {task.topic}</div>
+                                </div>
+                                <span className="list-badge">{task.type === "multiple" ? "Множественный выбор" : task.type === "text" ? "Краткий ответ" : "Один ответ"}</span>
+                              </div>
+
+                              <div className="diagnostic-task-card__prompt">{task.prompt}</div>
+                              <div className="list-row__meta">{task.sourceLabel}</div>
+
+                              {task.type === "single" ? (
+                                <div className="diagnostic-option-grid">
+                                  {task.options?.map((option) => (
+                                    <button
+                                      key={option}
+                                      type="button"
+                                      className={value === option ? "selection-card compact-grid is-active" : "selection-card compact-grid"}
+                                      onClick={() => handleDiagnosticAnswerChange(task.id, option)}
+                                    >
+                                      <span className="selection-card__title">{option}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : null}
+
+                              {task.type === "multiple" ? (
+                                <div className="diagnostic-option-grid">
+                                  {task.options?.map((option) => {
+                                    const selectedValues = Array.isArray(value) ? value : [];
+                                    return (
+                                      <button
+                                        key={option}
+                                        type="button"
+                                        className={selectedValues.includes(option) ? "selection-card compact-grid is-active" : "selection-card compact-grid"}
+                                        onClick={() => handleDiagnosticMultiToggle(task.id, option)}
+                                      >
+                                        <span className="selection-card__title">{option}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+
+                              {task.type === "text" ? (
+                                <label className="editor-field diagnostic-answer-field">
+                                  <span>Ответ ученика</span>
+                                  <input
+                                    value={typeof value === "string" ? value : ""}
+                                    onChange={(event) => handleDiagnosticAnswerChange(task.id, event.target.value)}
+                                    placeholder="Введите краткий ответ"
+                                  />
+                                </label>
+                              ) : null}
+
+                              {diagnosticSubmitted && diagnosticResult ? (
+                                <div className="diagnostic-feedback-card">
+                                  <div className="diagnostic-feedback-card__head">
+                                    <span className={diagnosticResult.evaluatedTasks.find((item) => item.id === task.id)?.isCorrect ? "status-pill status-pill--done" : "status-pill status-pill--pending"}>
+                                      {diagnosticResult.evaluatedTasks.find((item) => item.id === task.id)?.isCorrect ? "Верно" : "Нужно повторить"}
+                                    </span>
+                                    <span className="list-row__meta">
+                                      Правильный ответ: {Array.isArray(task.correctAnswer) ? task.correctAnswer.join(", ") : task.correctAnswer}
+                                    </span>
+                                  </div>
+                                  <p className="status-line">{task.explanation}</p>
+                                </div>
+                              ) : null}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="diagnostic-empty-state">
+                        <Clock3 className="h-5 w-5" />
+                        <div>
+                          <div className="list-row__title">Тест ещё не запущен</div>
+                          <div className="list-row__meta">После старта откроется полный диагностический вариант с таймером и заданиями разных типов.</div>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  {diagnosticSubmitted && diagnosticResult ? (
+                    <section className="diagnostic-results-grid">
+                      <article className="analytics-surface">
+                        <div className="analytics-surface__head">
+                          <div>
+                            <div className="list-row__title">Результат</div>
+                            <div className="list-row__meta">Краткая сводка после завершения еженедельной диагностики.</div>
+                          </div>
+                        </div>
+                        <div className="diagnostic-summary-grid">
+                          <article className="result-card result-card--lesson-page">
+                            <span className="result-card__label">Итог</span>
+                            <strong className="result-card__value">{diagnosticResult.scorePercent}%</strong>
+                            <span className="result-card__meta">Верно {diagnosticResult.correctCount} из {diagnosticResult.evaluatedTasks.length}</span>
+                          </article>
+                          <article className="result-card">
+                            <span className="result-card__label">Слабые места</span>
+                            <strong className="result-card__value">{diagnosticResult.weakTopics.length}</strong>
+                            <span className="result-card__meta">Тем для прицельного повторения</span>
+                          </article>
+                        </div>
+                      </article>
+
+                      <article className="analytics-surface">
+                        <div className="analytics-surface__head">
+                          <div>
+                            <div className="list-row__title">Разбивка по темам</div>
+                            <div className="list-row__meta">Сразу видно, где результат устойчивый, а где есть просадка.</div>
+                          </div>
+                        </div>
+                        <div className="analytics-list-stack">
+                          {diagnosticResult.topicStats.map((item) => (
+                            <article key={item.topic} className="analytics-list-card diagnostic-topic-card">
+                              <div className="analytics-list-card__head">
+                                <span className={subjectToneClass[item.subject] ?? "subject-chip"}>{item.subject}</span>
+                                <strong>{item.percent}%</strong>
+                              </div>
+                              <div className="list-row__title">{item.topic}</div>
+                              <p className="status-line">{item.correct} из {item.total} заданий решены верно.</p>
+                            </article>
+                          ))}
+                        </div>
+                      </article>
+
+                      <article className="analytics-surface">
+                        <div className="analytics-surface__head">
+                          <div>
+                            <div className="list-row__title">Выявленные слабые места</div>
+                            <div className="list-row__meta">Приоритет для следующей недели подготовки.</div>
+                          </div>
+                        </div>
+                        <div className="analytics-list-stack">
+                          {diagnosticResult.weakTopics.length ? (
+                            diagnosticResult.weakTopics.map((item) => (
+                              <article key={item.topic} className="analytics-note-card analytics-note-card--accent">
+                                <div className="list-row__title">{item.subject} · {item.topic}</div>
+                                <p className="status-line">Результат {item.percent}%. Стоит повторить теорию и сразу решить 2–3 похожих номера.</p>
+                              </article>
+                            ))
+                          ) : (
+                            <div className="calendar-empty">Слабые места не выявлены: можно переходить к более сложным вариантам.</div>
+                          )}
+                        </div>
+                      </article>
+                    </section>
+                  ) : null}
                 </div>
               )}
             </CardContent>
