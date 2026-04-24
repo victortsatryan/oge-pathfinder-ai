@@ -22,6 +22,16 @@ export type LessonResult = {
   lastActivityLabel: string | null;
 };
 
+export type ExternalSourceLink = {
+  id: string;
+  provider: string;
+  title: string;
+  url: string;
+  blockKind: "theory" | "practice";
+  blockTitle: string;
+  note?: string | null;
+};
+
 export type PlanItem = {
   id: string;
   subject: string;
@@ -35,6 +45,7 @@ export type PlanItem = {
   status: PlanItemStatus;
   note: string;
   resources: LessonResource[];
+  externalSources: ExternalSourceLink[];
   tasks: string[];
   result: LessonResult | null;
 };
