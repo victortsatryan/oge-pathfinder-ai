@@ -9,6 +9,9 @@ export type LessonResource = {
   difficulty: string;
   topicTitle: string | null;
   tasks: string[];
+  contentMarkdown?: string | null;
+  videoUrl?: string | null;
+  solutionText?: string | null;
 };
 
 export type LessonResult = {
@@ -73,6 +76,31 @@ export type ResultsSummary = {
   insight: string;
 };
 
+export type LessonPracticeTask = {
+  id: string;
+  prompt: string;
+  sourceLabel: string;
+  expectedAnswer: string;
+  explanation: string;
+};
+
+export type LessonDetail = {
+  lesson: PlanItem;
+  theoryText: string;
+  videoUrl: string | null;
+  coachIntro: string;
+  practiceTasks: LessonPracticeTask[];
+  recommendations: {
+    review: string[];
+    extraTasks: string[];
+  };
+  resourceLinks: Array<{
+    id: string;
+    title: string;
+    url: string | null;
+  }>;
+};
+
 export type OgeMvpState = {
   plan: {
     title: string;
@@ -103,6 +131,9 @@ type ResourceInput = {
   subjectName: string;
   topicTitle: string | null;
   tasks: string[];
+  contentMarkdown?: string | null;
+  videoUrl?: string | null;
+  solutionText?: string | null;
 };
 
 type AttemptInput = {
@@ -422,6 +453,69 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
           : "Сетка занятий готова, но для автоподгрузки тем и заданий нужно загрузить ссылки и материалы в backend.",
     },
   };
+}
+
+export function getLessonDetail(state: OgeMvpState, lessonId: string): LessonDetail | null {
+  const lesson = state.planList.find((item) => item.id === lessonId);
+
+  if (!lesson) return null;
+
+  const primaryResource = lesson.resources[0] ?? null;
+  const fallbackTasks = buildFallbackPracticeTasks(lesson);
+  const practiceTasks = (lesson.tasks.length ? lesson.tasks : fallbackTasks.map((item) => item.prompt)).map((task, index) => ({
+    id: `${lesson.id}-task-${index + 1}`,
+    prompt: task,
+    sourceLabel: primaryResource?.title ?? `Источник по теме ${lesson.topic}`,
+    expectedAnswer: fallbackTasks[index]?.expectedAnswer ?? `Ответ ${index + 1}`,
+    explanation:
+      fallbackTasks[index]?.explanation ??
+      `Сверьте решение с ключевой идеей темы «${lesson.topic}» и повторите правило перед следующей попыткой.`,
+  }));
+
+  return {
+    lesson,
+    theoryText:
+      primaryResource?.contentMarkdown?.trim() ||
+      `На этом занятии разбираем тему «${lesson.topic}» по предмету ${lesson.subject}. Сначала коротко фиксируем базовое правило, затем смотрим на типовые шаги решения, и только после этого переходим к практике в формате ОГЭ.`,
+    videoUrl: primaryResource?.videoUrl ?? primaryResource?.sourceUrl ?? null,
+    coachIntro: `Сейчас идём как на уроке с репетитором: сначала теория по теме «${lesson.topic}», затем практика, проверка и персональные рекомендации.`,
+    practiceTasks,
+    recommendations: {
+      review: buildReviewRecommendations(lesson),
+      extraTasks: buildExtraTasks(lesson),
+    },
+    resourceLinks: lesson.resources.map((resource) => ({
+      id: resource.id,
+      title: resource.title,
+      url: resource.sourceUrl,
+    })),
+  };
+}
+
+function buildFallbackPracticeTasks(lesson: PlanItem): LessonPracticeTask[] {
+  return [1, 2, 3].map((step) => ({
+    id: `${lesson.id}-fallback-${step}`,
+    prompt: `${lesson.subject}: задание ${step} по теме «${lesson.topic}». Кратко решите типовой номер формата ОГЭ.` ,
+    sourceLabel: `Базовый шаблон занятия · ${lesson.taskRange}`,
+    expectedAnswer: `Ключ ${step}`,
+    explanation: `Проверьте, используете ли вы основное правило темы «${lesson.topic}», и сравните ход решения с эталонным алгоритмом.` ,
+  }));
+}
+
+function buildReviewRecommendations(lesson: PlanItem): string[] {
+  return [
+    `Повторить опорное правило темы «${lesson.topic}».`,
+    `Вернуться к блоку ${lesson.taskRange} и ещё раз проговорить ход решения вслух.`,
+    `Сравнить собственные ответы с образцом и отметить 1–2 типовые ошибки в заметке занятия.`,
+  ];
+}
+
+function buildExtraTasks(lesson: PlanItem): string[] {
+  return [
+    `Дополнительный мини-набор по теме «${lesson.topic}» на 3 задания.`,
+    `Повторный короткий сет по диапазону ${lesson.taskRange} с таймером 12 минут.`,
+    `Одно задание повышенной сложности по разделу «${lesson.section}».`,
+  ];
 }
 
 function buildCalendar() {

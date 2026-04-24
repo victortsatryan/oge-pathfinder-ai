@@ -788,13 +788,113 @@
   }
 }
 
+  .lesson-page-layout {
+    gap: 16px;
+  }
+
+  .lesson-hero {
+    display: grid;
+    gap: 18px;
+  }
+
+  .lesson-display-title {
+    max-width: 100%;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+  }
+
+  .lesson-subtitle {
+    font-size: 1.2rem;
+    color: var(--color-foreground);
+  }
+
+  .lesson-stepper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .lesson-stepper__item {
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--surface-strong) 94%, transparent);
+    padding: 10px 14px;
+    color: var(--color-muted-foreground);
+  }
+
+  .lesson-stepper__item.is-active {
+    background: var(--color-foreground);
+    color: var(--color-background);
+    border-color: var(--color-foreground);
+  }
+
+  .lesson-main-grid {
+    display: grid;
+    align-items: start;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.9fr);
+  }
+
+  .lesson-main-stack,
+  .recommendation-block {
+    display: grid;
+    gap: 16px;
+  }
+
+  .theory-card,
+  .practice-task-card,
+  .check-result-card {
+    display: grid;
+    gap: 12px;
+    border-radius: 18px;
+    background: color-mix(in oklab, var(--surface-strong) 96%, transparent);
+    padding: 16px;
+  }
+
+  .theory-text {
+    margin: 0;
+    color: var(--color-foreground);
+    line-height: 1.7;
+  }
+
+  .practice-task-card__head,
+  .check-result-card__head,
+  .lesson-row__actions,
+  .lesson-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .lesson-actions-row {
+    justify-content: flex-start;
+  }
+
+  .field-error {
+    margin: 0;
+    color: var(--color-destructive);
+    font-size: 0.84rem;
+  }
+
+  .check-result-card__grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .result-card--lesson-page {
+    background: color-mix(in oklab, var(--accent) 46%, var(--color-card));
+  }
+
 @media (max-width: 960px) {
   .two-column-layout,
   .content-grid,
   .stats-grid,
   .calendar-board,
   .selection-grid,
-  .subject-grid {
+  .subject-grid,
+  .lesson-main-grid,
+  .check-result-card__grid {
     grid-template-columns: 1fr;
   }
 
