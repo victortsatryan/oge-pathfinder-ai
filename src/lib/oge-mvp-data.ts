@@ -32,6 +32,15 @@ export type ExternalSourceLink = {
   note?: string | null;
 };
 
+export type PlanCustomTask = {
+  id: string;
+  prompt: string;
+  expectedAnswer: string;
+  explanation: string;
+  sourceLabel: string;
+  bankTaskId?: string | null;
+};
+
 export type PlanItem = {
   id: string;
   subject: string;
@@ -48,6 +57,11 @@ export type PlanItem = {
   externalSources: ExternalSourceLink[];
   tasks: string[];
   result: LessonResult | null;
+  customTasks?: PlanCustomTask[];
+  teacherNote?: string | null;
+  theoryMarkdown?: string | null;
+  difficulty?: string | null;
+  isEdited?: boolean;
 };
 
 export type SubjectProgram = {
@@ -165,10 +179,24 @@ type LearningSourceInput = {
   sourceKind: "theory" | "practice" | "mixed";
 };
 
+type LessonOverrideInput = {
+  lessonKey: string;
+  title: string | null;
+  topic: string | null;
+  lessonDate: string | null;
+  slotNumber: number | null;
+  difficulty: string | null;
+  status: string | null;
+  teacherNote: string | null;
+  theoryMarkdown: string | null;
+  tasks: PlanCustomTask[];
+};
+
 type LoadStateInput = {
   resources?: ResourceInput[];
   attempts?: AttemptInput[];
   learningSources?: LearningSourceInput[];
+  lessonOverrides?: LessonOverrideInput[];
 };
 
 type SubjectBlueprint = {
@@ -415,6 +443,35 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
     });
   });
 
+  // Apply per-user lesson overrides
+  const overridesByKey = new Map<string, LessonOverrideInput>();
+  for (const o of input.lessonOverrides ?? []) overridesByKey.set(o.lessonKey, o);
+  if (overridesByKey.size) {
+    for (let i = 0; i < planList.length; i += 1) {
+      const item = planList[i];
+      const o = overridesByKey.get(item.id);
+      if (!o) continue;
+      const newDate = o.lessonDate || item.dateISO;
+      const newSlot = o.slotNumber ?? null;
+      const mappedStatus: PlanItemStatus =
+        o.status === "done" ? "done" : o.status ? "pending" : item.status;
+      planList[i] = {
+        ...item,
+        dateISO: newDate,
+        time: newSlot ? SESSION_TIMES[newSlot - 1] ?? item.time : item.time,
+        topic: o.topic || item.topic,
+        note: o.teacherNote || item.note,
+        status: mappedStatus,
+        customTasks: o.tasks,
+        teacherNote: o.teacherNote,
+        theoryMarkdown: o.theoryMarkdown,
+        difficulty: o.difficulty,
+        isEdited: true,
+      };
+    }
+    planList.sort((a, b) => (a.dateISO === b.dateISO ? a.time.localeCompare(b.time) : a.dateISO.localeCompare(b.dateISO)));
+  }
+
   const materialsCount = planList.reduce((acc, item) => acc + item.resources.length, 0);
   const allAttempts = planList.flatMap((item) => (item.result ? [item.result] : []));
   const accuracyValues = allAttempts.map((item) => item.accuracyPercent).filter((value): value is number => value !== null);
@@ -498,19 +555,30 @@ export function getLessonDetail(state: OgeMvpState, lessonId: string): LessonDet
 
   const primaryResource = lesson.resources[0] ?? null;
   const fallbackTasks = buildFallbackPracticeTasks(lesson);
-  const practiceTasks = (lesson.tasks.length ? lesson.tasks : fallbackTasks.map((item) => item.prompt)).map((task, index) => ({
-    id: `${lesson.id}-task-${index + 1}`,
-    prompt: task,
-    sourceLabel: primaryResource?.title ?? `Источник по теме ${lesson.topic}`,
-    expectedAnswer: fallbackTasks[index]?.expectedAnswer ?? `Ответ ${index + 1}`,
-    explanation:
-      fallbackTasks[index]?.explanation ??
-      `Сверьте решение с ключевой идеей темы «${lesson.topic}» и повторите правило перед следующей попыткой.`,
-  }));
+  const customTasks = lesson.customTasks ?? [];
+
+  const practiceTasks: LessonPracticeTask[] = customTasks.length
+    ? customTasks.map((t) => ({
+        id: t.id,
+        prompt: t.prompt,
+        sourceLabel: t.sourceLabel || (t.bankTaskId ? "Из банка заданий" : "Добавлено вручную"),
+        expectedAnswer: t.expectedAnswer || "—",
+        explanation: t.explanation || `Сверьте решение с ключевой идеей темы «${lesson.topic}».`,
+      }))
+    : (lesson.tasks.length ? lesson.tasks : fallbackTasks.map((item) => item.prompt)).map((task, index) => ({
+        id: `${lesson.id}-task-${index + 1}`,
+        prompt: task,
+        sourceLabel: primaryResource?.title ?? `Источник по теме ${lesson.topic}`,
+        expectedAnswer: fallbackTasks[index]?.expectedAnswer ?? `Ответ ${index + 1}`,
+        explanation:
+          fallbackTasks[index]?.explanation ??
+          `Сверьте решение с ключевой идеей темы «${lesson.topic}» и повторите правило перед следующей попыткой.`,
+      }));
 
   return {
     lesson,
     theoryText:
+      lesson.theoryMarkdown?.trim() ||
       primaryResource?.contentMarkdown?.trim() ||
       `На этом занятии разбираем тему «${lesson.topic}» по предмету ${lesson.subject}. Сначала коротко фиксируем базовое правило, затем смотрим на типовые шаги решения, и только после этого переходим к практике в формате ОГЭ.`,
     videoUrl: primaryResource?.videoUrl ?? primaryResource?.sourceUrl ?? null,

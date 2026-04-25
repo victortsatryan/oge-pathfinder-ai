@@ -1,11 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+import { createClient } from "@supabase/supabase-js";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Database } from "@/integrations/supabase/types";
 import { loadDefaultMvpState } from "@/lib/oge-mvp-data";
+
+async function getOptionalUserId(): Promise<string | null> {
+  try {
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
+    const request = getRequest();
+    const authHeader = request?.headers?.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) return null;
+    const token = authHeader.slice(7);
+    if (!token) return null;
+    const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+    });
+    const { data, error } = await client.auth.getClaims(token);
+    if (error) return null;
+    return data?.claims?.sub ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export const loadMvpState = createServerFn({ method: "GET" }).handler(async () => {
   try {
-    const [resourcesResponse, attemptsResponse, sourcesResponse] = await Promise.all([
+    const userId = await getOptionalUserId();
+
+    const [resourcesResponse, attemptsResponse, sourcesResponse, overridesResponse] = await Promise.all([
       supabaseAdmin
         .from("content_resources")
         .select("id, title, source_url, difficulty, tasks, content_markdown, video_url, solution_text, subjects(name), topics(title)")
@@ -22,16 +48,20 @@ export const loadMvpState = createServerFn({ method: "GET" }).handler(async () =
         .eq("is_published", true)
         .order("sort_order", { ascending: true })
         .limit(200),
+      userId
+        ? supabaseAdmin
+            .from("lesson_overrides")
+            .select("lesson_key, title, topic, lesson_date, slot_number, difficulty, status, teacher_note, theory_markdown, tasks")
+            .eq("user_id", userId)
+            .limit(500)
+        : Promise.resolve({ data: [], error: null } as const),
     ]);
 
-    if (resourcesResponse.error) {
-      console.error("Failed to load content resources", resourcesResponse.error);
-    }
-    if (attemptsResponse.error) {
-      console.error("Failed to load task attempts", attemptsResponse.error);
-    }
-    if (sourcesResponse.error) {
-      console.error("Failed to load learning sources", sourcesResponse.error);
+    if (resourcesResponse.error) console.error("Failed to load content resources", resourcesResponse.error);
+    if (attemptsResponse.error) console.error("Failed to load task attempts", attemptsResponse.error);
+    if (sourcesResponse.error) console.error("Failed to load learning sources", sourcesResponse.error);
+    if ("error" in overridesResponse && overridesResponse.error) {
+      console.error("Failed to load lesson overrides", overridesResponse.error);
     }
 
     return loadDefaultMvpState({
@@ -66,6 +96,28 @@ export const loadMvpState = createServerFn({ method: "GET" }).handler(async () =
           url: source.url,
           sourceKind: source.source_kind as "theory" | "practice" | "mixed",
         })) ?? [],
+      lessonOverrides:
+        (overridesResponse.data ?? []).map((row) => ({
+          lessonKey: row.lesson_key,
+          title: row.title,
+          topic: row.topic,
+          lessonDate: row.lesson_date,
+          slotNumber: row.slot_number,
+          difficulty: row.difficulty,
+          status: row.status,
+          teacherNote: row.teacher_note,
+          theoryMarkdown: row.theory_markdown,
+          tasks: Array.isArray(row.tasks)
+            ? (row.tasks as Array<Record<string, unknown>>).map((t, i) => ({
+                id: String(t.id ?? `task-${i + 1}`),
+                prompt: String(t.prompt ?? ""),
+                expectedAnswer: String(t.expectedAnswer ?? ""),
+                explanation: String(t.explanation ?? ""),
+                sourceLabel: String(t.sourceLabel ?? ""),
+                bankTaskId: t.bankTaskId ? String(t.bankTaskId) : null,
+              }))
+            : [],
+        })),
     });
   } catch (error) {
     console.error("Failed to load MVP state", error);

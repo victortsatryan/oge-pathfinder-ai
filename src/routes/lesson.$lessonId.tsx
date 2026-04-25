@@ -2,6 +2,8 @@ import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-rout
 import { useMemo, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { LessonEditorDialog } from "@/components/oge/lesson-editor-dialog";
 import { checkLessonAnswers, answerValueSchema } from "@/lib/oge-lesson.functions";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 import { getLessonDetail } from "@/lib/oge-mvp-data";
@@ -32,6 +34,7 @@ function LessonPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [result, setResult] = useState<null | Awaited<ReturnType<typeof checkLessonAnswers>>>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const progressLabel = useMemo(() => {
     if (step === 1) return "Шаг 1 из 3 · Теория";
@@ -95,6 +98,11 @@ function LessonPage() {
             <h1 className="display-title lesson-display-title">{detail.lesson.subject}</h1>
             <p className="lead-copy lesson-subtitle">{detail.lesson.topic}</p>
             <p className="lead-copy">{detail.coachIntro}</p>
+            <div className="mt-3">
+              <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
+                ✎ Редактировать занятие
+              </Button>
+            </div>
           </div>
 
           <div className="lesson-stepper" role="tablist" aria-label="Этапы занятия">
@@ -300,6 +308,13 @@ function LessonPage() {
           </aside>
         </section>
       </div>
+      <LessonEditorDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        lesson={detail.lesson}
+        initialTasks={detail.practiceTasks}
+        onSaved={() => router.invalidate()}
+      />
     </main>
   );
 }
