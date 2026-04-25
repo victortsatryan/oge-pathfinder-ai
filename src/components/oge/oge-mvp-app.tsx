@@ -29,6 +29,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 import { DiagnosticPanel } from "@/components/oge/diagnostic-panel";
+import { AssistantPanel } from "@/components/oge/assistant-panel";
 
 type ViewMode = "list" | "calendar" | "analytics" | "diagnostic" | "assistant";
 type CalendarMode = "period" | "week";
