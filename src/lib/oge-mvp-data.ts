@@ -32,6 +32,15 @@ export type ExternalSourceLink = {
   note?: string | null;
 };
 
+export type PlanCustomTask = {
+  id: string;
+  prompt: string;
+  expectedAnswer: string;
+  explanation: string;
+  sourceLabel: string;
+  bankTaskId?: string | null;
+};
+
 export type PlanItem = {
   id: string;
   subject: string;
@@ -48,6 +57,11 @@ export type PlanItem = {
   externalSources: ExternalSourceLink[];
   tasks: string[];
   result: LessonResult | null;
+  customTasks?: PlanCustomTask[];
+  teacherNote?: string | null;
+  theoryMarkdown?: string | null;
+  difficulty?: string | null;
+  isEdited?: boolean;
 };
 
 export type SubjectProgram = {
