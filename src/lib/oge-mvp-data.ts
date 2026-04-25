@@ -555,19 +555,30 @@ export function getLessonDetail(state: OgeMvpState, lessonId: string): LessonDet
 
   const primaryResource = lesson.resources[0] ?? null;
   const fallbackTasks = buildFallbackPracticeTasks(lesson);
-  const practiceTasks = (lesson.tasks.length ? lesson.tasks : fallbackTasks.map((item) => item.prompt)).map((task, index) => ({
-    id: `${lesson.id}-task-${index + 1}`,
-    prompt: task,
-    sourceLabel: primaryResource?.title ?? `Источник по теме ${lesson.topic}`,
-    expectedAnswer: fallbackTasks[index]?.expectedAnswer ?? `Ответ ${index + 1}`,
-    explanation:
-      fallbackTasks[index]?.explanation ??
-      `Сверьте решение с ключевой идеей темы «${lesson.topic}» и повторите правило перед следующей попыткой.`,
-  }));
+  const customTasks = lesson.customTasks ?? [];
+
+  const practiceTasks: LessonPracticeTask[] = customTasks.length
+    ? customTasks.map((t) => ({
+        id: t.id,
+        prompt: t.prompt,
+        sourceLabel: t.sourceLabel || (t.bankTaskId ? "Из банка заданий" : "Добавлено вручную"),
+        expectedAnswer: t.expectedAnswer || "—",
+        explanation: t.explanation || `Сверьте решение с ключевой идеей темы «${lesson.topic}».`,
+      }))
+    : (lesson.tasks.length ? lesson.tasks : fallbackTasks.map((item) => item.prompt)).map((task, index) => ({
+        id: `${lesson.id}-task-${index + 1}`,
+        prompt: task,
+        sourceLabel: primaryResource?.title ?? `Источник по теме ${lesson.topic}`,
+        expectedAnswer: fallbackTasks[index]?.expectedAnswer ?? `Ответ ${index + 1}`,
+        explanation:
+          fallbackTasks[index]?.explanation ??
+          `Сверьте решение с ключевой идеей темы «${lesson.topic}» и повторите правило перед следующей попыткой.`,
+      }));
 
   return {
     lesson,
     theoryText:
+      lesson.theoryMarkdown?.trim() ||
       primaryResource?.contentMarkdown?.trim() ||
       `На этом занятии разбираем тему «${lesson.topic}» по предмету ${lesson.subject}. Сначала коротко фиксируем базовое правило, затем смотрим на типовые шаги решения, и только после этого переходим к практике в формате ОГЭ.`,
     videoUrl: primaryResource?.videoUrl ?? primaryResource?.sourceUrl ?? null,
