@@ -188,13 +188,17 @@ export type Database = {
       }
       external_diagnostic_results: {
         Row: {
+          attachment_kind: string | null
+          attachment_url: string | null
           created_at: string
           id: string
           max_score: number | null
           notes: string | null
+          raw_text: string | null
           score: number | null
           score_percent: number | null
           source_name: string
+          source_url: string | null
           strong_topics: Json
           subject_id: string
           taken_on: string
@@ -203,13 +207,17 @@ export type Database = {
           weak_topics: Json
         }
         Insert: {
+          attachment_kind?: string | null
+          attachment_url?: string | null
           created_at?: string
           id?: string
           max_score?: number | null
           notes?: string | null
+          raw_text?: string | null
           score?: number | null
           score_percent?: number | null
           source_name: string
+          source_url?: string | null
           strong_topics?: Json
           subject_id: string
           taken_on?: string
@@ -218,13 +226,17 @@ export type Database = {
           weak_topics?: Json
         }
         Update: {
+          attachment_kind?: string | null
+          attachment_url?: string | null
           created_at?: string
           id?: string
           max_score?: number | null
           notes?: string | null
+          raw_text?: string | null
           score?: number | null
           score_percent?: number | null
           source_name?: string
+          source_url?: string | null
           strong_topics?: Json
           subject_id?: string
           taken_on?: string
