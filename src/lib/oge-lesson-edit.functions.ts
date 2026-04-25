@@ -36,19 +36,19 @@ export const saveLessonOverride = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
 
-    const payload: Record<string, unknown> = {
+    const payload = {
       user_id: userId,
       lesson_key: data.lessonKey,
+      title: data.title ?? null,
+      topic: data.topic ?? null,
+      lesson_date: data.lessonDate ?? null,
+      slot_number: data.slotNumber ?? null,
+      difficulty: data.difficulty ?? null,
+      status: data.status ?? null,
+      teacher_note: data.teacherNote ?? null,
+      theory_markdown: data.theoryMarkdown ?? null,
+      tasks: (data.tasks ?? []) as unknown as never,
     };
-    if (data.title !== undefined) payload.title = data.title;
-    if (data.topic !== undefined) payload.topic = data.topic;
-    if (data.lessonDate !== undefined) payload.lesson_date = data.lessonDate;
-    if (data.slotNumber !== undefined) payload.slot_number = data.slotNumber;
-    if (data.difficulty !== undefined) payload.difficulty = data.difficulty;
-    if (data.status !== undefined) payload.status = data.status;
-    if (data.teacherNote !== undefined) payload.teacher_note = data.teacherNote;
-    if (data.theoryMarkdown !== undefined) payload.theory_markdown = data.theoryMarkdown;
-    if (data.tasks !== undefined) payload.tasks = data.tasks;
 
     const { data: row, error } = await supabaseAdmin
       .from("lesson_overrides")
