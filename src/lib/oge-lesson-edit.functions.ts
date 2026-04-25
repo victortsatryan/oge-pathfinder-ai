@@ -84,10 +84,21 @@ export const searchTaskBank = createServerFn({ method: "POST" })
       query = query.ilike("prompt", `%${data.query.trim()}%`);
     }
 
+    type BankTask = {
+      id: string;
+      prompt: string;
+      explanation: string;
+      correctAnswer: string;
+      subjectName: string;
+      topicTitle: string;
+      difficulty: string;
+      examSection: string;
+    };
+
     const { data: rows, error } = await query;
     if (error) {
       console.error("searchTaskBank failed", error);
-      return { tasks: [] as Array<Record<string, unknown>> };
+      return { tasks: [] as BankTask[] };
     }
 
     const filtered = (rows ?? []).filter((row) => {
