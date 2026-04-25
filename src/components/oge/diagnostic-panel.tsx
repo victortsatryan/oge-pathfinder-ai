@@ -585,7 +585,6 @@ export function DiagnosticPanel({ planItems }: Props) {
                     ? "Автозавершение · "
                     : "Платформа · "}
                   {new Date(h.date).toLocaleDateString("ru-RU")}
-                  {h.scorePercent != null ? ` · ${h.scorePercent}%` : ""}
                 </div>
                 {topics.length > 0 ? (
                   <p className="status-line">Темы: {topics.join(", ")}</p>
@@ -641,6 +640,7 @@ export function DiagnosticPanel({ planItems }: Props) {
                             <div className="list-row__meta">
                               Задание №{d.taskNumber} · {d.topicTitle ?? "Без темы"}
                             </div>
+                            {d.taskType ? <div className="list-row__meta">Тип: {d.taskType}</div> : null}
                             {d.prompt ? (
                               <div className="diagnostic-task-card__prompt">{d.prompt}</div>
                             ) : null}
@@ -663,12 +663,18 @@ export function DiagnosticPanel({ planItems }: Props) {
                         </p>
                         {!d.isCorrect ? (
                           <p className="status-line">
+                            Ошибка: {d.errorTitle || "неверный ответ"}
+                          </p>
+                        ) : null}
+                        {!d.isCorrect ? (
+                          <p className="status-line">
                             Правильный ответ:{" "}
                             {Array.isArray(d.correctAnswer)
                               ? d.correctAnswer.join(", ")
                               : d.correctAnswer ?? "—"}
                           </p>
                         ) : null}
+                        {d.comment ? <p className="status-line">Комментарий: {d.comment}</p> : null}
                       </article>
                     ))}
                   </div>
@@ -696,13 +702,35 @@ export function DiagnosticPanel({ planItems }: Props) {
 
 type UploadMode = "link" | "text" | "photo";
 
+type ExternalTaskDetailDraft = {
+  taskNumber: string;
+  taskType: string;
+  topicTitle: string;
+  errorTitle: string;
+  userAnswer: string;
+  correctAnswer: string;
+  comment: string;
+};
+
+const blankExternalTask = (taskNumber = 1): ExternalTaskDetailDraft => ({
+  taskNumber: String(taskNumber),
+  taskType: "",
+  topicTitle: "",
+  errorTitle: "",
+  userAnswer: "",
+  correctAnswer: "",
+  comment: "",
+});
+
 function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]; onSaved: () => Promise<void> | void }) {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [sourceName, setSourceName] = useState("");
   const [takenOn, setTakenOn] = useState(new Date().toISOString().slice(0, 10));
-  const [scorePercent, setScorePercent] = useState<string>("");
+  const [completedCount, setCompletedCount] = useState<string>("");
+  const [totalCount, setTotalCount] = useState<string>("");
   const [weakTopicsRaw, setWeakTopicsRaw] = useState("");
   const [notes, setNotes] = useState("");
+  const [taskDetails, setTaskDetails] = useState<ExternalTaskDetailDraft[]>([blankExternalTask()]);
   const [mode, setMode] = useState<UploadMode>("link");
   const [sourceUrl, setSourceUrl] = useState("");
   const [rawText, setRawText] = useState("");
@@ -746,6 +774,18 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
     return signed.signedUrl;
   }
 
+  function updateTaskDetail(index: number, patch: Partial<ExternalTaskDetailDraft>) {
+    setTaskDetails((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function addExternalTask() {
+    setTaskDetails((prev) => [...prev, blankExternalTask(prev.length + 1)]);
+  }
+
+  function removeExternalTask(index: number) {
+    setTaskDetails((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -753,9 +793,10 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       setError("Укажите предмет и источник.");
       return;
     }
-    const pct = scorePercent.trim().length > 0 ? Number(scorePercent) : null;
-    if (pct != null && (Number.isNaN(pct) || pct < 0 || pct > 100)) {
-      setError("Процент должен быть от 0 до 100.");
+    const completed = completedCount.trim().length > 0 ? Number(completedCount) : null;
+    const total = totalCount.trim().length > 0 ? Number(totalCount) : null;
+    if (completed == null || total == null || !Number.isInteger(completed) || !Number.isInteger(total) || completed < 0 || total < 1 || completed > total) {
+      setError("Укажите выполненные задания в формате: выполнено из общего числа.");
       return;
     }
     if (mode === "link" && !sourceUrl.trim()) {
@@ -786,7 +827,9 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           subjectId,
           sourceName: sourceName.trim(),
           takenOn,
-          scorePercent: pct,
+          score: completed,
+          maxScore: total,
+          scorePercent: null,
           weakTopics: weakTopicsRaw.split(",").map((s) => s.trim()).filter(Boolean),
           strongTopics: [],
           notes: notes.trim() || null,
@@ -794,6 +837,17 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           rawText: mode === "text" ? rawText.trim() : null,
           attachmentUrl,
           attachmentKind: mode,
+          taskDetails: taskDetails
+            .map((row, idx) => ({
+              taskNumber: row.taskNumber.trim() ? Number(row.taskNumber) : idx + 1,
+              taskType: row.taskType.trim() || null,
+              topicTitle: row.topicTitle.trim() || null,
+              errorTitle: row.errorTitle.trim() || null,
+              userAnswer: row.userAnswer.trim() || null,
+              correctAnswer: row.correctAnswer.trim() || null,
+              comment: row.comment.trim() || null,
+            }))
+            .filter((row) => row.topicTitle || row.errorTitle || row.taskType || row.userAnswer || row.correctAnswer || row.comment),
         },
       });
       if (!res?.ok) {
@@ -801,9 +855,11 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
         return;
       }
       setSourceName("");
-      setScorePercent("");
+      setCompletedCount("");
+      setTotalCount("");
       setWeakTopicsRaw("");
       setNotes("");
+      setTaskDetails([blankExternalTask()]);
       resetPayload();
       await onSaved();
     } catch (err) {
@@ -839,8 +895,12 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           <input type="date" value={takenOn} onChange={(e) => setTakenOn(e.target.value)} />
         </label>
         <label className="editor-field">
-          <span>Результат, %</span>
-          <input type="number" min={0} max={100} value={scorePercent} onChange={(e) => setScorePercent(e.target.value)} placeholder="например, 72" />
+          <span>Выполнено заданий</span>
+          <input type="number" min={0} value={completedCount} onChange={(e) => setCompletedCount(e.target.value)} placeholder="например, 7" />
+        </label>
+        <label className="editor-field">
+          <span>Из общего числа</span>
+          <input type="number" min={1} value={totalCount} onChange={(e) => setTotalCount(e.target.value)} placeholder="например, 10" />
         </label>
       </div>
 
@@ -901,6 +961,61 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           ) : null}
         </label>
       ) : null}
+
+      <div className="diagnostic-feedback-card">
+        <div className="diagnostic-feedback-card__head">
+          <strong>Задания и ошибки</strong>
+          <button type="button" className="action-link" onClick={addExternalTask}>
+            <Plus className="h-4 w-4" /> Добавить задание
+          </button>
+        </div>
+        <div className="diagnostic-task-stack">
+          {taskDetails.map((row, index) => (
+            <article key={index} className="diagnostic-task-card">
+              <div className="diagnostic-task-card__head">
+                <strong>Строка задания</strong>
+                {taskDetails.length > 1 ? (
+                  <button type="button" className="action-link" onClick={() => removeExternalTask(index)} aria-label="Удалить строку задания">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+              <div className="diagnostic-summary-grid">
+                <label className="editor-field">
+                  <span>№ задания</span>
+                  <input type="number" min={1} value={row.taskNumber} onChange={(e) => updateTaskDetail(index, { taskNumber: e.target.value })} />
+                </label>
+                <label className="editor-field">
+                  <span>Тип задания</span>
+                  <input value={row.taskType} onChange={(e) => updateTaskDetail(index, { taskType: e.target.value })} placeholder="например, текстовая задача" />
+                </label>
+                <label className="editor-field">
+                  <span>Тема</span>
+                  <input value={row.topicTitle} onChange={(e) => updateTaskDetail(index, { topicTitle: e.target.value })} placeholder="например, дроби" />
+                </label>
+                <label className="editor-field">
+                  <span>Ошибка</span>
+                  <input value={row.errorTitle} onChange={(e) => updateTaskDetail(index, { errorTitle: e.target.value })} placeholder="например, вычислительная" />
+                </label>
+              </div>
+              <div className="diagnostic-summary-grid">
+                <label className="editor-field">
+                  <span>Ответ ученика</span>
+                  <input value={row.userAnswer} onChange={(e) => updateTaskDetail(index, { userAnswer: e.target.value })} />
+                </label>
+                <label className="editor-field">
+                  <span>Правильный ответ</span>
+                  <input value={row.correctAnswer} onChange={(e) => updateTaskDetail(index, { correctAnswer: e.target.value })} />
+                </label>
+              </div>
+              <label className="editor-field">
+                <span>Комментарий</span>
+                <textarea value={row.comment} onChange={(e) => updateTaskDetail(index, { comment: e.target.value })} rows={2} />
+              </label>
+            </article>
+          ))}
+        </div>
+      </div>
 
       <label className="editor-field">
         <span>Слабые темы (через запятую)</span>

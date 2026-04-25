@@ -28,12 +28,15 @@ export type SubjectDiagnosticBundle = {
 export type DiagnosticAnswerDetail = {
   taskId: string;
   taskNumber: number;
+  taskType?: string | null;
   isCorrect: boolean;
   topicTitle: string | null;
+  errorTitle?: string | null;
   prompt: string | null;
   answerType: string | null;
   userAnswer: string | string[] | null;
   correctAnswer: string | string[] | null;
+  comment?: string | null;
 };
 
 export type DiagnosticHistoryItem = {
@@ -228,6 +231,17 @@ const externalSchema = z.object({
   rawText: z.string().max(20000).optional().nullable(),
   attachmentUrl: z.string().max(2000).optional().nullable(),
   attachmentKind: z.enum(["link", "text", "photo"]).optional().nullable(),
+  taskDetails: z.array(
+    z.object({
+      taskNumber: z.number().int().min(1),
+      taskType: z.string().max(120).optional().nullable(),
+      topicTitle: z.string().max(240).optional().nullable(),
+      errorTitle: z.string().max(240).optional().nullable(),
+      userAnswer: z.string().max(1000).optional().nullable(),
+      correctAnswer: z.string().max(1000).optional().nullable(),
+      comment: z.string().max(1000).optional().nullable(),
+    }),
+  ).default([]),
 });
 
 export const saveExternalDiagnostic = createServerFn({ method: "POST" })
@@ -250,6 +264,7 @@ export const saveExternalDiagnostic = createServerFn({ method: "POST" })
       raw_text: data.rawText ?? null,
       attachment_url: data.attachmentUrl ?? null,
       attachment_kind: data.attachmentKind ?? null,
+      task_details: data.taskDetails as any,
     });
     if (error) {
       console.error("saveExternalDiagnostic", error);
@@ -297,7 +312,7 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         .limit(50),
       supabase
         .from("external_diagnostic_results" as any)
-        .select("id, subject_id, source_name, taken_on, score, max_score, score_percent, weak_topics, strong_topics, notes, created_at, source_url, raw_text, attachment_url, attachment_kind")
+        .select("id, subject_id, source_name, taken_on, score, max_score, score_percent, weak_topics, strong_topics, notes, created_at, source_url, raw_text, attachment_url, attachment_kind, task_details")
         .order("taken_on", { ascending: false })
         .limit(50),
       supabaseAdmin.from("subjects").select("id, name"),
@@ -317,12 +332,15 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
       const details: DiagnosticAnswerDetail[] = rawAnswers.map((a, idx) => ({
         taskId: String(a?.taskId ?? ""),
         taskNumber: Number(a?.taskNumber ?? idx + 1),
+        taskType: a?.taskType ?? a?.answerType ?? null,
         isCorrect: Boolean(a?.isCorrect),
         topicTitle: a?.topicTitle ?? null,
+        errorTitle: a?.errorTitle ?? null,
         prompt: a?.prompt ?? null,
         answerType: a?.answerType ?? null,
         userAnswer: a?.userAnswer ?? null,
         correctAnswer: a?.correctAnswer ?? null,
+        comment: a?.comment ?? null,
       }));
       const autoFlag = rawAnswers.some((a) => a?.autoSubmitted === true);
       items.push({
@@ -351,6 +369,20 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
     for (const row of (external.data ?? []) as any[]) {
       const score = row.score == null ? null : Number(row.score);
       const max = row.max_score == null ? null : Number(row.max_score);
+      const rawDetails: any[] = Array.isArray(row.task_details) ? row.task_details : [];
+      const details: DiagnosticAnswerDetail[] = rawDetails.map((d, idx) => ({
+        taskId: `external-${row.id}-${idx}`,
+        taskNumber: Number(d?.taskNumber ?? idx + 1),
+        taskType: d?.taskType ?? null,
+        isCorrect: !d?.errorTitle,
+        topicTitle: d?.topicTitle ?? null,
+        errorTitle: d?.errorTitle ?? null,
+        prompt: null,
+        answerType: d?.taskType ?? null,
+        userAnswer: d?.userAnswer ?? null,
+        correctAnswer: d?.correctAnswer ?? null,
+        comment: d?.comment ?? null,
+      }));
       items.push({
         id: row.id,
         source: "external",
@@ -370,7 +402,7 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         rawText: row.raw_text ?? null,
         attachmentUrl: row.attachment_url ?? null,
         attachmentKind: row.attachment_kind ?? null,
-        details: [],
+        details,
       });
     }
 
