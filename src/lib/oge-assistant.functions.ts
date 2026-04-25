@@ -74,7 +74,7 @@ export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
       method: "POST",
       headers: aiHeaders(),
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: ANALYTICS_MODEL,
         messages: [
           {
             role: "system",
