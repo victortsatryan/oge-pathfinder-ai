@@ -230,9 +230,24 @@ export const deleteExternalDiagnostic = createServerFn({ method: "POST" })
   });
 
 export const listDiagnosticHistory = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+  .handler(async () => {
+    // Try to get auth, but return empty list gracefully if unauthenticated
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { createClient } = await import("@supabase/supabase-js");
+    const request = getRequest();
+    const authHeader = request?.headers?.get?.("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return { items: [] as DiagnosticHistoryItem[] };
+    }
+    const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_PUBLISHABLE_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    const { data: claimsData } = await supabase.auth.getClaims(token);
+    const userId = claimsData?.claims?.sub;
+    if (!userId) return { items: [] as DiagnosticHistoryItem[] };
 
     const [internal, external, subjects] = await Promise.all([
       supabase
