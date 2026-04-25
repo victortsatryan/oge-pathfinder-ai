@@ -312,7 +312,7 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         .limit(50),
       supabase
         .from("external_diagnostic_results" as any)
-        .select("id, subject_id, source_name, taken_on, score, max_score, score_percent, weak_topics, strong_topics, notes, created_at, source_url, raw_text, attachment_url, attachment_kind")
+        .select("id, subject_id, source_name, taken_on, score, max_score, score_percent, weak_topics, strong_topics, notes, created_at, source_url, raw_text, attachment_url, attachment_kind, task_details")
         .order("taken_on", { ascending: false })
         .limit(50),
       supabaseAdmin.from("subjects").select("id, name"),
@@ -332,12 +332,15 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
       const details: DiagnosticAnswerDetail[] = rawAnswers.map((a, idx) => ({
         taskId: String(a?.taskId ?? ""),
         taskNumber: Number(a?.taskNumber ?? idx + 1),
+        taskType: a?.taskType ?? a?.answerType ?? null,
         isCorrect: Boolean(a?.isCorrect),
         topicTitle: a?.topicTitle ?? null,
+        errorTitle: a?.errorTitle ?? null,
         prompt: a?.prompt ?? null,
         answerType: a?.answerType ?? null,
         userAnswer: a?.userAnswer ?? null,
         correctAnswer: a?.correctAnswer ?? null,
+        comment: a?.comment ?? null,
       }));
       const autoFlag = rawAnswers.some((a) => a?.autoSubmitted === true);
       items.push({
