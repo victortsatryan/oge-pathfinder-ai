@@ -25,16 +25,33 @@ export type SubjectDiagnosticBundle = {
   tasks: DiagnosticTaskRow[];
 };
 
+export type DiagnosticAnswerDetail = {
+  taskId: string;
+  taskNumber: number;
+  isCorrect: boolean;
+  topicTitle: string | null;
+  prompt: string | null;
+  answerType: string | null;
+  userAnswer: string | string[] | null;
+  correctAnswer: string | string[] | null;
+};
+
 export type DiagnosticHistoryItem = {
   id: string;
   source: "platform" | "external";
   subjectId: string;
   subjectName: string;
   date: string;
+  score: number | null;
+  maxScore: number | null;
   scorePercent: number | null;
   weakTopics: string[];
   strongTopics: string[];
   notes: string | null;
+  autoSubmitted: boolean;
+  diagnosticType: string | null;
+  sourceName: string | null;
+  details: DiagnosticAnswerDetail[];
 };
 
 const subjectIdSchema = z.object({ subjectId: z.string().uuid() });
