@@ -13,6 +13,7 @@ import {
   type DiagnosticHistoryItem,
 } from "@/lib/oge-diagnostic.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
+import { supabase } from "@/integrations/supabase/client";
 
 const SUBJECT_DURATION_SECONDS = 30 * 60;
 
