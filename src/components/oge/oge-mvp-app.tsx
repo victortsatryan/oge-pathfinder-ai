@@ -12,6 +12,7 @@ import {
   CircleHelp,
   Clock3,
   PencilLine,
+  Sparkles,
   TimerReset,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
