@@ -558,34 +558,112 @@ export function DiagnosticPanel({ planItems }: Props) {
           {!historyLoading && history.length === 0 ? (
             <div className="calendar-empty">Пока нет результатов. Пройдите диагностику или загрузите внешний результат.</div>
           ) : null}
-          {history.map((h) => (
-            <article key={`${h.source}-${h.id}`} className="analytics-list-card">
-              <div className="analytics-list-card__head">
-                <span className="subject-chip">{h.subjectName}</span>
-                <strong>{h.scorePercent != null ? `${h.scorePercent}%` : "—"}</strong>
-              </div>
-              <div className="list-row__meta">
-                {h.source === "external" ? "Внешняя · " : "Платформа · "}
-                {new Date(h.date).toLocaleDateString("ru-RU")}
-              </div>
-              {(h.weakTopics?.length ?? 0) > 0 ? (
-                <p className="status-line">Слабые темы: {h.weakTopics.join(", ")}</p>
-              ) : null}
-              {h.notes ? <p className="status-line">{h.notes}</p> : null}
-              {h.source === "external" ? (
-                <button
-                  type="button"
-                  className="action-link"
-                  onClick={async () => {
-                    await deleteExternalDiagnostic({ data: { id: h.id } });
-                    await refreshHistory();
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" /> Удалить
-                </button>
-              ) : null}
-            </article>
-          ))}
+          {history.map((h) => {
+            const isOpen = expandedHistoryId === `${h.source}-${h.id}`;
+            const errors = h.details.filter((d) => !d.isCorrect);
+            const topics = Array.from(
+              new Set(h.details.map((d) => d.topicTitle).filter((t): t is string => !!t)),
+            );
+            return (
+              <article key={`${h.source}-${h.id}`} className="analytics-list-card">
+                <div className="analytics-list-card__head">
+                  <span className="subject-chip">{h.subjectName}</span>
+                  <strong>
+                    {h.score != null && h.maxScore != null
+                      ? `${h.score} / ${h.maxScore}`
+                      : h.scorePercent != null
+                      ? `${h.scorePercent}%`
+                      : "—"}
+                  </strong>
+                </div>
+                <div className="list-row__meta">
+                  {h.source === "external"
+                    ? `Внешняя${h.sourceName ? " · " + h.sourceName : ""} · `
+                    : h.autoSubmitted
+                    ? "Автозавершение · "
+                    : "Платформа · "}
+                  {new Date(h.date).toLocaleDateString("ru-RU")}
+                  {h.scorePercent != null ? ` · ${h.scorePercent}%` : ""}
+                </div>
+                {topics.length > 0 ? (
+                  <p className="status-line">Темы: {topics.join(", ")}</p>
+                ) : null}
+                {(h.weakTopics?.length ?? 0) > 0 ? (
+                  <p className="status-line">Слабые темы: {h.weakTopics.join(", ")}</p>
+                ) : null}
+                {h.notes ? <p className="status-line">{h.notes}</p> : null}
+                {h.details.length > 0 ? (
+                  <div className="lesson-actions-row">
+                    <button
+                      type="button"
+                      className="action-link"
+                      onClick={() =>
+                        setExpandedHistoryId(isOpen ? null : `${h.source}-${h.id}`)
+                      }
+                    >
+                      {isOpen ? "Скрыть задания" : `Показать задания (${h.details.length})`}
+                    </button>
+                    {errors.length > 0 ? (
+                      <span className="list-badge">Ошибок: {errors.length}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {isOpen && h.details.length > 0 ? (
+                  <div className="diagnostic-task-stack">
+                    {h.details.map((d) => (
+                      <article key={`${h.id}-${d.taskNumber}`} className="diagnostic-task-card">
+                        <div className="diagnostic-task-card__head">
+                          <div>
+                            <div className="list-row__meta">
+                              Задание №{d.taskNumber} · {d.topicTitle ?? "Без темы"}
+                            </div>
+                            {d.prompt ? (
+                              <div className="diagnostic-task-card__prompt">{d.prompt}</div>
+                            ) : null}
+                          </div>
+                          <span
+                            className={
+                              d.isCorrect
+                                ? "status-pill status-pill--done"
+                                : "status-pill status-pill--pending"
+                            }
+                          >
+                            {d.isCorrect ? "Верно" : "Ошибка"}
+                          </span>
+                        </div>
+                        <p className="status-line">
+                          Ваш ответ:{" "}
+                          {Array.isArray(d.userAnswer)
+                            ? d.userAnswer.join(", ") || "—"
+                            : (d.userAnswer ?? "—") || "—"}
+                        </p>
+                        {!d.isCorrect ? (
+                          <p className="status-line">
+                            Правильный ответ:{" "}
+                            {Array.isArray(d.correctAnswer)
+                              ? d.correctAnswer.join(", ")
+                              : d.correctAnswer ?? "—"}
+                          </p>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+                {h.source === "external" ? (
+                  <button
+                    type="button"
+                    className="action-link"
+                    onClick={async () => {
+                      await deleteExternalDiagnostic({ data: { id: h.id } });
+                      await refreshHistory();
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" /> Удалить
+                  </button>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </section>
     </div>
