@@ -1,12 +1,35 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+import { createClient } from "@supabase/supabase-js";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { getSupabaseUserFromRequest } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 import { loadDefaultMvpState } from "@/lib/oge-mvp-data";
+
+async function getOptionalUserId(): Promise<string | null> {
+  try {
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
+    const request = getRequest();
+    const authHeader = request?.headers?.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) return null;
+    const token = authHeader.slice(7);
+    if (!token) return null;
+    const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+    });
+    const { data, error } = await client.auth.getClaims(token);
+    if (error) return null;
+    return data?.claims?.sub ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export const loadMvpState = createServerFn({ method: "GET" }).handler(async () => {
   try {
-    const user = await getSupabaseUserFromRequest().catch(() => null);
+    const userId = await getOptionalUserId();
 
     const [resourcesResponse, attemptsResponse, sourcesResponse, overridesResponse] = await Promise.all([
       supabaseAdmin
