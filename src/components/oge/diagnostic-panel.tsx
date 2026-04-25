@@ -585,7 +585,6 @@ export function DiagnosticPanel({ planItems }: Props) {
                     ? "Автозавершение · "
                     : "Платформа · "}
                   {new Date(h.date).toLocaleDateString("ru-RU")}
-                  {h.scorePercent != null ? ` · ${h.scorePercent}%` : ""}
                 </div>
                 {topics.length > 0 ? (
                   <p className="status-line">Темы: {topics.join(", ")}</p>
@@ -641,6 +640,7 @@ export function DiagnosticPanel({ planItems }: Props) {
                             <div className="list-row__meta">
                               Задание №{d.taskNumber} · {d.topicTitle ?? "Без темы"}
                             </div>
+                            {d.taskType ? <div className="list-row__meta">Тип: {d.taskType}</div> : null}
                             {d.prompt ? (
                               <div className="diagnostic-task-card__prompt">{d.prompt}</div>
                             ) : null}
@@ -663,12 +663,18 @@ export function DiagnosticPanel({ planItems }: Props) {
                         </p>
                         {!d.isCorrect ? (
                           <p className="status-line">
+                            Ошибка: {d.errorTitle || "неверный ответ"}
+                          </p>
+                        ) : null}
+                        {!d.isCorrect ? (
+                          <p className="status-line">
                             Правильный ответ:{" "}
                             {Array.isArray(d.correctAnswer)
                               ? d.correctAnswer.join(", ")
                               : d.correctAnswer ?? "—"}
                           </p>
                         ) : null}
+                        {d.comment ? <p className="status-line">Комментарий: {d.comment}</p> : null}
                       </article>
                     ))}
                   </div>
