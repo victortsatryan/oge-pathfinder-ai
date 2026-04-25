@@ -28,12 +28,15 @@ export type SubjectDiagnosticBundle = {
 export type DiagnosticAnswerDetail = {
   taskId: string;
   taskNumber: number;
+  taskType?: string | null;
   isCorrect: boolean;
   topicTitle: string | null;
+  errorTitle?: string | null;
   prompt: string | null;
   answerType: string | null;
   userAnswer: string | string[] | null;
   correctAnswer: string | string[] | null;
+  comment?: string | null;
 };
 
 export type DiagnosticHistoryItem = {
@@ -228,6 +231,17 @@ const externalSchema = z.object({
   rawText: z.string().max(20000).optional().nullable(),
   attachmentUrl: z.string().max(2000).optional().nullable(),
   attachmentKind: z.enum(["link", "text", "photo"]).optional().nullable(),
+  taskDetails: z.array(
+    z.object({
+      taskNumber: z.number().int().min(1),
+      taskType: z.string().max(120).optional().nullable(),
+      topicTitle: z.string().max(240).optional().nullable(),
+      errorTitle: z.string().max(240).optional().nullable(),
+      userAnswer: z.string().max(1000).optional().nullable(),
+      correctAnswer: z.string().max(1000).optional().nullable(),
+      comment: z.string().max(1000).optional().nullable(),
+    }),
+  ).default([]),
 });
 
 export const saveExternalDiagnostic = createServerFn({ method: "POST" })
@@ -250,6 +264,7 @@ export const saveExternalDiagnostic = createServerFn({ method: "POST" })
       raw_text: data.rawText ?? null,
       attachment_url: data.attachmentUrl ?? null,
       attachment_kind: data.attachmentKind ?? null,
+      task_details: data.taskDetails as any,
     });
     if (error) {
       console.error("saveExternalDiagnostic", error);
