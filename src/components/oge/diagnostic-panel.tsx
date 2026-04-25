@@ -139,7 +139,51 @@ export function DiagnosticPanel({ planItems }: Props) {
     }));
   }
 
-  // Timer
+  // Build enriched answer payload for saving
+  function buildAnswersPayload(state: SubjectState, result: ReturnType<typeof evaluate>) {
+    return state.tasks.map((t, idx) => {
+      const ev = result.evaluated.find((e) => e.task.id === t.id);
+      const userAns = state.answers[t.id];
+      return {
+        taskId: t.id,
+        taskNumber: idx + 1,
+        isCorrect: !!ev?.isCorrect,
+        topicTitle: t.topicTitle ?? null,
+        prompt: t.prompt,
+        answerType: t.answerType,
+        userAnswer: Array.isArray(userAns) ? userAns : (typeof userAns === "string" ? userAns : ""),
+        correctAnswer: t.correctAnswer,
+      };
+    });
+  }
+
+  async function persistSession(
+    subjectId: string,
+    state: SubjectState,
+    result: ReturnType<typeof evaluate>,
+    autoSubmitted: boolean,
+  ) {
+    if (state.tasks.length === 0) return;
+    try {
+      await saveDiagnosticSession({
+        data: {
+          subjectId,
+          scorePercent: result.scorePercent,
+          score: result.correctCount,
+          maxScore: state.tasks.length,
+          weakTopics: result.weakTopics,
+          strongTopics: result.strongTopics,
+          autoSubmitted,
+          answers: buildAnswersPayload(state, result),
+        },
+      });
+      await refreshHistory();
+    } catch (e) {
+      console.error("persistSession failed", e);
+    }
+  }
+
+  // Timer — auto-submit on 0 and persist
   useEffect(() => {
     if (!activeState.started || activeState.submitted) return;
     const id = window.setInterval(() => {
@@ -150,12 +194,17 @@ export function DiagnosticPanel({ planItems }: Props) {
         const next = cur.remaining - 1;
         if (next <= 0) {
           const result = evaluate(cur.tasks, cur.answers);
-          return { ...prev, [activeSubjectId]: { ...cur, started: false, submitted: true, remaining: 0, result } };
+          const finished: SubjectState = { ...cur, started: false, submitted: true, remaining: 0, result };
+          queueMicrotask(() => {
+            void persistSession(activeSubjectId, finished, result, true);
+          });
+          return { ...prev, [activeSubjectId]: finished };
         }
         return { ...prev, [activeSubjectId]: { ...cur, remaining: next } };
       });
     }, 1000);
     return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeState.started, activeState.submitted, activeSubjectId]);
 
   async function handleStart() {
@@ -179,27 +228,9 @@ export function DiagnosticPanel({ planItems }: Props) {
   async function handleSubmit() {
     if (!activeSubject) return;
     const result = evaluate(activeState.tasks, activeState.answers);
+    const finished: SubjectState = { ...activeState, started: false, submitted: true, result };
     updateState({ started: false, submitted: true, result });
-    try {
-      await saveDiagnosticSession({
-        data: {
-          subjectId: activeSubject.id,
-          scorePercent: result.scorePercent,
-          score: result.correctCount,
-          maxScore: activeState.tasks.length,
-          weakTopics: result.weakTopics,
-          strongTopics: result.strongTopics,
-          answers: result.evaluated.map((e) => ({
-            taskId: e.task.id,
-            isCorrect: e.isCorrect,
-            topicTitle: e.task.topicTitle,
-          })),
-        },
-      });
-      await refreshHistory();
-    } catch (e) {
-      console.error(e);
-    }
+    await persistSession(activeSubject.id, finished, result, false);
   }
 
   function answerSingle(taskId: string, value: string) {
