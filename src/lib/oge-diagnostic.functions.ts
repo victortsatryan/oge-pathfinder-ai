@@ -150,11 +150,17 @@ const sessionResultSchema = z.object({
   maxScore: z.number().min(0),
   weakTopics: z.array(z.string()).default([]),
   strongTopics: z.array(z.string()).default([]),
+  autoSubmitted: z.boolean().default(false),
   answers: z.array(
     z.object({
       taskId: z.string(),
+      taskNumber: z.number().int().min(1),
       isCorrect: z.boolean(),
       topicTitle: z.string().nullable().optional(),
+      prompt: z.string().optional(),
+      answerType: z.string().optional(),
+      userAnswer: z.union([z.string(), z.array(z.string())]).optional(),
+      correctAnswer: z.union([z.string(), z.array(z.string())]).optional(),
     }),
   ),
 });
