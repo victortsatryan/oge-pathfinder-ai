@@ -537,7 +537,7 @@ export function DiagnosticPanel({ planItems }: Props) {
                 {h.source === "external" ? "Внешняя · " : "Платформа · "}
                 {new Date(h.date).toLocaleDateString("ru-RU")}
               </div>
-              {h.weakTopics.length > 0 ? (
+              {(h.weakTopics?.length ?? 0) > 0 ? (
                 <p className="status-line">Слабые темы: {h.weakTopics.join(", ")}</p>
               ) : null}
               {h.notes ? <p className="status-line">{h.notes}</p> : null}
