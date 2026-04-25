@@ -59,6 +59,7 @@ const viewTabs: Array<{
   { id: "calendar", label: "Календарь", Icon: CalendarDays },
   { id: "analytics", label: "Аналитика", Icon: Brain },
   { id: "diagnostic", label: "Диагностика", Icon: CircleHelp },
+  { id: "assistant", label: "Ассистент", Icon: Sparkles },
 ];
 
 const WEEKLY_DIAGNOSTIC_DURATION_SECONDS = 60 * 60;
