@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, Plus, Trash2, TimerReset, Upload, X } from "lucide-react";
+import { Clock3, Plus, Sparkles, Trash2, TimerReset, Upload, Wand2, X } from "lucide-react";
 
 import {
   loadSubjectDiagnostic,
@@ -12,8 +12,11 @@ import {
   type DiagnosticTaskRow,
   type DiagnosticHistoryItem,
 } from "@/lib/oge-diagnostic.functions";
+import { analyzeDiagnosticResult, ocrDiagnosticPhoto } from "@/lib/oge-assistant.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 import { supabase } from "@/integrations/supabase/client";
+
+type AnalysisResult = Awaited<ReturnType<typeof analyzeDiagnosticResult>>;
 
 const SUBJECT_DURATION_SECONDS = 30 * 60;
 
