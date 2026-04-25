@@ -308,6 +308,13 @@ function LessonPage() {
           </aside>
         </section>
       </div>
+      <LessonEditorDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        lesson={detail.lesson}
+        initialTasks={detail.practiceTasks}
+        onSaved={() => router.invalidate()}
+      />
     </main>
   );
 }
