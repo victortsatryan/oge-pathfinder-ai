@@ -496,7 +496,9 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         ? "Связанная программа"
         : activeView === "analytics"
           ? "Аналитика ученика"
-          : "Еженедельная диагностика";
+          : activeView === "assistant"
+            ? "AI-ассистент"
+            : "Еженедельная диагностика";
 
   const contentDescription =
     activeView === "calendar"
@@ -505,7 +507,9 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         ? "Любое изменение в программе сразу отражается в календаре и карточке занятия."
         : activeView === "analytics"
           ? "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы."
-          : "Диагностика по каждому предмету: 30 минут, задания из БД по темам недели, история и внешние результаты.";
+          : activeView === "assistant"
+            ? "Чат с AI-репетитором: видит ваш план и последние диагностики, помогает разобраться с темами и заданиями."
+            : "Диагностика по каждому предмету: 30 минут, задания из БД по темам недели, история и внешние результаты.";
 
   const diagnosticTimerLabel = `${String(Math.floor(diagnosticRemainingSeconds / 60)).padStart(2, "0")}:${String(
     diagnosticRemainingSeconds % 60,
