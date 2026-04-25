@@ -694,6 +694,8 @@ export function DiagnosticPanel({ planItems }: Props) {
   );
 }
 
+type UploadMode = "link" | "text" | "photo";
+
 function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]; onSaved: () => Promise<void> | void }) {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [sourceName, setSourceName] = useState("");
@@ -701,12 +703,48 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
   const [scorePercent, setScorePercent] = useState<string>("");
   const [weakTopicsRaw, setWeakTopicsRaw] = useState("");
   const [notes, setNotes] = useState("");
+  const [mode, setMode] = useState<UploadMode>("link");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [rawText, setRawText] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!subjectId && subjects[0]) setSubjectId(subjects[0].id);
   }, [subjects, subjectId]);
+
+  function resetPayload() {
+    setSourceUrl("");
+    setRawText("");
+    setPhotoFile(null);
+  }
+
+  async function uploadPhoto(file: File): Promise<string | null> {
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userData?.user) {
+      setError("Войдите, чтобы загружать фото.");
+      return null;
+    }
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${userData.user.id}/${crypto.randomUUID()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from("diagnostic-uploads")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) {
+      setError(`Не удалось загрузить файл: ${upErr.message}`);
+      return null;
+    }
+    // Bucket is private — generate a long-lived signed URL for viewing
+    const { data: signed, error: signErr } = await supabase.storage
+      .from("diagnostic-uploads")
+      .createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (signErr || !signed?.signedUrl) {
+      setError("Файл загружен, но не удалось получить ссылку.");
+      return null;
+    }
+    return signed.signedUrl;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -720,8 +758,29 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       setError("Процент должен быть от 0 до 100.");
       return;
     }
+    if (mode === "link" && !sourceUrl.trim()) {
+      setError("Укажите ссылку на результат.");
+      return;
+    }
+    if (mode === "text" && !rawText.trim()) {
+      setError("Вставьте текст результата.");
+      return;
+    }
+    if (mode === "photo" && !photoFile) {
+      setError("Выберите фото для загрузки.");
+      return;
+    }
+
     setSaving(true);
     try {
+      let attachmentUrl: string | null = null;
+      if (mode === "photo" && photoFile) {
+        attachmentUrl = await uploadPhoto(photoFile);
+        if (!attachmentUrl) {
+          setSaving(false);
+          return;
+        }
+      }
       const res = await saveExternalDiagnostic({
         data: {
           subjectId,
@@ -731,6 +790,10 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           weakTopics: weakTopicsRaw.split(",").map((s) => s.trim()).filter(Boolean),
           strongTopics: [],
           notes: notes.trim() || null,
+          sourceUrl: mode === "link" ? sourceUrl.trim() : null,
+          rawText: mode === "text" ? rawText.trim() : null,
+          attachmentUrl,
+          attachmentKind: mode,
         },
       });
       if (!res?.ok) {
@@ -741,6 +804,7 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       setScorePercent("");
       setWeakTopicsRaw("");
       setNotes("");
+      resetPayload();
       await onSaved();
     } catch (err) {
       console.error(err);
@@ -779,6 +843,65 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           <input type="number" min={0} max={100} value={scorePercent} onChange={(e) => setScorePercent(e.target.value)} placeholder="например, 72" />
         </label>
       </div>
+
+      <div className="editor-field">
+        <span>Способ загрузки</span>
+        <div className="lesson-actions-row" role="tablist">
+          {(["link", "text", "photo"] as UploadMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              className={mode === m ? "action-link diagnostic-primary-action" : "action-link"}
+              onClick={() => { setMode(m); setError(null); }}
+            >
+              {m === "link" ? "Ссылка" : m === "text" ? "Текст" : "Фото"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mode === "link" ? (
+        <label className="editor-field">
+          <span>Ссылка на результат</span>
+          <input
+            type="url"
+            value={sourceUrl}
+            onChange={(e) => setSourceUrl(e.target.value)}
+            placeholder="https://..."
+            maxLength={2000}
+          />
+        </label>
+      ) : null}
+
+      {mode === "text" ? (
+        <label className="editor-field">
+          <span>Текст результата</span>
+          <textarea
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            rows={5}
+            maxLength={20000}
+            placeholder="Вставьте сюда текст с результатами диагностики"
+          />
+        </label>
+      ) : null}
+
+      {mode === "photo" ? (
+        <label className="editor-field">
+          <span>Фото результата</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+          />
+          {photoFile ? (
+            <span className="list-row__meta">{photoFile.name} · {(photoFile.size / 1024).toFixed(0)} КБ</span>
+          ) : null}
+        </label>
+      ) : null}
+
       <label className="editor-field">
         <span>Слабые темы (через запятую)</span>
         <input value={weakTopicsRaw} onChange={(e) => setWeakTopicsRaw(e.target.value)} placeholder="Геометрия, Word formation" />
