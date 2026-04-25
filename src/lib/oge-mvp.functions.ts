@@ -48,11 +48,11 @@ export const loadMvpState = createServerFn({ method: "GET" }).handler(async () =
         .eq("is_published", true)
         .order("sort_order", { ascending: true })
         .limit(200),
-      user
+      userId
         ? supabaseAdmin
             .from("lesson_overrides")
             .select("lesson_key, title, topic, lesson_date, slot_number, difficulty, status, teacher_note, theory_markdown, tasks")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .limit(500)
         : Promise.resolve({ data: [], error: null } as const),
     ]);
