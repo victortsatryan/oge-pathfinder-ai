@@ -366,6 +366,10 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         autoSubmitted: false,
         diagnosticType: "external",
         sourceName: row.source_name ?? null,
+        sourceUrl: row.source_url ?? null,
+        rawText: row.raw_text ?? null,
+        attachmentUrl: row.attachment_url ?? null,
+        attachmentKind: row.attachment_kind ?? null,
         details: [],
       });
     }
