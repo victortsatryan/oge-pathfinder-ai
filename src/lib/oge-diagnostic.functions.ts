@@ -340,6 +340,10 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         autoSubmitted: autoFlag,
         diagnosticType: row.diagnostic_type ?? null,
         sourceName: null,
+        sourceUrl: null,
+        rawText: null,
+        attachmentUrl: null,
+        attachmentKind: null,
         details,
       });
     }
