@@ -187,6 +187,10 @@ export const saveDiagnosticSession = createServerFn({ method: "POST" })
   .inputValidator(sessionResultSchema)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const enrichedAnswers = data.answers.map((a, idx) => ({
+      ...a,
+      ...(idx === 0 ? { autoSubmitted: data.autoSubmitted } : {}),
+    }));
     const { error } = await supabase.from("diagnostic_sessions").insert({
       user_id: userId,
       subject_id: data.subjectId,
@@ -194,7 +198,7 @@ export const saveDiagnosticSession = createServerFn({ method: "POST" })
       score: data.score,
       max_score: data.maxScore,
       completed_at: new Date().toISOString(),
-      answers: data.answers as any,
+      answers: enrichedAnswers as any,
       weaknesses: data.weakTopics as any,
       strengths: data.strongTopics as any,
       recommendations: [] as any,
