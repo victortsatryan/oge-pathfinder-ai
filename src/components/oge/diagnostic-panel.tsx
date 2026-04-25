@@ -702,13 +702,35 @@ export function DiagnosticPanel({ planItems }: Props) {
 
 type UploadMode = "link" | "text" | "photo";
 
+type ExternalTaskDetailDraft = {
+  taskNumber: string;
+  taskType: string;
+  topicTitle: string;
+  errorTitle: string;
+  userAnswer: string;
+  correctAnswer: string;
+  comment: string;
+};
+
+const blankExternalTask = (taskNumber = 1): ExternalTaskDetailDraft => ({
+  taskNumber: String(taskNumber),
+  taskType: "",
+  topicTitle: "",
+  errorTitle: "",
+  userAnswer: "",
+  correctAnswer: "",
+  comment: "",
+});
+
 function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]; onSaved: () => Promise<void> | void }) {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [sourceName, setSourceName] = useState("");
   const [takenOn, setTakenOn] = useState(new Date().toISOString().slice(0, 10));
-  const [scorePercent, setScorePercent] = useState<string>("");
+  const [completedCount, setCompletedCount] = useState<string>("");
+  const [totalCount, setTotalCount] = useState<string>("");
   const [weakTopicsRaw, setWeakTopicsRaw] = useState("");
   const [notes, setNotes] = useState("");
+  const [taskDetails, setTaskDetails] = useState<ExternalTaskDetailDraft[]>([blankExternalTask()]);
   const [mode, setMode] = useState<UploadMode>("link");
   const [sourceUrl, setSourceUrl] = useState("");
   const [rawText, setRawText] = useState("");
