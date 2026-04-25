@@ -101,9 +101,10 @@ export function DiagnosticPanel({ planItems }: Props) {
     setHistoryLoading(true);
     try {
       const res = await listDiagnosticHistory();
-      setHistory(res.items);
+      setHistory(Array.isArray(res?.items) ? res.items : []);
     } catch (e) {
       console.error(e);
+      setHistory([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -536,7 +537,7 @@ export function DiagnosticPanel({ planItems }: Props) {
                 {h.source === "external" ? "Внешняя · " : "Платформа · "}
                 {new Date(h.date).toLocaleDateString("ru-RU")}
               </div>
-              {h.weakTopics.length > 0 ? (
+              {(h.weakTopics?.length ?? 0) > 0 ? (
                 <p className="status-line">Слабые темы: {h.weakTopics.join(", ")}</p>
               ) : null}
               {h.notes ? <p className="status-line">{h.notes}</p> : null}
@@ -599,8 +600,8 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           notes: notes.trim() || null,
         },
       });
-      if (!res.ok) {
-        setError(res.error ?? "Не удалось сохранить");
+      if (!res?.ok) {
+        setError(res?.error ?? "Не удалось сохранить");
         return;
       }
       setSourceName("");
@@ -608,6 +609,10 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       setWeakTopicsRaw("");
       setNotes("");
       await onSaved();
+    } catch (err) {
+      console.error(err);
+      const status = (err as Response)?.status;
+      setError(status === 401 ? "Войдите, чтобы сохранять результаты." : "Не удалось сохранить.");
     } finally {
       setSaving(false);
     }
