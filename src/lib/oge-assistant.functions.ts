@@ -286,7 +286,7 @@ export const chatWithTutor = createServerFn({ method: "POST" })
       .single();
     if (msgErr) throw new Error(msgErr.message);
 
-    const insertedSuggestions: Array<{ id: string; action_type: string; rationale: string; payload: any }> = [];
+    const insertedSuggestions: Array<{ id: string; action_type: string; rationale: string | null; payload: any }> = [];
     if (suggestions.length > 0) {
       const rows = suggestions.map((s) => ({
         user_id: userId,
