@@ -220,6 +220,10 @@ const externalSchema = z.object({
   weakTopics: z.array(z.string()).default([]),
   strongTopics: z.array(z.string()).default([]),
   notes: z.string().max(2000).optional().nullable(),
+  sourceUrl: z.string().url().max(2000).optional().nullable(),
+  rawText: z.string().max(20000).optional().nullable(),
+  attachmentUrl: z.string().max(2000).optional().nullable(),
+  attachmentKind: z.enum(["link", "text", "photo"]).optional().nullable(),
 });
 
 export const saveExternalDiagnostic = createServerFn({ method: "POST" })
