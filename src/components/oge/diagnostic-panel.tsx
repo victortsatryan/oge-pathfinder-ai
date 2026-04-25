@@ -727,17 +727,81 @@ export function DiagnosticPanel({ planItems }: Props) {
                     ))}
                   </div>
                 ) : null}
-                {h.source === "external" ? (
+                <div className="lesson-actions-row">
                   <button
                     type="button"
-                    className="action-link"
-                    onClick={async () => {
-                      await deleteExternalDiagnostic({ data: { id: h.id } });
-                      await refreshHistory();
-                    }}
+                    className="action-link diagnostic-primary-action"
+                    disabled={analyzingId === `${h.source}-${h.id}`}
+                    onClick={() => runAnalysis(h)}
                   >
-                    <Trash2 className="h-4 w-4" /> Удалить
+                    <Sparkles className="h-4 w-4" />
+                    {analyzingId === `${h.source}-${h.id}`
+                      ? "AI анализирует…"
+                      : analyses[`${h.source}-${h.id}`]
+                      ? "Обновить разбор AI"
+                      : "Анализ AI"}
                   </button>
+                  {h.source === "external" ? (
+                    <button
+                      type="button"
+                      className="action-link"
+                      onClick={async () => {
+                        await deleteExternalDiagnostic({ data: { id: h.id } });
+                        await refreshHistory();
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" /> Удалить
+                    </button>
+                  ) : null}
+                </div>
+                {analysisError[`${h.source}-${h.id}`] ? (
+                  <p className="status-line" style={{ color: "var(--destructive)" }}>
+                    {analysisError[`${h.source}-${h.id}`]}
+                  </p>
+                ) : null}
+                {analyses[`${h.source}-${h.id}`] ? (
+                  <div className="diagnostic-feedback-card">
+                    <div className="diagnostic-feedback-card__head">
+                      <strong>Разбор AI</strong>
+                      <span className="list-badge">сложность: {analyses[`${h.source}-${h.id}`].difficulty}</span>
+                    </div>
+                    <p className="status-line">{analyses[`${h.source}-${h.id}`].summary}</p>
+                    {analyses[`${h.source}-${h.id}`].weakTopics.length > 0 ? (
+                      <p className="status-line">
+                        <strong>Слабые темы:</strong> {analyses[`${h.source}-${h.id}`].weakTopics.join(", ")}
+                      </p>
+                    ) : null}
+                    {analyses[`${h.source}-${h.id}`].errorPatterns.length > 0 ? (
+                      <div>
+                        <strong className="status-line">Типы ошибок:</strong>
+                        <ul>
+                          {analyses[`${h.source}-${h.id}`].errorPatterns.map((p, i) => (
+                            <li key={i} className="status-line">{p}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {analyses[`${h.source}-${h.id}`].recommendations.length > 0 ? (
+                      <div>
+                        <strong className="status-line">Рекомендации:</strong>
+                        <ul>
+                          {analyses[`${h.source}-${h.id}`].recommendations.map((r, i) => (
+                            <li key={i} className="status-line">{r}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {analyses[`${h.source}-${h.id}`].extraTasks.length > 0 ? (
+                      <div>
+                        <strong className="status-line">Дополнительные задания:</strong>
+                        <ul>
+                          {analyses[`${h.source}-${h.id}`].extraTasks.map((t, i) => (
+                            <li key={i} className="status-line">{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </article>
             );
