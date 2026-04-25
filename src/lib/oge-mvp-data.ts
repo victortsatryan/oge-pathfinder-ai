@@ -179,10 +179,24 @@ type LearningSourceInput = {
   sourceKind: "theory" | "practice" | "mixed";
 };
 
+type LessonOverrideInput = {
+  lessonKey: string;
+  title: string | null;
+  topic: string | null;
+  lessonDate: string | null;
+  slotNumber: number | null;
+  difficulty: string | null;
+  status: string | null;
+  teacherNote: string | null;
+  theoryMarkdown: string | null;
+  tasks: PlanCustomTask[];
+};
+
 type LoadStateInput = {
   resources?: ResourceInput[];
   attempts?: AttemptInput[];
   learningSources?: LearningSourceInput[];
+  lessonOverrides?: LessonOverrideInput[];
 };
 
 type SubjectBlueprint = {
