@@ -202,6 +202,7 @@ export type Database = {
           strong_topics: Json
           subject_id: string
           taken_on: string
+          task_details: Json
           updated_at: string
           user_id: string
           weak_topics: Json
@@ -221,6 +222,7 @@ export type Database = {
           strong_topics?: Json
           subject_id: string
           taken_on?: string
+          task_details?: Json
           updated_at?: string
           user_id: string
           weak_topics?: Json
@@ -240,6 +242,7 @@ export type Database = {
           strong_topics?: Json
           subject_id?: string
           taken_on?: string
+          task_details?: Json
           updated_at?: string
           user_id?: string
           weak_topics?: Json
