@@ -30,7 +30,7 @@ import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 import { DiagnosticPanel } from "@/components/oge/diagnostic-panel";
 
-type ViewMode = "list" | "calendar" | "analytics" | "diagnostic";
+type ViewMode = "list" | "calendar" | "analytics" | "diagnostic" | "assistant";
 type CalendarMode = "period" | "week";
 type DiagnosticTaskType = "single" | "multiple" | "text";
 
