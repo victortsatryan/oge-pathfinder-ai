@@ -118,6 +118,48 @@ export function DiagnosticPanel({ planItems }: Props) {
     }
   }
 
+  async function runAnalysis(item: DiagnosticHistoryItem) {
+    const key = `${item.source}-${item.id}`;
+    setAnalyzingId(key);
+    setAnalysisError((prev) => ({ ...prev, [key]: null }));
+    try {
+      const res = await analyzeDiagnosticResult({
+        data: {
+          subjectName: item.subjectName,
+          date: item.date,
+          source: item.source,
+          sourceName: item.sourceName,
+          score: item.score,
+          maxScore: item.maxScore,
+          scorePercent: item.scorePercent,
+          weakTopics: item.weakTopics ?? [],
+          strongTopics: item.strongTopics ?? [],
+          notes: item.notes,
+          rawText: item.rawText,
+          details: item.details.map((d) => ({
+            taskNumber: d.taskNumber,
+            taskType: d.taskType ?? null,
+            topicTitle: d.topicTitle,
+            errorTitle: d.errorTitle ?? null,
+            userAnswer: Array.isArray(d.userAnswer) ? d.userAnswer.join(", ") : d.userAnswer,
+            correctAnswer: Array.isArray(d.correctAnswer) ? d.correctAnswer.join(", ") : d.correctAnswer,
+            isCorrect: d.isCorrect,
+            prompt: d.prompt,
+          })),
+        },
+      });
+      setAnalyses((prev) => ({ ...prev, [key]: res }));
+    } catch (e) {
+      console.error("analysis failed", e);
+      setAnalysisError((prev) => ({
+        ...prev,
+        [key]: e instanceof Error ? e.message : "Не удалось получить разбор",
+      }));
+    } finally {
+      setAnalyzingId(null);
+    }
+  }
+
   const activeSubject = subjects.find((s) => s.id === activeSubjectId) ?? null;
   const activeState: SubjectState = activeSubjectId
     ? stateBySubject[activeSubjectId] ?? {
