@@ -847,8 +847,49 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
   const [sourceUrl, setSourceUrl] = useState("");
   const [rawText, setRawText] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrInfo, setOcrInfo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function runOcrOnPhoto() {
+    if (!photoFile) {
+      setError("Сначала выберите фото.");
+      return;
+    }
+    setError(null);
+    setOcrInfo(null);
+    setOcrLoading(true);
+    try {
+      const url = await uploadPhoto(photoFile);
+      if (!url) return;
+      const subjectName = subjects.find((s) => s.id === subjectId)?.name;
+      const res = await ocrDiagnosticPhoto({ data: { imageUrl: url, subjectName } });
+      if (res.taskDetails.length === 0) {
+        setOcrInfo("AI не нашёл заданий на фото. Попробуйте более чёткий снимок.");
+        return;
+      }
+      setTaskDetails(
+        res.taskDetails.map((t) => ({
+          taskNumber: String(t.taskNumber),
+          taskType: t.taskType ?? "",
+          topicTitle: t.topicTitle ?? "",
+          errorTitle: t.errorTitle ?? "",
+          userAnswer: t.userAnswer ?? "",
+          correctAnswer: t.correctAnswer ?? "",
+          comment: t.comment ?? "",
+        })),
+      );
+      if (res.detectedScore != null) setCompletedCount(String(res.detectedScore));
+      if (res.detectedMaxScore != null) setTotalCount(String(res.detectedMaxScore));
+      setOcrInfo(`AI распознал заданий: ${res.taskDetails.length}. Проверьте и сохраните.`);
+    } catch (e) {
+      console.error("OCR failed", e);
+      setError(e instanceof Error ? e.message : "Не удалось распознать фото.");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!subjectId && subjects[0]) setSubjectId(subjects[0].id);
