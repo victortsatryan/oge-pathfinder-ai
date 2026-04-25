@@ -443,6 +443,35 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
     });
   });
 
+  // Apply per-user lesson overrides
+  const overridesByKey = new Map<string, LessonOverrideInput>();
+  for (const o of input.lessonOverrides ?? []) overridesByKey.set(o.lessonKey, o);
+  if (overridesByKey.size) {
+    for (let i = 0; i < planList.length; i += 1) {
+      const item = planList[i];
+      const o = overridesByKey.get(item.id);
+      if (!o) continue;
+      const newDate = o.lessonDate || item.dateISO;
+      const newSlot = o.slotNumber ?? null;
+      const mappedStatus: PlanItemStatus =
+        o.status === "done" ? "done" : o.status ? "pending" : item.status;
+      planList[i] = {
+        ...item,
+        dateISO: newDate,
+        time: newSlot ? SESSION_TIMES[newSlot - 1] ?? item.time : item.time,
+        topic: o.topic || item.topic,
+        note: o.teacherNote || item.note,
+        status: mappedStatus,
+        customTasks: o.tasks,
+        teacherNote: o.teacherNote,
+        theoryMarkdown: o.theoryMarkdown,
+        difficulty: o.difficulty,
+        isEdited: true,
+      };
+    }
+    planList.sort((a, b) => (a.dateISO === b.dateISO ? a.time.localeCompare(b.time) : a.dateISO.localeCompare(b.dateISO)));
+  }
+
   const materialsCount = planList.reduce((acc, item) => acc + item.resources.length, 0);
   const allAttempts = planList.flatMap((item) => (item.result ? [item.result] : []));
   const accuracyValues = allAttempts.map((item) => item.accuracyPercent).filter((value): value is number => value !== null);
