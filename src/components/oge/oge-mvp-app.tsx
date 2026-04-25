@@ -28,6 +28,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
+import { DiagnosticPanel } from "@/components/oge/diagnostic-panel";
 
 type ViewMode = "list" | "calendar" | "analytics" | "diagnostic";
 type CalendarMode = "period" | "week";
@@ -501,7 +502,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         ? "Любое изменение в программе сразу отражается в календаре и карточке занятия."
         : activeView === "analytics"
           ? "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы."
-          : "По субботам ученик проходит 60-минутную диагностику в формате ОГЭ с быстрым разбором результата по темам.";
+          : "Диагностика по каждому предмету: 30 минут, задания из БД по темам недели, история и внешние результаты.";
 
   const diagnosticTimerLabel = `${String(Math.floor(diagnosticRemainingSeconds / 60)).padStart(2, "0")}:${String(
     diagnosticRemainingSeconds % 60,
@@ -958,218 +959,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                   </div>
                 </div>
               ) : (
-                <div className="diagnostic-stack">
-                  <section className="diagnostic-hero">
-                    <div className="diagnostic-hero__copy">
-                      <span className="focus-pill">Субботняя диагностика</span>
-                      <div>
-                        <div className="list-row__title">Формат: 60 минут, задания ОГЭ, минимальные отвлечения.</div>
-                        <div className="list-row__meta">
-                          Следующее окно: {nextDiagnosticDay ? `${nextDiagnosticDay.dayName}, ${nextDiagnosticDay.dateLabel}` : "в ближайшую субботу"}.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="diagnostic-hero__stats">
-                      <article className="result-card result-card--lesson-page">
-                        <span className="result-card__label">Таймер</span>
-                        <strong className="result-card__value">{diagnosticTimerLabel}</strong>
-                        <span className="result-card__meta">1 час на весь тест</span>
-                      </article>
-                      <article className="result-card">
-                        <span className="result-card__label">Прогресс</span>
-                        <strong className="result-card__value">{diagnosticProgress.answered}/{diagnosticProgress.total}</strong>
-                        <span className="result-card__meta">Отвечено на {diagnosticProgress.percent}% заданий</span>
-                      </article>
-                    </div>
-                  </section>
-
-                  <section className="diagnostic-focus-panel">
-                    <div className="diagnostic-focus-panel__head">
-                      <div>
-                        <div className="list-row__title">Прохождение теста</div>
-                        <div className="list-row__meta">Сначала запуск, затем спокойное решение заданий без лишних блоков на экране.</div>
-                      </div>
-                      <div className="lesson-actions-row">
-                        {!diagnosticStarted && !diagnosticSubmitted ? (
-                          <button type="button" className="action-link diagnostic-primary-action" onClick={handleStartDiagnostic}>
-                            Начать диагностику
-                          </button>
-                        ) : null}
-                        {diagnosticStarted ? (
-                          <button type="button" className="action-link diagnostic-primary-action" onClick={handleSubmitDiagnostic}>
-                            Проверить результат
-                          </button>
-                        ) : null}
-                        {(diagnosticSubmitted || diagnosticStarted) ? (
-                          <button type="button" className="action-link" onClick={handleStartDiagnostic}>
-                            <TimerReset className="h-4 w-4" />
-                            <span>Начать заново</span>
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {diagnosticStarted || diagnosticSubmitted ? (
-                      <div className="diagnostic-task-stack">
-                        {diagnosticTasks.map((task, index) => {
-                          const value = diagnosticAnswers[task.id];
-
-                          return (
-                            <article key={task.id} className="diagnostic-task-card">
-                              <div className="diagnostic-task-card__head">
-                                <div>
-                                  <div className="program-subject-title">
-                                    <span className={subjectToneClass[task.subject] ?? "subject-tone"} />
-                                    <span>{task.subject}</span>
-                                  </div>
-                                  <div className="list-row__meta">Задание {index + 1} · {task.topic}</div>
-                                </div>
-                                <span className="list-badge">{task.type === "multiple" ? "Множественный выбор" : task.type === "text" ? "Краткий ответ" : "Один ответ"}</span>
-                              </div>
-
-                              <div className="diagnostic-task-card__prompt">{task.prompt}</div>
-                              <div className="list-row__meta">{task.sourceLabel}</div>
-
-                              {task.type === "single" ? (
-                                <div className="diagnostic-option-grid">
-                                  {task.options?.map((option) => (
-                                    <button
-                                      key={option}
-                                      type="button"
-                                      className={value === option ? "selection-card compact-grid is-active" : "selection-card compact-grid"}
-                                      onClick={() => handleDiagnosticAnswerChange(task.id, option)}
-                                    >
-                                      <span className="selection-card__title">{option}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : null}
-
-                              {task.type === "multiple" ? (
-                                <div className="diagnostic-option-grid">
-                                  {task.options?.map((option) => {
-                                    const selectedValues = Array.isArray(value) ? value : [];
-                                    return (
-                                      <button
-                                        key={option}
-                                        type="button"
-                                        className={selectedValues.includes(option) ? "selection-card compact-grid is-active" : "selection-card compact-grid"}
-                                        onClick={() => handleDiagnosticMultiToggle(task.id, option)}
-                                      >
-                                        <span className="selection-card__title">{option}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-
-                              {task.type === "text" ? (
-                                <label className="editor-field diagnostic-answer-field">
-                                  <span>Ответ ученика</span>
-                                  <input
-                                    value={typeof value === "string" ? value : ""}
-                                    onChange={(event) => handleDiagnosticAnswerChange(task.id, event.target.value)}
-                                    placeholder="Введите краткий ответ"
-                                  />
-                                </label>
-                              ) : null}
-
-                              {diagnosticSubmitted && diagnosticResult ? (
-                                <div className="diagnostic-feedback-card">
-                                  <div className="diagnostic-feedback-card__head">
-                                    <span className={diagnosticResult.evaluatedTasks.find((item) => item.id === task.id)?.isCorrect ? "status-pill status-pill--done" : "status-pill status-pill--pending"}>
-                                      {diagnosticResult.evaluatedTasks.find((item) => item.id === task.id)?.isCorrect ? "Верно" : "Нужно повторить"}
-                                    </span>
-                                    <span className="list-row__meta">
-                                      Правильный ответ: {Array.isArray(task.correctAnswer) ? task.correctAnswer.join(", ") : task.correctAnswer}
-                                    </span>
-                                  </div>
-                                  <p className="status-line">{task.explanation}</p>
-                                </div>
-                              ) : null}
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="diagnostic-empty-state">
-                        <Clock3 className="h-5 w-5" />
-                        <div>
-                          <div className="list-row__title">Тест ещё не запущен</div>
-                          <div className="list-row__meta">После старта откроется полный диагностический вариант с таймером и заданиями разных типов.</div>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-
-                  {diagnosticSubmitted && diagnosticResult ? (
-                    <section className="diagnostic-results-grid">
-                      <article className="analytics-surface">
-                        <div className="analytics-surface__head">
-                          <div>
-                            <div className="list-row__title">Результат</div>
-                            <div className="list-row__meta">Краткая сводка после завершения еженедельной диагностики.</div>
-                          </div>
-                        </div>
-                        <div className="diagnostic-summary-grid">
-                          <article className="result-card result-card--lesson-page">
-                            <span className="result-card__label">Итог</span>
-                            <strong className="result-card__value">{diagnosticResult.scorePercent}%</strong>
-                            <span className="result-card__meta">Верно {diagnosticResult.correctCount} из {diagnosticResult.evaluatedTasks.length}</span>
-                          </article>
-                          <article className="result-card">
-                            <span className="result-card__label">Слабые места</span>
-                            <strong className="result-card__value">{diagnosticResult.weakTopics.length}</strong>
-                            <span className="result-card__meta">Тем для прицельного повторения</span>
-                          </article>
-                        </div>
-                      </article>
-
-                      <article className="analytics-surface">
-                        <div className="analytics-surface__head">
-                          <div>
-                            <div className="list-row__title">Разбивка по темам</div>
-                            <div className="list-row__meta">Сразу видно, где результат устойчивый, а где есть просадка.</div>
-                          </div>
-                        </div>
-                        <div className="analytics-list-stack">
-                          {diagnosticResult.topicStats.map((item) => (
-                            <article key={item.topic} className="analytics-list-card diagnostic-topic-card">
-                              <div className="analytics-list-card__head">
-                                <span className={subjectToneClass[item.subject] ?? "subject-chip"}>{item.subject}</span>
-                                <strong>{item.percent}%</strong>
-                              </div>
-                              <div className="list-row__title">{item.topic}</div>
-                              <p className="status-line">{item.correct} из {item.total} заданий решены верно.</p>
-                            </article>
-                          ))}
-                        </div>
-                      </article>
-
-                      <article className="analytics-surface">
-                        <div className="analytics-surface__head">
-                          <div>
-                            <div className="list-row__title">Выявленные слабые места</div>
-                            <div className="list-row__meta">Приоритет для следующей недели подготовки.</div>
-                          </div>
-                        </div>
-                        <div className="analytics-list-stack">
-                          {diagnosticResult.weakTopics.length ? (
-                            diagnosticResult.weakTopics.map((item) => (
-                              <article key={item.topic} className="analytics-note-card analytics-note-card--accent">
-                                <div className="list-row__title">{item.subject} · {item.topic}</div>
-                                <p className="status-line">Результат {item.percent}%. Стоит повторить теорию и сразу решить 2–3 похожих номера.</p>
-                              </article>
-                            ))
-                          ) : (
-                            <div className="calendar-empty">Слабые места не выявлены: можно переходить к более сложным вариантам.</div>
-                          )}
-                        </div>
-                      </article>
-                    </section>
-                  ) : null}
-                </div>
+                <DiagnosticPanel planItems={planItems} />
               )}
             </CardContent>
           </Card>

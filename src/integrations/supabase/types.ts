@@ -186,6 +186,54 @@ export type Database = {
           },
         ]
       }
+      external_diagnostic_results: {
+        Row: {
+          created_at: string
+          id: string
+          max_score: number | null
+          notes: string | null
+          score: number | null
+          score_percent: number | null
+          source_name: string
+          strong_topics: Json
+          subject_id: string
+          taken_on: string
+          updated_at: string
+          user_id: string
+          weak_topics: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_score?: number | null
+          notes?: string | null
+          score?: number | null
+          score_percent?: number | null
+          source_name: string
+          strong_topics?: Json
+          subject_id: string
+          taken_on?: string
+          updated_at?: string
+          user_id: string
+          weak_topics?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_score?: number | null
+          notes?: string | null
+          score?: number | null
+          score_percent?: number | null
+          source_name?: string
+          strong_topics?: Json
+          subject_id?: string
+          taken_on?: string
+          updated_at?: string
+          user_id?: string
+          weak_topics?: Json
+        }
+        Relationships: []
+      }
       learning_sources: {
         Row: {
           created_at: string
@@ -723,7 +771,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      diagnostic_type: "entry" | "weekly"
+      diagnostic_type: "entry" | "weekly" | "weekly_subject" | "external"
       difficulty_level: "easy" | "medium" | "hard" | "adaptive"
       lesson_status: "locked" | "available" | "completed" | "missed"
       resource_type: "theory" | "video" | "practice"
@@ -854,7 +902,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      diagnostic_type: ["entry", "weekly"],
+      diagnostic_type: ["entry", "weekly", "weekly_subject", "external"],
       difficulty_level: ["easy", "medium", "hard", "adaptive"],
       lesson_status: ["locked", "available", "completed", "missed"],
       resource_type: ["theory", "video", "practice"],
