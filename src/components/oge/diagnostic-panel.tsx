@@ -74,6 +74,7 @@ export function DiagnosticPanel({ planItems }: Props) {
   const [showAddTask, setShowAddTask] = useState(false);
   const [taskSearch, setTaskSearch] = useState("");
   const [searchResults, setSearchResults] = useState<DiagnosticTaskRow[]>([]);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   // Compute weekly topics per subject from plan: take last 7 days of past lessons
   const weeklyTopicsBySubject = useMemo(() => {
