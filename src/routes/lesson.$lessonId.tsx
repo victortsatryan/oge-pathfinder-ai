@@ -34,6 +34,7 @@ function LessonPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [result, setResult] = useState<null | Awaited<ReturnType<typeof checkLessonAnswers>>>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const progressLabel = useMemo(() => {
     if (step === 1) return "Шаг 1 из 3 · Теория";
