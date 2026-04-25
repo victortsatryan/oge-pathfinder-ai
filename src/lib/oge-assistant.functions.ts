@@ -4,6 +4,9 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const ANALYTICS_MODEL = "openai/gpt-5";
+const CHAT_MODEL = "openai/gpt-5";
+const VISION_MODEL = "google/gemini-2.5-flash";
 
 function aiHeaders() {
   const key = process.env.LOVABLE_API_KEY;
@@ -71,7 +74,7 @@ export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
       method: "POST",
       headers: aiHeaders(),
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: ANALYTICS_MODEL,
         messages: [
           {
             role: "system",
@@ -115,7 +118,7 @@ export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
     return analysisOutputSchema.parse(JSON.parse(args));
   });
 
-// ---------- 2) Tutor chat with context ----------
+// ---------- 2) Tutor chat with context + plan suggestions ----------
 
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -123,20 +126,40 @@ const chatMessageSchema = z.object({
 });
 
 const chatInputSchema = z.object({
+  conversationId: z.string().uuid().nullable().optional(),
   messages: z.array(chatMessageSchema).min(1).max(40),
   contextSummary: z.string().max(8000).optional(),
+});
+
+const planSuggestionSchema = z.object({
+  action_type: z.enum(["add_lesson", "move_lesson", "remove_lesson", "change_topic", "reorder"]),
+  rationale: z.string().min(1),
+  payload: z
+    .object({
+      subject: z.string().nullable().optional(),
+      topic: z.string().nullable().optional(),
+      lessonDate: z.string().nullable().optional(),
+      newDate: z.string().nullable().optional(),
+      slot: z.number().int().nullable().optional(),
+      lessonId: z.string().nullable().optional(),
+      newTopic: z.string().nullable().optional(),
+    })
+    .default({}),
 });
 
 export const chatWithTutor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(chatInputSchema)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
     const systemPrompt = [
       "Ты персональный AI-репетитор по подготовке к ОГЭ. Тон — спокойный, дружелюбный, по делу.",
       "Отвечай кратко и структурно (списки, шаги, формулы по необходимости). Используй markdown.",
       "Если ученик просит объяснить задание — давай разбор шаг за шагом.",
       "Если просит дополнительные задания — предложи 3–5 конкретных формулировок по теме.",
       "Если данных не хватает — задай 1 уточняющий вопрос.",
+      "Если по контексту видишь, что план занятий стоит изменить (перенести урок, добавить тему, переставить порядок) — обязательно вызови инструмент propose_plan_changes с конкретными предложениями. Без подтверждения ученика изменения не применяются.",
       data.contextSummary ? `\n\nКонтекст ученика:\n${data.contextSummary}` : "",
     ].join(" ");
 
@@ -144,20 +167,262 @@ export const chatWithTutor = createServerFn({ method: "POST" })
       method: "POST",
       headers: aiHeaders(),
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: CHAT_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           ...data.messages.map((m) => ({ role: m.role, content: m.content })),
         ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "propose_plan_changes",
+              description:
+                "Предложи изменения в недельном плане ученика. Каждое предложение требует подтверждения пользователя. Используй, когда видишь слабую тему, пропуск или перегруз.",
+              parameters: {
+                type: "object",
+                properties: {
+                  suggestions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        action_type: {
+                          type: "string",
+                          enum: ["add_lesson", "move_lesson", "remove_lesson", "change_topic", "reorder"],
+                        },
+                        rationale: { type: "string" },
+                        payload: {
+                          type: "object",
+                          properties: {
+                            subject: { type: "string" },
+                            topic: { type: "string" },
+                            lessonDate: { type: "string", description: "ISO date YYYY-MM-DD" },
+                            newDate: { type: "string", description: "ISO date YYYY-MM-DD" },
+                            slot: { type: "integer" },
+                            lessonId: { type: "string" },
+                            newTopic: { type: "string" },
+                          },
+                        },
+                      },
+                      required: ["action_type", "rationale"],
+                    },
+                  },
+                },
+                required: ["suggestions"],
+              },
+            },
+          },
+        ],
+        tool_choice: "auto",
       }),
     });
 
     const payload = await handleAiResponse(response);
-    const reply = payload.choices?.[0]?.message?.content;
-    if (typeof reply !== "string" || !reply.trim()) {
+    const choice = payload.choices?.[0]?.message;
+    let reply = typeof choice?.content === "string" ? choice.content.trim() : "";
+    const toolCalls = Array.isArray(choice?.tool_calls) ? choice.tool_calls : [];
+
+    const suggestions: Array<z.infer<typeof planSuggestionSchema>> = [];
+    for (const tc of toolCalls) {
+      if (tc?.function?.name !== "propose_plan_changes") continue;
+      try {
+        const parsed = JSON.parse(tc.function.arguments ?? "{}");
+        const list = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+        for (const s of list) {
+          const safe = planSuggestionSchema.safeParse(s);
+          if (safe.success) suggestions.push(safe.data);
+        }
+      } catch (err) {
+        console.error("propose_plan_changes parse failed", err);
+      }
+    }
+
+    if (!reply && suggestions.length > 0) {
+      reply = "Подготовил предложения по плану — посмотри ниже и подтверди те, что подходят.";
+    }
+    if (!reply) {
       throw new Error("AI вернул пустой ответ.");
     }
-    return { reply };
+
+    // Persist conversation + messages + suggestions
+    let conversationId = data.conversationId ?? null;
+    const lastUserMsg = [...data.messages].reverse().find((m) => m.role === "user");
+    if (!conversationId) {
+      const title = (lastUserMsg?.content ?? "Новый диалог").slice(0, 80);
+      const { data: conv, error: convErr } = await supabase
+        .from("assistant_conversations")
+        .insert({ user_id: userId, title })
+        .select("id")
+        .single();
+      if (convErr) throw new Error(convErr.message);
+      conversationId = conv!.id as string;
+    } else {
+      await supabase
+        .from("assistant_conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", conversationId)
+        .eq("user_id", userId);
+    }
+
+    if (lastUserMsg) {
+      await supabase.from("assistant_messages").insert({
+        conversation_id: conversationId,
+        user_id: userId,
+        role: "user",
+        content: lastUserMsg.content,
+      });
+    }
+    const { data: assistantRow, error: msgErr } = await supabase
+      .from("assistant_messages")
+      .insert({
+        conversation_id: conversationId,
+        user_id: userId,
+        role: "assistant",
+        content: reply,
+        metadata: suggestions.length ? { hasSuggestions: true } : {},
+      })
+      .select("id")
+      .single();
+    if (msgErr) throw new Error(msgErr.message);
+
+    const insertedSuggestions: Array<{ id: string; action_type: string; rationale: string | null; payload: any }> = [];
+    if (suggestions.length > 0) {
+      const rows = suggestions.map((s) => ({
+        user_id: userId,
+        conversation_id: conversationId,
+        message_id: assistantRow!.id as string,
+        action_type: s.action_type,
+        rationale: s.rationale,
+        payload: s.payload ?? {},
+      }));
+      const { data: inserted, error: sugErr } = await supabase
+        .from("assistant_plan_suggestions")
+        .insert(rows)
+        .select("id, action_type, rationale, payload");
+      if (sugErr) throw new Error(sugErr.message);
+      insertedSuggestions.push(...(inserted ?? []));
+    }
+
+    return { reply, conversationId, suggestions: insertedSuggestions };
+  });
+
+// ---------- Conversation history ----------
+
+export const listConversations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data, error } = await supabase
+      .from("assistant_conversations")
+      .select("id, title, last_message_at, created_at")
+      .eq("user_id", userId)
+      .order("last_message_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return { items: data ?? [] };
+  });
+
+export const loadConversation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ conversationId: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: msgs, error } = await supabase
+      .from("assistant_messages")
+      .select("id, role, content, metadata, created_at")
+      .eq("conversation_id", data.conversationId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    const { data: sugs } = await supabase
+      .from("assistant_plan_suggestions")
+      .select("id, message_id, action_type, rationale, payload, status")
+      .eq("conversation_id", data.conversationId)
+      .eq("user_id", userId);
+    return { messages: msgs ?? [], suggestions: sugs ?? [] };
+  });
+
+export const deleteConversation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ conversationId: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("assistant_conversations")
+      .delete()
+      .eq("id", data.conversationId)
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- Apply / reject plan suggestion ----------
+
+export const resolvePlanSuggestion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      suggestionId: z.string().uuid(),
+      decision: z.enum(["apply", "reject"]),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: sug, error: loadErr } = await supabase
+      .from("assistant_plan_suggestions")
+      .select("id, action_type, payload, status")
+      .eq("id", data.suggestionId)
+      .eq("user_id", userId)
+      .single();
+    if (loadErr || !sug) throw new Error(loadErr?.message ?? "Предложение не найдено");
+    if (sug.status !== "pending") return { ok: true, status: sug.status };
+
+    if (data.decision === "reject") {
+      await supabase
+        .from("assistant_plan_suggestions")
+        .update({ status: "rejected" })
+        .eq("id", sug.id)
+        .eq("user_id", userId);
+      return { ok: true, status: "rejected" };
+    }
+
+    // Apply: best-effort, supports move/change_topic/remove on existing lesson by id
+    const payload = (sug.payload ?? {}) as Record<string, any>;
+    const action = sug.action_type as string;
+    try {
+      if (action === "move_lesson" && payload.lessonId && payload.newDate) {
+        await supabase
+          .from("lessons")
+          .update({ lesson_date: payload.newDate, ...(payload.slot ? { slot_number: payload.slot } : {}) })
+          .eq("id", payload.lessonId)
+          .eq("user_id", userId);
+      } else if (action === "change_topic" && payload.lessonId && payload.newTopic) {
+        await supabase
+          .from("lessons")
+          .update({ title: payload.newTopic })
+          .eq("id", payload.lessonId)
+          .eq("user_id", userId);
+      } else if (action === "remove_lesson" && payload.lessonId) {
+        await supabase
+          .from("lessons")
+          .delete()
+          .eq("id", payload.lessonId)
+          .eq("user_id", userId);
+      }
+      // add_lesson / reorder без lessonId оставляем как пометку — пользователь увидит rationale и сделает руками,
+      // но статус всё равно «applied», чтобы не висело в очереди.
+    } catch (err) {
+      console.error("apply suggestion failed", err);
+      throw new Error("Не удалось применить изменение плана.");
+    }
+
+    await supabase
+      .from("assistant_plan_suggestions")
+      .update({ status: "applied", applied_at: new Date().toISOString() })
+      .eq("id", sug.id)
+      .eq("user_id", userId);
+    return { ok: true, status: "applied" };
   });
 
 // ---------- 3) OCR diagnostic photo with Gemini Vision ----------
