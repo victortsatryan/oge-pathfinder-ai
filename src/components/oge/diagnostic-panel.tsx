@@ -74,6 +74,7 @@ export function DiagnosticPanel({ planItems }: Props) {
   const [showAddTask, setShowAddTask] = useState(false);
   const [taskSearch, setTaskSearch] = useState("");
   const [searchResults, setSearchResults] = useState<DiagnosticTaskRow[]>([]);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   // Compute weekly topics per subject from plan: take last 7 days of past lessons
   const weeklyTopicsBySubject = useMemo(() => {
@@ -139,7 +140,51 @@ export function DiagnosticPanel({ planItems }: Props) {
     }));
   }
 
-  // Timer
+  // Build enriched answer payload for saving
+  function buildAnswersPayload(state: SubjectState, result: ReturnType<typeof evaluate>) {
+    return state.tasks.map((t, idx) => {
+      const ev = result.evaluated.find((e) => e.task.id === t.id);
+      const userAns = state.answers[t.id];
+      return {
+        taskId: t.id,
+        taskNumber: idx + 1,
+        isCorrect: !!ev?.isCorrect,
+        topicTitle: t.topicTitle ?? null,
+        prompt: t.prompt,
+        answerType: t.answerType,
+        userAnswer: Array.isArray(userAns) ? userAns : (typeof userAns === "string" ? userAns : ""),
+        correctAnswer: t.correctAnswer,
+      };
+    });
+  }
+
+  async function persistSession(
+    subjectId: string,
+    state: SubjectState,
+    result: ReturnType<typeof evaluate>,
+    autoSubmitted: boolean,
+  ) {
+    if (state.tasks.length === 0) return;
+    try {
+      await saveDiagnosticSession({
+        data: {
+          subjectId,
+          scorePercent: result.scorePercent,
+          score: result.correctCount,
+          maxScore: state.tasks.length,
+          weakTopics: result.weakTopics,
+          strongTopics: result.strongTopics,
+          autoSubmitted,
+          answers: buildAnswersPayload(state, result),
+        },
+      });
+      await refreshHistory();
+    } catch (e) {
+      console.error("persistSession failed", e);
+    }
+  }
+
+  // Timer — auto-submit on 0 and persist
   useEffect(() => {
     if (!activeState.started || activeState.submitted) return;
     const id = window.setInterval(() => {
@@ -150,12 +195,17 @@ export function DiagnosticPanel({ planItems }: Props) {
         const next = cur.remaining - 1;
         if (next <= 0) {
           const result = evaluate(cur.tasks, cur.answers);
-          return { ...prev, [activeSubjectId]: { ...cur, started: false, submitted: true, remaining: 0, result } };
+          const finished: SubjectState = { ...cur, started: false, submitted: true, remaining: 0, result };
+          queueMicrotask(() => {
+            void persistSession(activeSubjectId, finished, result, true);
+          });
+          return { ...prev, [activeSubjectId]: finished };
         }
         return { ...prev, [activeSubjectId]: { ...cur, remaining: next } };
       });
     }, 1000);
     return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeState.started, activeState.submitted, activeSubjectId]);
 
   async function handleStart() {
@@ -179,27 +229,9 @@ export function DiagnosticPanel({ planItems }: Props) {
   async function handleSubmit() {
     if (!activeSubject) return;
     const result = evaluate(activeState.tasks, activeState.answers);
+    const finished: SubjectState = { ...activeState, started: false, submitted: true, result };
     updateState({ started: false, submitted: true, result });
-    try {
-      await saveDiagnosticSession({
-        data: {
-          subjectId: activeSubject.id,
-          scorePercent: result.scorePercent,
-          score: result.correctCount,
-          maxScore: activeState.tasks.length,
-          weakTopics: result.weakTopics,
-          strongTopics: result.strongTopics,
-          answers: result.evaluated.map((e) => ({
-            taskId: e.task.id,
-            isCorrect: e.isCorrect,
-            topicTitle: e.task.topicTitle,
-          })),
-        },
-      });
-      await refreshHistory();
-    } catch (e) {
-      console.error(e);
-    }
+    await persistSession(activeSubject.id, finished, result, false);
   }
 
   function answerSingle(taskId: string, value: string) {
@@ -527,34 +559,112 @@ export function DiagnosticPanel({ planItems }: Props) {
           {!historyLoading && history.length === 0 ? (
             <div className="calendar-empty">Пока нет результатов. Пройдите диагностику или загрузите внешний результат.</div>
           ) : null}
-          {history.map((h) => (
-            <article key={`${h.source}-${h.id}`} className="analytics-list-card">
-              <div className="analytics-list-card__head">
-                <span className="subject-chip">{h.subjectName}</span>
-                <strong>{h.scorePercent != null ? `${h.scorePercent}%` : "—"}</strong>
-              </div>
-              <div className="list-row__meta">
-                {h.source === "external" ? "Внешняя · " : "Платформа · "}
-                {new Date(h.date).toLocaleDateString("ru-RU")}
-              </div>
-              {(h.weakTopics?.length ?? 0) > 0 ? (
-                <p className="status-line">Слабые темы: {h.weakTopics.join(", ")}</p>
-              ) : null}
-              {h.notes ? <p className="status-line">{h.notes}</p> : null}
-              {h.source === "external" ? (
-                <button
-                  type="button"
-                  className="action-link"
-                  onClick={async () => {
-                    await deleteExternalDiagnostic({ data: { id: h.id } });
-                    await refreshHistory();
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" /> Удалить
-                </button>
-              ) : null}
-            </article>
-          ))}
+          {history.map((h) => {
+            const isOpen = expandedHistoryId === `${h.source}-${h.id}`;
+            const errors = h.details.filter((d) => !d.isCorrect);
+            const topics = Array.from(
+              new Set(h.details.map((d) => d.topicTitle).filter((t): t is string => !!t)),
+            );
+            return (
+              <article key={`${h.source}-${h.id}`} className="analytics-list-card">
+                <div className="analytics-list-card__head">
+                  <span className="subject-chip">{h.subjectName}</span>
+                  <strong>
+                    {h.score != null && h.maxScore != null
+                      ? `${h.score} / ${h.maxScore}`
+                      : h.scorePercent != null
+                      ? `${h.scorePercent}%`
+                      : "—"}
+                  </strong>
+                </div>
+                <div className="list-row__meta">
+                  {h.source === "external"
+                    ? `Внешняя${h.sourceName ? " · " + h.sourceName : ""} · `
+                    : h.autoSubmitted
+                    ? "Автозавершение · "
+                    : "Платформа · "}
+                  {new Date(h.date).toLocaleDateString("ru-RU")}
+                  {h.scorePercent != null ? ` · ${h.scorePercent}%` : ""}
+                </div>
+                {topics.length > 0 ? (
+                  <p className="status-line">Темы: {topics.join(", ")}</p>
+                ) : null}
+                {(h.weakTopics?.length ?? 0) > 0 ? (
+                  <p className="status-line">Слабые темы: {h.weakTopics.join(", ")}</p>
+                ) : null}
+                {h.notes ? <p className="status-line">{h.notes}</p> : null}
+                {h.details.length > 0 ? (
+                  <div className="lesson-actions-row">
+                    <button
+                      type="button"
+                      className="action-link"
+                      onClick={() =>
+                        setExpandedHistoryId(isOpen ? null : `${h.source}-${h.id}`)
+                      }
+                    >
+                      {isOpen ? "Скрыть задания" : `Показать задания (${h.details.length})`}
+                    </button>
+                    {errors.length > 0 ? (
+                      <span className="list-badge">Ошибок: {errors.length}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {isOpen && h.details.length > 0 ? (
+                  <div className="diagnostic-task-stack">
+                    {h.details.map((d) => (
+                      <article key={`${h.id}-${d.taskNumber}`} className="diagnostic-task-card">
+                        <div className="diagnostic-task-card__head">
+                          <div>
+                            <div className="list-row__meta">
+                              Задание №{d.taskNumber} · {d.topicTitle ?? "Без темы"}
+                            </div>
+                            {d.prompt ? (
+                              <div className="diagnostic-task-card__prompt">{d.prompt}</div>
+                            ) : null}
+                          </div>
+                          <span
+                            className={
+                              d.isCorrect
+                                ? "status-pill status-pill--done"
+                                : "status-pill status-pill--pending"
+                            }
+                          >
+                            {d.isCorrect ? "Верно" : "Ошибка"}
+                          </span>
+                        </div>
+                        <p className="status-line">
+                          Ваш ответ:{" "}
+                          {Array.isArray(d.userAnswer)
+                            ? d.userAnswer.join(", ") || "—"
+                            : (d.userAnswer ?? "—") || "—"}
+                        </p>
+                        {!d.isCorrect ? (
+                          <p className="status-line">
+                            Правильный ответ:{" "}
+                            {Array.isArray(d.correctAnswer)
+                              ? d.correctAnswer.join(", ")
+                              : d.correctAnswer ?? "—"}
+                          </p>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+                {h.source === "external" ? (
+                  <button
+                    type="button"
+                    className="action-link"
+                    onClick={async () => {
+                      await deleteExternalDiagnostic({ data: { id: h.id } });
+                      await refreshHistory();
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" /> Удалить
+                  </button>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </section>
     </div>
