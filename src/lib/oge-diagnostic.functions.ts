@@ -369,6 +369,20 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
     for (const row of (external.data ?? []) as any[]) {
       const score = row.score == null ? null : Number(row.score);
       const max = row.max_score == null ? null : Number(row.max_score);
+      const rawDetails: any[] = Array.isArray(row.task_details) ? row.task_details : [];
+      const details: DiagnosticAnswerDetail[] = rawDetails.map((d, idx) => ({
+        taskId: `external-${row.id}-${idx}`,
+        taskNumber: Number(d?.taskNumber ?? idx + 1),
+        taskType: d?.taskType ?? null,
+        isCorrect: !d?.errorTitle,
+        topicTitle: d?.topicTitle ?? null,
+        errorTitle: d?.errorTitle ?? null,
+        prompt: null,
+        answerType: d?.taskType ?? null,
+        userAnswer: d?.userAnswer ?? null,
+        correctAnswer: d?.correctAnswer ?? null,
+        comment: d?.comment ?? null,
+      }));
       items.push({
         id: row.id,
         source: "external",
@@ -388,7 +402,7 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         rawText: row.raw_text ?? null,
         attachmentUrl: row.attachment_url ?? null,
         attachmentKind: row.attachment_kind ?? null,
-        details: [],
+        details,
       });
     }
 
