@@ -593,6 +593,28 @@ export function DiagnosticPanel({ planItems }: Props) {
                   <p className="status-line">Слабые темы: {h.weakTopics.join(", ")}</p>
                 ) : null}
                 {h.notes ? <p className="status-line">{h.notes}</p> : null}
+                {h.sourceUrl ? (
+                  <p className="status-line">
+                    Ссылка:{" "}
+                    <a href={h.sourceUrl} target="_blank" rel="noreferrer" className="action-link">
+                      {h.sourceUrl}
+                    </a>
+                  </p>
+                ) : null}
+                {h.rawText ? (
+                  <details>
+                    <summary className="action-link">Показать вставленный текст</summary>
+                    <pre className="diagnostic-task-card__prompt" style={{ whiteSpace: "pre-wrap" }}>{h.rawText}</pre>
+                  </details>
+                ) : null}
+                {h.attachmentUrl ? (
+                  <p className="status-line">
+                    Вложение:{" "}
+                    <a href={h.attachmentUrl} target="_blank" rel="noreferrer" className="action-link">
+                      открыть {h.attachmentKind === "photo" ? "фото" : "файл"}
+                    </a>
+                  </p>
+                ) : null}
                 {h.details.length > 0 ? (
                   <div className="lesson-actions-row">
                     <button
