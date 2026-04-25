@@ -51,6 +51,10 @@ export type DiagnosticHistoryItem = {
   autoSubmitted: boolean;
   diagnosticType: string | null;
   sourceName: string | null;
+  sourceUrl: string | null;
+  rawText: string | null;
+  attachmentUrl: string | null;
+  attachmentKind: string | null;
   details: DiagnosticAnswerDetail[];
 };
 
@@ -220,6 +224,10 @@ const externalSchema = z.object({
   weakTopics: z.array(z.string()).default([]),
   strongTopics: z.array(z.string()).default([]),
   notes: z.string().max(2000).optional().nullable(),
+  sourceUrl: z.string().url().max(2000).optional().nullable(),
+  rawText: z.string().max(20000).optional().nullable(),
+  attachmentUrl: z.string().max(2000).optional().nullable(),
+  attachmentKind: z.enum(["link", "text", "photo"]).optional().nullable(),
 });
 
 export const saveExternalDiagnostic = createServerFn({ method: "POST" })
@@ -238,6 +246,10 @@ export const saveExternalDiagnostic = createServerFn({ method: "POST" })
       weak_topics: data.weakTopics,
       strong_topics: data.strongTopics,
       notes: data.notes ?? null,
+      source_url: data.sourceUrl ?? null,
+      raw_text: data.rawText ?? null,
+      attachment_url: data.attachmentUrl ?? null,
+      attachment_kind: data.attachmentKind ?? null,
     });
     if (error) {
       console.error("saveExternalDiagnostic", error);
@@ -285,7 +297,7 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         .limit(50),
       supabase
         .from("external_diagnostic_results" as any)
-        .select("id, subject_id, source_name, taken_on, score, max_score, score_percent, weak_topics, strong_topics, notes, created_at")
+        .select("id, subject_id, source_name, taken_on, score, max_score, score_percent, weak_topics, strong_topics, notes, created_at, source_url, raw_text, attachment_url, attachment_kind")
         .order("taken_on", { ascending: false })
         .limit(50),
       supabaseAdmin.from("subjects").select("id, name"),
@@ -328,6 +340,10 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         autoSubmitted: autoFlag,
         diagnosticType: row.diagnostic_type ?? null,
         sourceName: null,
+        sourceUrl: null,
+        rawText: null,
+        attachmentUrl: null,
+        attachmentKind: null,
         details,
       });
     }
@@ -350,6 +366,10 @@ export const listDiagnosticHistory = createServerFn({ method: "GET" })
         autoSubmitted: false,
         diagnosticType: "external",
         sourceName: row.source_name ?? null,
+        sourceUrl: row.source_url ?? null,
+        rawText: row.raw_text ?? null,
+        attachmentUrl: row.attachment_url ?? null,
+        attachmentKind: row.attachment_kind ?? null,
         details: [],
       });
     }
