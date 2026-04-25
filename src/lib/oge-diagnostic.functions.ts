@@ -242,6 +242,10 @@ export const saveExternalDiagnostic = createServerFn({ method: "POST" })
       weak_topics: data.weakTopics,
       strong_topics: data.strongTopics,
       notes: data.notes ?? null,
+      source_url: data.sourceUrl ?? null,
+      raw_text: data.rawText ?? null,
+      attachment_url: data.attachmentUrl ?? null,
+      attachment_kind: data.attachmentKind ?? null,
     });
     if (error) {
       console.error("saveExternalDiagnostic", error);
