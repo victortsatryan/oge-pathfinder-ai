@@ -774,6 +774,18 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
     return signed.signedUrl;
   }
 
+  function updateTaskDetail(index: number, patch: Partial<ExternalTaskDetailDraft>) {
+    setTaskDetails((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function addExternalTask() {
+    setTaskDetails((prev) => [...prev, blankExternalTask(prev.length + 1)]);
+  }
+
+  function removeExternalTask(index: number) {
+    setTaskDetails((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -781,9 +793,10 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       setError("Укажите предмет и источник.");
       return;
     }
-    const pct = scorePercent.trim().length > 0 ? Number(scorePercent) : null;
-    if (pct != null && (Number.isNaN(pct) || pct < 0 || pct > 100)) {
-      setError("Процент должен быть от 0 до 100.");
+    const completed = completedCount.trim().length > 0 ? Number(completedCount) : null;
+    const total = totalCount.trim().length > 0 ? Number(totalCount) : null;
+    if (completed == null || total == null || !Number.isInteger(completed) || !Number.isInteger(total) || completed < 0 || total < 1 || completed > total) {
+      setError("Укажите выполненные задания в формате: выполнено из общего числа.");
       return;
     }
     if (mode === "link" && !sourceUrl.trim()) {
@@ -814,7 +827,9 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           subjectId,
           sourceName: sourceName.trim(),
           takenOn,
-          scorePercent: pct,
+          score: completed,
+          maxScore: total,
+          scorePercent: null,
           weakTopics: weakTopicsRaw.split(",").map((s) => s.trim()).filter(Boolean),
           strongTopics: [],
           notes: notes.trim() || null,
@@ -822,6 +837,17 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           rawText: mode === "text" ? rawText.trim() : null,
           attachmentUrl,
           attachmentKind: mode,
+          taskDetails: taskDetails
+            .map((row, idx) => ({
+              taskNumber: row.taskNumber.trim() ? Number(row.taskNumber) : idx + 1,
+              taskType: row.taskType.trim() || null,
+              topicTitle: row.topicTitle.trim() || null,
+              errorTitle: row.errorTitle.trim() || null,
+              userAnswer: row.userAnswer.trim() || null,
+              correctAnswer: row.correctAnswer.trim() || null,
+              comment: row.comment.trim() || null,
+            }))
+            .filter((row) => row.topicTitle || row.errorTitle || row.taskType || row.userAnswer || row.correctAnswer || row.comment),
         },
       });
       if (!res?.ok) {
@@ -829,9 +855,11 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
         return;
       }
       setSourceName("");
-      setScorePercent("");
+      setCompletedCount("");
+      setTotalCount("");
       setWeakTopicsRaw("");
       setNotes("");
+      setTaskDetails([blankExternalTask()]);
       resetPayload();
       await onSaved();
     } catch (err) {
