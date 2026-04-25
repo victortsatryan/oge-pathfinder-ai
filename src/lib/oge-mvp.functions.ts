@@ -1,11 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getSupabaseUserFromRequest } from "@/integrations/supabase/auth-middleware";
 import { loadDefaultMvpState } from "@/lib/oge-mvp-data";
 
 export const loadMvpState = createServerFn({ method: "GET" }).handler(async () => {
   try {
-    const [resourcesResponse, attemptsResponse, sourcesResponse] = await Promise.all([
+    const user = await getSupabaseUserFromRequest().catch(() => null);
+
+    const [resourcesResponse, attemptsResponse, sourcesResponse, overridesResponse] = await Promise.all([
       supabaseAdmin
         .from("content_resources")
         .select("id, title, source_url, difficulty, tasks, content_markdown, video_url, solution_text, subjects(name), topics(title)")
@@ -22,16 +25,20 @@ export const loadMvpState = createServerFn({ method: "GET" }).handler(async () =
         .eq("is_published", true)
         .order("sort_order", { ascending: true })
         .limit(200),
+      user
+        ? supabaseAdmin
+            .from("lesson_overrides")
+            .select("lesson_key, title, topic, lesson_date, slot_number, difficulty, status, teacher_note, theory_markdown, tasks")
+            .eq("user_id", user.id)
+            .limit(500)
+        : Promise.resolve({ data: [], error: null } as const),
     ]);
 
-    if (resourcesResponse.error) {
-      console.error("Failed to load content resources", resourcesResponse.error);
-    }
-    if (attemptsResponse.error) {
-      console.error("Failed to load task attempts", attemptsResponse.error);
-    }
-    if (sourcesResponse.error) {
-      console.error("Failed to load learning sources", sourcesResponse.error);
+    if (resourcesResponse.error) console.error("Failed to load content resources", resourcesResponse.error);
+    if (attemptsResponse.error) console.error("Failed to load task attempts", attemptsResponse.error);
+    if (sourcesResponse.error) console.error("Failed to load learning sources", sourcesResponse.error);
+    if ("error" in overridesResponse && overridesResponse.error) {
+      console.error("Failed to load lesson overrides", overridesResponse.error);
     }
 
     return loadDefaultMvpState({
@@ -66,6 +73,28 @@ export const loadMvpState = createServerFn({ method: "GET" }).handler(async () =
           url: source.url,
           sourceKind: source.source_kind as "theory" | "practice" | "mixed",
         })) ?? [],
+      lessonOverrides:
+        (overridesResponse.data ?? []).map((row) => ({
+          lessonKey: row.lesson_key,
+          title: row.title,
+          topic: row.topic,
+          lessonDate: row.lesson_date,
+          slotNumber: row.slot_number,
+          difficulty: row.difficulty,
+          status: row.status,
+          teacherNote: row.teacher_note,
+          theoryMarkdown: row.theory_markdown,
+          tasks: Array.isArray(row.tasks)
+            ? (row.tasks as Array<Record<string, unknown>>).map((t, i) => ({
+                id: String(t.id ?? `task-${i + 1}`),
+                prompt: String(t.prompt ?? ""),
+                expectedAnswer: String(t.expectedAnswer ?? ""),
+                explanation: String(t.explanation ?? ""),
+                sourceLabel: String(t.sourceLabel ?? ""),
+                bankTaskId: t.bankTaskId ? String(t.bankTaskId) : null,
+              }))
+            : [],
+        })),
     });
   } catch (error) {
     console.error("Failed to load MVP state", error);
