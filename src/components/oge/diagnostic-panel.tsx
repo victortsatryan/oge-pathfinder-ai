@@ -1102,17 +1102,29 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       ) : null}
 
       {mode === "photo" ? (
-        <label className="editor-field">
+        <div className="editor-field">
           <span>Фото результата</span>
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => { setPhotoFile(e.target.files?.[0] ?? null); setOcrInfo(null); }}
           />
           {photoFile ? (
             <span className="list-row__meta">{photoFile.name} · {(photoFile.size / 1024).toFixed(0)} КБ</span>
           ) : null}
-        </label>
+          <div className="lesson-actions-row">
+            <button
+              type="button"
+              className="action-link diagnostic-primary-action"
+              onClick={runOcrOnPhoto}
+              disabled={!photoFile || ocrLoading}
+            >
+              <Wand2 className="h-4 w-4" />
+              {ocrLoading ? "AI распознаёт…" : "Распознать через AI"}
+            </button>
+          </div>
+          {ocrInfo ? <span className="list-row__meta">{ocrInfo}</span> : null}
+        </div>
       ) : null}
 
       <div className="diagnostic-feedback-card">
