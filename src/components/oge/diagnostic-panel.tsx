@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, Plus, Trash2, TimerReset, Upload, X } from "lucide-react";
+import { Clock3, Plus, Sparkles, Trash2, TimerReset, Upload, Wand2, X } from "lucide-react";
 
 import {
   loadSubjectDiagnostic,
@@ -12,8 +12,11 @@ import {
   type DiagnosticTaskRow,
   type DiagnosticHistoryItem,
 } from "@/lib/oge-diagnostic.functions";
+import { analyzeDiagnosticResult, ocrDiagnosticPhoto } from "@/lib/oge-assistant.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 import { supabase } from "@/integrations/supabase/client";
+
+type AnalysisResult = Awaited<ReturnType<typeof analyzeDiagnosticResult>>;
 
 const SUBJECT_DURATION_SECONDS = 30 * 60;
 
@@ -76,6 +79,9 @@ export function DiagnosticPanel({ planItems }: Props) {
   const [taskSearch, setTaskSearch] = useState("");
   const [searchResults, setSearchResults] = useState<DiagnosticTaskRow[]>([]);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [analyses, setAnalyses] = useState<Record<string, AnalysisResult>>({});
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<Record<string, string | null>>({});
 
   // Compute weekly topics per subject from plan: take last 7 days of past lessons
   const weeklyTopicsBySubject = useMemo(() => {
@@ -109,6 +115,48 @@ export function DiagnosticPanel({ planItems }: Props) {
       setHistory([]);
     } finally {
       setHistoryLoading(false);
+    }
+  }
+
+  async function runAnalysis(item: DiagnosticHistoryItem) {
+    const key = `${item.source}-${item.id}`;
+    setAnalyzingId(key);
+    setAnalysisError((prev) => ({ ...prev, [key]: null }));
+    try {
+      const res = await analyzeDiagnosticResult({
+        data: {
+          subjectName: item.subjectName,
+          date: item.date,
+          source: item.source,
+          sourceName: item.sourceName,
+          score: item.score,
+          maxScore: item.maxScore,
+          scorePercent: item.scorePercent,
+          weakTopics: item.weakTopics ?? [],
+          strongTopics: item.strongTopics ?? [],
+          notes: item.notes,
+          rawText: item.rawText,
+          details: item.details.map((d) => ({
+            taskNumber: d.taskNumber,
+            taskType: d.taskType ?? null,
+            topicTitle: d.topicTitle,
+            errorTitle: d.errorTitle ?? null,
+            userAnswer: Array.isArray(d.userAnswer) ? d.userAnswer.join(", ") : d.userAnswer,
+            correctAnswer: Array.isArray(d.correctAnswer) ? d.correctAnswer.join(", ") : d.correctAnswer,
+            isCorrect: d.isCorrect,
+            prompt: d.prompt,
+          })),
+        },
+      });
+      setAnalyses((prev) => ({ ...prev, [key]: res }));
+    } catch (e) {
+      console.error("analysis failed", e);
+      setAnalysisError((prev) => ({
+        ...prev,
+        [key]: e instanceof Error ? e.message : "Не удалось получить разбор",
+      }));
+    } finally {
+      setAnalyzingId(null);
     }
   }
 
@@ -679,17 +727,81 @@ export function DiagnosticPanel({ planItems }: Props) {
                     ))}
                   </div>
                 ) : null}
-                {h.source === "external" ? (
+                <div className="lesson-actions-row">
                   <button
                     type="button"
-                    className="action-link"
-                    onClick={async () => {
-                      await deleteExternalDiagnostic({ data: { id: h.id } });
-                      await refreshHistory();
-                    }}
+                    className="action-link diagnostic-primary-action"
+                    disabled={analyzingId === `${h.source}-${h.id}`}
+                    onClick={() => runAnalysis(h)}
                   >
-                    <Trash2 className="h-4 w-4" /> Удалить
+                    <Sparkles className="h-4 w-4" />
+                    {analyzingId === `${h.source}-${h.id}`
+                      ? "AI анализирует…"
+                      : analyses[`${h.source}-${h.id}`]
+                      ? "Обновить разбор AI"
+                      : "Анализ AI"}
                   </button>
+                  {h.source === "external" ? (
+                    <button
+                      type="button"
+                      className="action-link"
+                      onClick={async () => {
+                        await deleteExternalDiagnostic({ data: { id: h.id } });
+                        await refreshHistory();
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" /> Удалить
+                    </button>
+                  ) : null}
+                </div>
+                {analysisError[`${h.source}-${h.id}`] ? (
+                  <p className="status-line" style={{ color: "var(--destructive)" }}>
+                    {analysisError[`${h.source}-${h.id}`]}
+                  </p>
+                ) : null}
+                {analyses[`${h.source}-${h.id}`] ? (
+                  <div className="diagnostic-feedback-card">
+                    <div className="diagnostic-feedback-card__head">
+                      <strong>Разбор AI</strong>
+                      <span className="list-badge">сложность: {analyses[`${h.source}-${h.id}`].difficulty}</span>
+                    </div>
+                    <p className="status-line">{analyses[`${h.source}-${h.id}`].summary}</p>
+                    {analyses[`${h.source}-${h.id}`].weakTopics.length > 0 ? (
+                      <p className="status-line">
+                        <strong>Слабые темы:</strong> {analyses[`${h.source}-${h.id}`].weakTopics.join(", ")}
+                      </p>
+                    ) : null}
+                    {analyses[`${h.source}-${h.id}`].errorPatterns.length > 0 ? (
+                      <div>
+                        <strong className="status-line">Типы ошибок:</strong>
+                        <ul>
+                          {analyses[`${h.source}-${h.id}`].errorPatterns.map((p, i) => (
+                            <li key={i} className="status-line">{p}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {analyses[`${h.source}-${h.id}`].recommendations.length > 0 ? (
+                      <div>
+                        <strong className="status-line">Рекомендации:</strong>
+                        <ul>
+                          {analyses[`${h.source}-${h.id}`].recommendations.map((r, i) => (
+                            <li key={i} className="status-line">{r}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {analyses[`${h.source}-${h.id}`].extraTasks.length > 0 ? (
+                      <div>
+                        <strong className="status-line">Дополнительные задания:</strong>
+                        <ul>
+                          {analyses[`${h.source}-${h.id}`].extraTasks.map((t, i) => (
+                            <li key={i} className="status-line">{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </article>
             );
@@ -735,8 +847,49 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
   const [sourceUrl, setSourceUrl] = useState("");
   const [rawText, setRawText] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrInfo, setOcrInfo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function runOcrOnPhoto() {
+    if (!photoFile) {
+      setError("Сначала выберите фото.");
+      return;
+    }
+    setError(null);
+    setOcrInfo(null);
+    setOcrLoading(true);
+    try {
+      const url = await uploadPhoto(photoFile);
+      if (!url) return;
+      const subjectName = subjects.find((s) => s.id === subjectId)?.name;
+      const res = await ocrDiagnosticPhoto({ data: { imageUrl: url, subjectName } });
+      if (res.taskDetails.length === 0) {
+        setOcrInfo("AI не нашёл заданий на фото. Попробуйте более чёткий снимок.");
+        return;
+      }
+      setTaskDetails(
+        res.taskDetails.map((t) => ({
+          taskNumber: String(t.taskNumber),
+          taskType: t.taskType ?? "",
+          topicTitle: t.topicTitle ?? "",
+          errorTitle: t.errorTitle ?? "",
+          userAnswer: t.userAnswer ?? "",
+          correctAnswer: t.correctAnswer ?? "",
+          comment: t.comment ?? "",
+        })),
+      );
+      if (res.detectedScore != null) setCompletedCount(String(res.detectedScore));
+      if (res.detectedMaxScore != null) setTotalCount(String(res.detectedMaxScore));
+      setOcrInfo(`AI распознал заданий: ${res.taskDetails.length}. Проверьте и сохраните.`);
+    } catch (e) {
+      console.error("OCR failed", e);
+      setError(e instanceof Error ? e.message : "Не удалось распознать фото.");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!subjectId && subjects[0]) setSubjectId(subjects[0].id);
@@ -949,17 +1102,29 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       ) : null}
 
       {mode === "photo" ? (
-        <label className="editor-field">
+        <div className="editor-field">
           <span>Фото результата</span>
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => { setPhotoFile(e.target.files?.[0] ?? null); setOcrInfo(null); }}
           />
           {photoFile ? (
             <span className="list-row__meta">{photoFile.name} · {(photoFile.size / 1024).toFixed(0)} КБ</span>
           ) : null}
-        </label>
+          <div className="lesson-actions-row">
+            <button
+              type="button"
+              className="action-link diagnostic-primary-action"
+              onClick={runOcrOnPhoto}
+              disabled={!photoFile || ocrLoading}
+            >
+              <Wand2 className="h-4 w-4" />
+              {ocrLoading ? "AI распознаёт…" : "Распознать через AI"}
+            </button>
+          </div>
+          {ocrInfo ? <span className="list-row__meta">{ocrInfo}</span> : null}
+        </div>
       ) : null}
 
       <div className="diagnostic-feedback-card">

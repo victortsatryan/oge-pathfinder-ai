@@ -12,6 +12,7 @@ import {
   CircleHelp,
   Clock3,
   PencilLine,
+  Sparkles,
   TimerReset,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
@@ -29,8 +30,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 import { DiagnosticPanel } from "@/components/oge/diagnostic-panel";
+import { AssistantPanel } from "@/components/oge/assistant-panel";
 
-type ViewMode = "list" | "calendar" | "analytics" | "diagnostic";
+type ViewMode = "list" | "calendar" | "analytics" | "diagnostic" | "assistant";
 type CalendarMode = "period" | "week";
 type DiagnosticTaskType = "single" | "multiple" | "text";
 
@@ -57,6 +59,7 @@ const viewTabs: Array<{
   { id: "calendar", label: "Календарь", Icon: CalendarDays },
   { id: "analytics", label: "Аналитика", Icon: Brain },
   { id: "diagnostic", label: "Диагностика", Icon: CircleHelp },
+  { id: "assistant", label: "Ассистент", Icon: Sparkles },
 ];
 
 const WEEKLY_DIAGNOSTIC_DURATION_SECONDS = 60 * 60;
@@ -493,7 +496,9 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         ? "Связанная программа"
         : activeView === "analytics"
           ? "Аналитика ученика"
-          : "Еженедельная диагностика";
+          : activeView === "assistant"
+            ? "AI-ассистент"
+            : "Еженедельная диагностика";
 
   const contentDescription =
     activeView === "calendar"
@@ -502,7 +507,9 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         ? "Любое изменение в программе сразу отражается в календаре и карточке занятия."
         : activeView === "analytics"
           ? "Графики и рекомендации собираются из выполненных уроков, результатов и связанной программы."
-          : "Диагностика по каждому предмету: 30 минут, задания из БД по темам недели, история и внешние результаты.";
+          : activeView === "assistant"
+            ? "Чат с AI-репетитором: видит ваш план и последние диагностики, помогает разобраться с темами и заданиями."
+            : "Диагностика по каждому предмету: 30 минут, задания из БД по темам недели, история и внешние результаты.";
 
   const diagnosticTimerLabel = `${String(Math.floor(diagnosticRemainingSeconds / 60)).padStart(2, "0")}:${String(
     diagnosticRemainingSeconds % 60,
@@ -958,8 +965,10 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                     </article>
                   </div>
                 </div>
-              ) : (
+              ) : activeView === "diagnostic" ? (
                 <DiagnosticPanel planItems={planItems} />
+              ) : (
+                <AssistantPanel planItems={planItems} />
               )}
             </CardContent>
           </Card>
