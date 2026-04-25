@@ -101,9 +101,10 @@ export function DiagnosticPanel({ planItems }: Props) {
     setHistoryLoading(true);
     try {
       const res = await listDiagnosticHistory();
-      setHistory(res.items);
+      setHistory(Array.isArray(res?.items) ? res.items : []);
     } catch (e) {
       console.error(e);
+      setHistory([]);
     } finally {
       setHistoryLoading(false);
     }
