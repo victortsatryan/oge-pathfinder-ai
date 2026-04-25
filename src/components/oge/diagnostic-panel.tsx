@@ -600,8 +600,8 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           notes: notes.trim() || null,
         },
       });
-      if (!res.ok) {
-        setError(res.error ?? "Не удалось сохранить");
+      if (!res?.ok) {
+        setError(res?.error ?? "Не удалось сохранить");
         return;
       }
       setSourceName("");
@@ -609,6 +609,10 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
       setWeakTopicsRaw("");
       setNotes("");
       await onSaved();
+    } catch (err) {
+      console.error(err);
+      const status = (err as Response)?.status;
+      setError(status === 401 ? "Войдите, чтобы сохранять результаты." : "Не удалось сохранить.");
     } finally {
       setSaving(false);
     }
