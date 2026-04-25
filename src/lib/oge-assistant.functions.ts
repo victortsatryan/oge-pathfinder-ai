@@ -4,6 +4,9 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const ANALYTICS_MODEL = "openai/gpt-5";
+const CHAT_MODEL = "openai/gpt-5";
+const VISION_MODEL = "google/gemini-2.5-flash";
 
 function aiHeaders() {
   const key = process.env.LOVABLE_API_KEY;
