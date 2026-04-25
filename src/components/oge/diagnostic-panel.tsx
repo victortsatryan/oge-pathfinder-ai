@@ -895,8 +895,12 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           <input type="date" value={takenOn} onChange={(e) => setTakenOn(e.target.value)} />
         </label>
         <label className="editor-field">
-          <span>Результат, %</span>
-          <input type="number" min={0} max={100} value={scorePercent} onChange={(e) => setScorePercent(e.target.value)} placeholder="например, 72" />
+          <span>Выполнено заданий</span>
+          <input type="number" min={0} value={completedCount} onChange={(e) => setCompletedCount(e.target.value)} placeholder="например, 7" />
+        </label>
+        <label className="editor-field">
+          <span>Из общего числа</span>
+          <input type="number" min={1} value={totalCount} onChange={(e) => setTotalCount(e.target.value)} placeholder="например, 10" />
         </label>
       </div>
 
@@ -957,6 +961,61 @@ function ExternalDiagnosticForm({ subjects, onSaved }: { subjects: SubjectInfo[]
           ) : null}
         </label>
       ) : null}
+
+      <div className="diagnostic-feedback-card">
+        <div className="diagnostic-feedback-card__head">
+          <strong>Задания и ошибки</strong>
+          <button type="button" className="action-link" onClick={addExternalTask}>
+            <Plus className="h-4 w-4" /> Добавить задание
+          </button>
+        </div>
+        <div className="diagnostic-task-stack">
+          {taskDetails.map((row, index) => (
+            <article key={index} className="diagnostic-task-card">
+              <div className="diagnostic-task-card__head">
+                <strong>Строка задания</strong>
+                {taskDetails.length > 1 ? (
+                  <button type="button" className="action-link" onClick={() => removeExternalTask(index)} aria-label="Удалить строку задания">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+              <div className="diagnostic-summary-grid">
+                <label className="editor-field">
+                  <span>№ задания</span>
+                  <input type="number" min={1} value={row.taskNumber} onChange={(e) => updateTaskDetail(index, { taskNumber: e.target.value })} />
+                </label>
+                <label className="editor-field">
+                  <span>Тип задания</span>
+                  <input value={row.taskType} onChange={(e) => updateTaskDetail(index, { taskType: e.target.value })} placeholder="например, текстовая задача" />
+                </label>
+                <label className="editor-field">
+                  <span>Тема</span>
+                  <input value={row.topicTitle} onChange={(e) => updateTaskDetail(index, { topicTitle: e.target.value })} placeholder="например, дроби" />
+                </label>
+                <label className="editor-field">
+                  <span>Ошибка</span>
+                  <input value={row.errorTitle} onChange={(e) => updateTaskDetail(index, { errorTitle: e.target.value })} placeholder="например, вычислительная" />
+                </label>
+              </div>
+              <div className="diagnostic-summary-grid">
+                <label className="editor-field">
+                  <span>Ответ ученика</span>
+                  <input value={row.userAnswer} onChange={(e) => updateTaskDetail(index, { userAnswer: e.target.value })} />
+                </label>
+                <label className="editor-field">
+                  <span>Правильный ответ</span>
+                  <input value={row.correctAnswer} onChange={(e) => updateTaskDetail(index, { correctAnswer: e.target.value })} />
+                </label>
+              </div>
+              <label className="editor-field">
+                <span>Комментарий</span>
+                <textarea value={row.comment} onChange={(e) => updateTaskDetail(index, { comment: e.target.value })} rows={2} />
+              </label>
+            </article>
+          ))}
+        </div>
+      </div>
 
       <label className="editor-field">
         <span>Слабые темы (через запятую)</span>
