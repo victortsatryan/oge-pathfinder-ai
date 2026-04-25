@@ -2,6 +2,8 @@ import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-rout
 import { useMemo, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { LessonEditorDialog } from "@/components/oge/lesson-editor-dialog";
 import { checkLessonAnswers, answerValueSchema } from "@/lib/oge-lesson.functions";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 import { getLessonDetail } from "@/lib/oge-mvp-data";
