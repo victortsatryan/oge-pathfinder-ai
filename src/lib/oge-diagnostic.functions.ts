@@ -51,6 +51,10 @@ export type DiagnosticHistoryItem = {
   autoSubmitted: boolean;
   diagnosticType: string | null;
   sourceName: string | null;
+  sourceUrl: string | null;
+  rawText: string | null;
+  attachmentUrl: string | null;
+  attachmentKind: string | null;
   details: DiagnosticAnswerDetail[];
 };
 
