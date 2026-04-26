@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { OgeMvpApp } from "@/components/oge/oge-mvp-app";
+import { applyLocalOverridesToState } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
+import { loadLocalLessonOverrides } from "@/lib/oge-lesson-edit.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,7 +21,10 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  loader: () => loadMvpState(),
+  loader: async () => {
+    const base = await loadMvpState();
+    return applyLocalOverridesToState(base, loadLocalLessonOverrides());
+  },
   staleTime: 30_000,
   pendingComponent: () => <div className="p-6 text-sm text-muted-foreground">Загружаем календарь обучения…</div>,
   component: Index,
@@ -30,3 +35,4 @@ function Index() {
 
   return <OgeMvpApp data={data} />;
 }
+

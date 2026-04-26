@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { saveLessonOverride, searchTaskBank } from "@/lib/oge-lesson-edit.functions";
+import { saveLocalLessonOverride, searchTaskBank } from "@/lib/oge-lesson-edit.functions";
 import type { PlanCustomTask, PlanItem } from "@/lib/oge-mvp-data";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 
@@ -119,25 +119,31 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveLessonOverride({
-        data: {
-          lessonKey: lesson.id,
-          title,
-          topic,
-          lessonDate: date,
-          slotNumber: slot,
-          difficulty: difficulty as "easy" | "adaptive" | "medium" | "hard",
-          status: status as "done" | "pending",
-          teacherNote,
-          theoryMarkdown: theory,
-          tasks: tasks.filter((t) => t.prompt.trim().length > 0),
-        },
+      saveLocalLessonOverride({
+        lessonKey: lesson.id,
+        title: title || null,
+        topic: topic || null,
+        lessonDate: date || null,
+        slotNumber: slot ?? null,
+        difficulty: (difficulty as "easy" | "adaptive" | "medium" | "hard") || null,
+        status: (status as "done" | "pending") || null,
+        teacherNote: teacherNote || null,
+        theoryMarkdown: theory || null,
+        tasks: tasks.filter((t) => t.prompt.trim().length > 0).map((t) => ({
+          id: t.id,
+          prompt: t.prompt,
+          expectedAnswer: t.expectedAnswer,
+          explanation: t.explanation,
+          sourceLabel: t.sourceLabel,
+          bankTaskId: t.bankTaskId ?? null,
+        })),
+        updatedAt: new Date().toISOString(),
       });
       onSaved();
       onOpenChange(false);
     } catch (e) {
       console.error(e);
-      alert("Не удалось сохранить. Войдите в аккаунт и попробуйте ещё раз.");
+      alert("Не удалось сохранить изменения занятия.");
     } finally {
       setSaving(false);
     }

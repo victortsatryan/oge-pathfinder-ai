@@ -2,13 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, MessageSquarePlus, Send, Sparkles, Trash2, User2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
-import {
-  chatWithTutor,
-  deleteConversation,
-  listConversations,
-  loadConversation,
-  resolvePlanSuggestion,
-} from "@/lib/oge-assistant.functions";
+import { chatWithTutor } from "@/lib/oge-assistant.functions";
 import { listDiagnosticHistory } from "@/lib/oge-diagnostic.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 
@@ -20,18 +14,21 @@ type ChatMessage = {
 
 type Suggestion = {
   id: string;
-  message_id?: string | null;
   action_type: string;
   rationale: string | null;
   payload: Record<string, any> | null;
-  status?: "pending" | "applied" | "rejected";
+  status: "pending" | "applied" | "rejected";
 };
 
-type ConversationListItem = {
+type StoredConversation = {
   id: string;
   title: string;
   last_message_at: string;
+  messages: ChatMessage[];
+  suggestions: Suggestion[];
 };
+
+const STORAGE_KEY = "oge.assistant.conversations.v1";
 
 const SUGGESTIONS = [
   "Что мне сегодня учить?",
@@ -48,6 +45,31 @@ const ACTION_LABELS: Record<string, string> = {
   reorder: "Перестановка",
 };
 
+function loadStore(): StoredConversation[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStore(items: StoredConversation[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch (e) {
+    console.error("assistant store save failed", e);
+  }
+}
+
+function makeId() {
+  return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 type Props = { planItems: PlanItem[] };
 
 export function AssistantPanel({ planItems }: Props) {
@@ -57,7 +79,7 @@ export function AssistantPanel({ planItems }: Props) {
       "Привет! Я твой AI-репетитор (GPT-5). Вижу твой план и последние диагностики. Могу разобрать ошибку, объяснить тему, предложить задания или предложить изменения в плане.",
   };
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
+  const [conversations, setConversations] = useState<StoredConversation[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [input, setInput] = useState("");
@@ -84,20 +106,25 @@ export function AssistantPanel({ planItems }: Props) {
           .map((p) => `${p.subject} — ${p.topic}`)
           .join("; ");
 
-        const hist = await listDiagnosticHistory();
-        const items = Array.isArray(hist?.items) ? hist.items.slice(0, 5) : [];
-        const recentDiags = items
-          .map((h) => {
-            const score =
-              h.score != null && h.maxScore != null
-                ? `${h.score}/${h.maxScore}`
-                : h.scorePercent != null
-                ? `${h.scorePercent}%`
-                : "—";
-            const weak = h.weakTopics?.length ? ` слабые: ${h.weakTopics.join(", ")}` : "";
-            return `${h.subjectName} (${h.date.slice(0, 10)}) — ${score}.${weak}`;
-          })
-          .join(" | ");
+        let recentDiags = "";
+        try {
+          const hist = await listDiagnosticHistory();
+          const items = Array.isArray(hist?.items) ? hist.items.slice(0, 5) : [];
+          recentDiags = items
+            .map((h) => {
+              const score =
+                h.score != null && h.maxScore != null
+                  ? `${h.score}/${h.maxScore}`
+                  : h.scorePercent != null
+                  ? `${h.scorePercent}%`
+                  : "—";
+              const weak = h.weakTopics?.length ? ` слабые: ${h.weakTopics.join(", ")}` : "";
+              return `${h.subjectName} (${h.date.slice(0, 10)}) — ${score}.${weak}`;
+            })
+            .join(" | ");
+        } catch {
+          // ok — гость без диагностик
+        }
 
         if (!alive) return;
         const summary = [
@@ -117,36 +144,30 @@ export function AssistantPanel({ planItems }: Props) {
     };
   }, [planItems]);
 
-  // Load conversation list on mount
+  // Load conversation list from localStorage on mount
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await listConversations();
-        setConversations(res.items as ConversationListItem[]);
-      } catch (e) {
-        console.error("list conversations failed", e);
-      }
-    })();
+    setConversations(loadStore());
   }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
 
-  async function openConversation(id: string) {
+  function persist(updater: (prev: StoredConversation[]) => StoredConversation[]) {
+    setConversations((prev) => {
+      const next = updater(prev);
+      saveStore(next);
+      return next;
+    });
+  }
+
+  function openConversation(id: string) {
     setError(null);
-    try {
-      const res = await loadConversation({ data: { conversationId: id } });
-      const loadedMessages: ChatMessage[] = (res.messages as any[])
-        .filter((m) => m.role !== "system")
-        .map((m) => ({ id: m.id, role: m.role, content: m.content }));
-      setMessages(loadedMessages.length ? loadedMessages : [greeting]);
-      setSuggestions(res.suggestions as Suggestion[]);
-      setConversationId(id);
-    } catch (e) {
-      console.error("load conversation failed", e);
-      setError(e instanceof Error ? e.message : "Не удалось загрузить диалог");
-    }
+    const conv = conversations.find((c) => c.id === id);
+    if (!conv) return;
+    setMessages(conv.messages.length ? conv.messages : [greeting]);
+    setSuggestions(conv.suggestions);
+    setConversationId(id);
   }
 
   function startNewConversation() {
@@ -156,15 +177,10 @@ export function AssistantPanel({ planItems }: Props) {
     setError(null);
   }
 
-  async function removeConversation(id: string) {
+  function removeConversation(id: string) {
     if (!confirm("Удалить этот диалог?")) return;
-    try {
-      await deleteConversation({ data: { conversationId: id } });
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (id === conversationId) startNewConversation();
-    } catch (e) {
-      console.error("delete conversation failed", e);
-    }
+    persist((prev) => prev.filter((c) => c.id !== id));
+    if (id === conversationId) startNewConversation();
   }
 
   async function send(text: string) {
@@ -178,26 +194,39 @@ export function AssistantPanel({ planItems }: Props) {
     try {
       const res = await chatWithTutor({
         data: {
-          conversationId,
           messages: next.slice(-20).map(({ role, content }) => ({ role, content })),
           contextSummary: contextSummary || undefined,
         },
       });
-      setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
-      if (res.conversationId && res.conversationId !== conversationId) {
-        setConversationId(res.conversationId);
-        // Refresh conversation list
-        try {
-          const list = await listConversations();
-          setConversations(list.items as ConversationListItem[]);
-        } catch {}
-      }
-      if (res.suggestions?.length) {
-        setSuggestions((prev) => [
-          ...prev,
-          ...res.suggestions.map((s: any) => ({ ...s, status: "pending" as const })),
-        ]);
-      }
+      const assistantMsg: ChatMessage = { role: "assistant", content: res.reply };
+      const finalMessages = [...next, assistantMsg];
+      setMessages(finalMessages);
+
+      const newSuggestions: Suggestion[] = (res.suggestions ?? []).map((s: any) => ({
+        id: `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+        action_type: s.action_type,
+        rationale: s.rationale,
+        payload: s.payload ?? null,
+        status: "pending",
+      }));
+      const finalSuggestions = [...suggestions, ...newSuggestions];
+      setSuggestions(finalSuggestions);
+
+      // Persist conversation
+      const id = conversationId ?? makeId();
+      const title = (conversations.find((c) => c.id === id)?.title ?? trimmed).slice(0, 80);
+      const record: StoredConversation = {
+        id,
+        title,
+        last_message_at: new Date().toISOString(),
+        messages: finalMessages,
+        suggestions: finalSuggestions,
+      };
+      persist((prev) => {
+        const without = prev.filter((c) => c.id !== id);
+        return [record, ...without];
+      });
+      if (!conversationId) setConversationId(id);
     } catch (e) {
       console.error("chat failed", e);
       const msg = e instanceof Error ? e.message : "Не удалось получить ответ AI.";
@@ -207,13 +236,17 @@ export function AssistantPanel({ planItems }: Props) {
     }
   }
 
-  async function resolveSuggestion(id: string, decision: "apply" | "reject") {
+  function resolveSuggestion(id: string, decision: "apply" | "reject") {
     setResolvingId(id);
     try {
-      const res = await resolvePlanSuggestion({ data: { suggestionId: id, decision } });
-      setSuggestions((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status: res.status as Suggestion["status"] } : s)),
-      );
+      const newStatus: Suggestion["status"] = decision === "apply" ? "applied" : "rejected";
+      const updated = suggestions.map((s) => (s.id === id ? { ...s, status: newStatus } : s));
+      setSuggestions(updated);
+      if (conversationId) {
+        persist((prev) =>
+          prev.map((c) => (c.id === conversationId ? { ...c, suggestions: updated } : c)),
+        );
+      }
     } catch (e) {
       console.error("resolve failed", e);
       setError(e instanceof Error ? e.message : "Не удалось обработать предложение");
@@ -234,6 +267,7 @@ export function AssistantPanel({ planItems }: Props) {
             <div className="list-row__title">Чат с ассистентом по подготовке к ОГЭ</div>
             <div className="list-row__meta">
               Видит твой план и диагностики. Может предлагать изменения в плане — ты подтверждаешь.
+              История диалогов сохраняется в этом браузере.
             </div>
           </div>
         </div>
@@ -380,7 +414,7 @@ export function AssistantPanel({ planItems }: Props) {
                           onClick={() => resolveSuggestion(s.id, "apply")}
                         >
                           <Check className="h-3 w-3" />
-                          <span>Применить</span>
+                          <span>Принять к сведению</span>
                         </button>
                         <button
                           type="button"

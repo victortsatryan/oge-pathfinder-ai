@@ -443,34 +443,8 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
     });
   });
 
-  // Apply per-user lesson overrides
-  const overridesByKey = new Map<string, LessonOverrideInput>();
-  for (const o of input.lessonOverrides ?? []) overridesByKey.set(o.lessonKey, o);
-  if (overridesByKey.size) {
-    for (let i = 0; i < planList.length; i += 1) {
-      const item = planList[i];
-      const o = overridesByKey.get(item.id);
-      if (!o) continue;
-      const newDate = o.lessonDate || item.dateISO;
-      const newSlot = o.slotNumber ?? null;
-      const mappedStatus: PlanItemStatus =
-        o.status === "done" ? "done" : o.status ? "pending" : item.status;
-      planList[i] = {
-        ...item,
-        dateISO: newDate,
-        time: newSlot ? SESSION_TIMES[newSlot - 1] ?? item.time : item.time,
-        topic: o.topic || item.topic,
-        note: o.teacherNote || item.note,
-        status: mappedStatus,
-        customTasks: o.tasks,
-        teacherNote: o.teacherNote,
-        theoryMarkdown: o.theoryMarkdown,
-        difficulty: o.difficulty,
-        isEdited: true,
-      };
-    }
-    planList.sort((a, b) => (a.dateISO === b.dateISO ? a.time.localeCompare(b.time) : a.dateISO.localeCompare(b.dateISO)));
-  }
+  // Apply per-user lesson overrides (server-provided)
+  applyOverridesInPlace(planList, input.lessonOverrides ?? []);
 
   const materialsCount = planList.reduce((acc, item) => acc + item.resources.length, 0);
   const allAttempts = planList.flatMap((item) => (item.result ? [item.result] : []));
@@ -828,3 +802,39 @@ function buildExternalSourcesForLesson(args: {
   return blocks;
 }
 
+
+export function applyOverridesInPlace(planList: PlanItem[], overrides: LessonOverrideInput[]) {
+  const overridesByKey = new Map<string, LessonOverrideInput>();
+  for (const o of overrides) overridesByKey.set(o.lessonKey, o);
+  if (!overridesByKey.size) return;
+  for (let i = 0; i < planList.length; i += 1) {
+    const item = planList[i];
+    const o = overridesByKey.get(item.id);
+    if (!o) continue;
+    const newDate = o.lessonDate || item.dateISO;
+    const newSlot = o.slotNumber ?? null;
+    const mappedStatus: PlanItemStatus =
+      o.status === "done" ? "done" : o.status ? "pending" : item.status;
+    planList[i] = {
+      ...item,
+      dateISO: newDate,
+      time: newSlot ? SESSION_TIMES[newSlot - 1] ?? item.time : item.time,
+      topic: o.topic || item.topic,
+      note: o.teacherNote || item.note,
+      status: mappedStatus,
+      customTasks: o.tasks,
+      teacherNote: o.teacherNote,
+      theoryMarkdown: o.theoryMarkdown,
+      difficulty: o.difficulty,
+      isEdited: true,
+    };
+  }
+  planList.sort((a, b) => (a.dateISO === b.dateISO ? a.time.localeCompare(b.time) : a.dateISO.localeCompare(b.dateISO)));
+}
+
+export function applyLocalOverridesToState(state: OgeMvpState, overrides: LessonOverrideInput[]): OgeMvpState {
+  if (!overrides.length) return state;
+  const planList = state.planList.map((p) => ({ ...p }));
+  applyOverridesInPlace(planList, overrides);
+  return { ...state, planList };
+}
