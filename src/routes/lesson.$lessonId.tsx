@@ -9,7 +9,7 @@ import { checkLessonAnswers, answerValueSchema } from "@/lib/oge-lesson.function
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 import { applyLocalOverridesToState, getLessonDetail } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
-import { loadLocalLessonOverrides } from "@/lib/oge-lesson-edit.functions";
+import { loadLocalLessonOverrides } from "@/lib/oge-lesson-overrides";
 
 export const Route = createFileRoute("/lesson/$lessonId")({
   loader: async ({ params }) => {

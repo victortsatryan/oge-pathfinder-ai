@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { OgeMvpApp } from "@/components/oge/oge-mvp-app";
 import { applyLocalOverridesToState } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
-import { loadLocalLessonOverrides } from "@/lib/oge-lesson-edit.functions";
+import { loadLocalLessonOverrides } from "@/lib/oge-lesson-overrides";
 
 export const Route = createFileRoute("/")({
   head: () => ({

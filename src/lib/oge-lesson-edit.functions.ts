@@ -77,57 +77,7 @@ export const searchTaskBank = createServerFn({ method: "POST" })
     };
   });
 
-// ---------- Local lesson overrides (browser storage) ----------
-// We store lesson overrides in localStorage so the editor works for guests
-// (no auth required). The shape mirrors the lesson_overrides DB table so it
-// can later be synced if/when the user signs in.
+// Browser-only helpers for lesson overrides have moved to
+// `@/lib/oge-lesson-overrides` so they aren't processed by the server-fn
+// Vite plugin (which strips non-server exports from the client bundle).
 
-export type LocalLessonOverride = {
-  lessonKey: string;
-  title: string | null;
-  topic: string | null;
-  lessonDate: string | null;
-  slotNumber: number | null;
-  difficulty: "easy" | "adaptive" | "medium" | "hard" | null;
-  status: "locked" | "in_progress" | "done" | "pending" | null;
-  teacherNote: string | null;
-  theoryMarkdown: string | null;
-  tasks: Array<{
-    id: string;
-    prompt: string;
-    expectedAnswer: string;
-    explanation: string;
-    sourceLabel: string;
-    bankTaskId: string | null;
-  }>;
-  updatedAt: string;
-};
-
-const OVERRIDES_KEY = "oge.lesson_overrides.v1";
-
-export function loadLocalLessonOverrides(): LocalLessonOverride[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(OVERRIDES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveLocalLessonOverride(override: LocalLessonOverride) {
-  if (typeof window === "undefined") return;
-  const all = loadLocalLessonOverrides();
-  const next = [override, ...all.filter((o) => o.lessonKey !== override.lessonKey)];
-  try {
-    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(next));
-  } catch (e) {
-    console.error("saveLocalLessonOverride failed", e);
-  }
-}
-
-export function getLocalLessonOverride(lessonKey: string): LocalLessonOverride | null {
-  return loadLocalLessonOverrides().find((o) => o.lessonKey === lessonKey) ?? null;
-}
