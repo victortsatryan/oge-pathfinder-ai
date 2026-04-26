@@ -1,12 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const ANALYTICS_MODEL = "openai/gpt-5";
 const CHAT_MODEL = "openai/gpt-5";
-const VISION_MODEL = "google/gemini-2.5-flash";
 
 function aiHeaders() {
   const key = process.env.LOVABLE_API_KEY;
@@ -67,8 +64,7 @@ const analysisOutputSchema = z.object({
 });
 
 export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(analysisSchema)
+  .inputValidator((input: unknown) => analysisSchema.parse(input))
   .handler(async ({ data }) => {
     const response = await fetch(GATEWAY_URL, {
       method: "POST",
@@ -118,7 +114,7 @@ export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
     return analysisOutputSchema.parse(JSON.parse(args));
   });
 
-// ---------- 2) Tutor chat with context + plan suggestions ----------
+// ---------- 2) Tutor chat with context + plan suggestions (no auth, stateless) ----------
 
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -126,7 +122,6 @@ const chatMessageSchema = z.object({
 });
 
 const chatInputSchema = z.object({
-  conversationId: z.string().uuid().nullable().optional(),
   messages: z.array(chatMessageSchema).min(1).max(40),
   contextSummary: z.string().max(8000).optional(),
 });
@@ -148,11 +143,8 @@ const planSuggestionSchema = z.object({
 });
 
 export const chatWithTutor = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(chatInputSchema)
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-
+  .inputValidator((input: unknown) => chatInputSchema.parse(input))
+  .handler(async ({ data }) => {
     const systemPrompt = [
       "Ты персональный AI-репетитор по подготовке к ОГЭ. Тон — спокойный, дружелюбный, по делу.",
       "Отвечай кратко и структурно (списки, шаги, формулы по необходимости). Используй markdown.",
@@ -245,184 +237,7 @@ export const chatWithTutor = createServerFn({ method: "POST" })
       throw new Error("AI вернул пустой ответ.");
     }
 
-    // Persist conversation + messages + suggestions
-    let conversationId = data.conversationId ?? null;
-    const lastUserMsg = [...data.messages].reverse().find((m) => m.role === "user");
-    if (!conversationId) {
-      const title = (lastUserMsg?.content ?? "Новый диалог").slice(0, 80);
-      const { data: conv, error: convErr } = await supabase
-        .from("assistant_conversations")
-        .insert({ user_id: userId, title })
-        .select("id")
-        .single();
-      if (convErr) throw new Error(convErr.message);
-      conversationId = conv!.id as string;
-    } else {
-      await supabase
-        .from("assistant_conversations")
-        .update({ last_message_at: new Date().toISOString() })
-        .eq("id", conversationId)
-        .eq("user_id", userId);
-    }
-
-    if (lastUserMsg) {
-      await supabase.from("assistant_messages").insert({
-        conversation_id: conversationId,
-        user_id: userId,
-        role: "user",
-        content: lastUserMsg.content,
-      });
-    }
-    const { data: assistantRow, error: msgErr } = await supabase
-      .from("assistant_messages")
-      .insert({
-        conversation_id: conversationId,
-        user_id: userId,
-        role: "assistant",
-        content: reply,
-        metadata: suggestions.length ? { hasSuggestions: true } : {},
-      })
-      .select("id")
-      .single();
-    if (msgErr) throw new Error(msgErr.message);
-
-    const insertedSuggestions: Array<{ id: string; action_type: string; rationale: string | null; payload: any }> = [];
-    if (suggestions.length > 0) {
-      const rows = suggestions.map((s) => ({
-        user_id: userId,
-        conversation_id: conversationId,
-        message_id: assistantRow!.id as string,
-        action_type: s.action_type,
-        rationale: s.rationale,
-        payload: s.payload ?? {},
-      }));
-      const { data: inserted, error: sugErr } = await supabase
-        .from("assistant_plan_suggestions")
-        .insert(rows)
-        .select("id, action_type, rationale, payload");
-      if (sugErr) throw new Error(sugErr.message);
-      insertedSuggestions.push(...(inserted ?? []));
-    }
-
-    return { reply, conversationId, suggestions: insertedSuggestions };
-  });
-
-// ---------- Conversation history ----------
-
-export const listConversations = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    const { data, error } = await supabase
-      .from("assistant_conversations")
-      .select("id, title, last_message_at, created_at")
-      .eq("user_id", userId)
-      .order("last_message_at", { ascending: false })
-      .limit(50);
-    if (error) throw new Error(error.message);
-    return { items: data ?? [] };
-  });
-
-export const loadConversation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ conversationId: z.string().uuid() }))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: msgs, error } = await supabase
-      .from("assistant_messages")
-      .select("id, role, content, metadata, created_at")
-      .eq("conversation_id", data.conversationId)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
-    const { data: sugs } = await supabase
-      .from("assistant_plan_suggestions")
-      .select("id, message_id, action_type, rationale, payload, status")
-      .eq("conversation_id", data.conversationId)
-      .eq("user_id", userId);
-    return { messages: msgs ?? [], suggestions: sugs ?? [] };
-  });
-
-export const deleteConversation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ conversationId: z.string().uuid() }))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { error } = await supabase
-      .from("assistant_conversations")
-      .delete()
-      .eq("id", data.conversationId)
-      .eq("user_id", userId);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-// ---------- Apply / reject plan suggestion ----------
-
-export const resolvePlanSuggestion = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(
-    z.object({
-      suggestionId: z.string().uuid(),
-      decision: z.enum(["apply", "reject"]),
-    }),
-  )
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: sug, error: loadErr } = await supabase
-      .from("assistant_plan_suggestions")
-      .select("id, action_type, payload, status")
-      .eq("id", data.suggestionId)
-      .eq("user_id", userId)
-      .single();
-    if (loadErr || !sug) throw new Error(loadErr?.message ?? "Предложение не найдено");
-    if (sug.status !== "pending") return { ok: true, status: sug.status };
-
-    if (data.decision === "reject") {
-      await supabase
-        .from("assistant_plan_suggestions")
-        .update({ status: "rejected" })
-        .eq("id", sug.id)
-        .eq("user_id", userId);
-      return { ok: true, status: "rejected" };
-    }
-
-    // Apply: best-effort, supports move/change_topic/remove on existing lesson by id
-    const payload = (sug.payload ?? {}) as Record<string, any>;
-    const action = sug.action_type as string;
-    try {
-      if (action === "move_lesson" && payload.lessonId && payload.newDate) {
-        await supabase
-          .from("lessons")
-          .update({ lesson_date: payload.newDate, ...(payload.slot ? { slot_number: payload.slot } : {}) })
-          .eq("id", payload.lessonId)
-          .eq("user_id", userId);
-      } else if (action === "change_topic" && payload.lessonId && payload.newTopic) {
-        await supabase
-          .from("lessons")
-          .update({ title: payload.newTopic })
-          .eq("id", payload.lessonId)
-          .eq("user_id", userId);
-      } else if (action === "remove_lesson" && payload.lessonId) {
-        await supabase
-          .from("lessons")
-          .delete()
-          .eq("id", payload.lessonId)
-          .eq("user_id", userId);
-      }
-      // add_lesson / reorder без lessonId оставляем как пометку — пользователь увидит rationale и сделает руками,
-      // но статус всё равно «applied», чтобы не висело в очереди.
-    } catch (err) {
-      console.error("apply suggestion failed", err);
-      throw new Error("Не удалось применить изменение плана.");
-    }
-
-    await supabase
-      .from("assistant_plan_suggestions")
-      .update({ status: "applied", applied_at: new Date().toISOString() })
-      .eq("id", sug.id)
-      .eq("user_id", userId);
-    return { ok: true, status: "applied" };
+    return { reply, suggestions };
   });
 
 // ---------- 3) OCR diagnostic photo with Gemini Vision ----------
@@ -453,8 +268,7 @@ const ocrOutputSchema = z.object({
 });
 
 export const ocrDiagnosticPhoto = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(ocrInputSchema)
+  .inputValidator((input: unknown) => ocrInputSchema.parse(input))
   .handler(async ({ data }) => {
     const response = await fetch(GATEWAY_URL, {
       method: "POST",
@@ -472,7 +286,7 @@ export const ocrDiagnosticPhoto = createServerFn({ method: "POST" })
             content: [
               {
                 type: "text",
-                text: `Распознай результат диагностики${data.subjectName ? ` по предмету «${data.subjectName}»` : ""}. Для каждого задания заполни: № задания, тему, тип задания, ответ ученика, правильный ответ, верно/нет, тип ошибки (вычислительная, логическая, невнимательность и т.п.). Если на фото есть итоговый балл — укажи detectedScore и detectedMaxScore.`,
+                text: `Распознай результат диагностики${data.subjectName ? ` по предмету «${data.subjectName}»` : ""}. Для каждого задания заполни: № задания, тему, тип задания, ответ ученика, правильный ответ, верно/нет, тип ошибки.`,
               },
               { type: "image_url", image_url: { url: data.imageUrl } },
             ],
@@ -483,7 +297,6 @@ export const ocrDiagnosticPhoto = createServerFn({ method: "POST" })
             type: "function",
             function: {
               name: "return_ocr_result",
-              description: "Return structured task details extracted from the diagnostic photo.",
               parameters: {
                 type: "object",
                 properties: {
