@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { saveLocalLessonOverride, searchTaskBank } from "@/lib/oge-lesson-edit.functions";
+import { searchTaskBank } from "@/lib/oge-lesson-edit.functions";
+import { saveLocalLessonOverride } from "@/lib/oge-lesson-overrides";
 import type { PlanCustomTask, PlanItem } from "@/lib/oge-mvp-data";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 
