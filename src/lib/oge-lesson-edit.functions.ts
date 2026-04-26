@@ -1,68 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-const taskSchema = z.object({
-  id: z.string().min(1).max(120),
-  prompt: z.string().min(1).max(4000),
-  expectedAnswer: z.string().max(2000).default(""),
-  explanation: z.string().max(4000).default(""),
-  sourceLabel: z.string().max(300).default("Добавлено вручную"),
-  bankTaskId: z.string().uuid().nullable().optional(),
-});
-
-const overrideSchema = z.object({
-  lessonKey: z.string().min(1).max(200),
-  title: z.string().max(200).nullable().optional(),
-  topic: z.string().max(200).nullable().optional(),
-  lessonDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullable()
-    .optional(),
-  slotNumber: z.number().int().min(1).max(8).nullable().optional(),
-  difficulty: z.enum(["easy", "adaptive", "medium", "hard"]).nullable().optional(),
-  status: z.enum(["locked", "in_progress", "done", "pending"]).nullable().optional(),
-  teacherNote: z.string().max(4000).nullable().optional(),
-  theoryMarkdown: z.string().max(20000).nullable().optional(),
-  tasks: z.array(taskSchema).max(40).optional(),
-});
-
-export const saveLessonOverride = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => overrideSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-
-    const payload = {
-      user_id: userId,
-      lesson_key: data.lessonKey,
-      title: data.title ?? null,
-      topic: data.topic ?? null,
-      lesson_date: data.lessonDate ?? null,
-      slot_number: data.slotNumber ?? null,
-      difficulty: data.difficulty ?? null,
-      status: data.status ?? null,
-      teacher_note: data.teacherNote ?? null,
-      theory_markdown: data.theoryMarkdown ?? null,
-      tasks: (data.tasks ?? []) as unknown as never,
-    };
-
-    const { data: row, error } = await supabaseAdmin
-      .from("lesson_overrides")
-      .upsert(payload, { onConflict: "user_id,lesson_key" })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("saveLessonOverride failed", error);
-      throw new Error("Не удалось сохранить изменения урока");
-    }
-
-    return { ok: true, override: row };
-  });
 
 const searchSchema = z.object({
   query: z.string().max(200).default(""),
@@ -71,7 +10,6 @@ const searchSchema = z.object({
 });
 
 export const searchTaskBank = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => searchSchema.parse(input))
   .handler(async ({ data }) => {
     let query = supabaseAdmin
@@ -139,21 +77,57 @@ export const searchTaskBank = createServerFn({ method: "POST" })
     };
   });
 
-export const loadLessonOverride = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ lessonKey: z.string().min(1).max(200) }).parse(input))
-  .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const { data: row, error } = await supabaseAdmin
-      .from("lesson_overrides")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("lesson_key", data.lessonKey)
-      .maybeSingle();
+// ---------- Local lesson overrides (browser storage) ----------
+// We store lesson overrides in localStorage so the editor works for guests
+// (no auth required). The shape mirrors the lesson_overrides DB table so it
+// can later be synced if/when the user signs in.
 
-    if (error) {
-      console.error("loadLessonOverride failed", error);
-      return { override: null };
-    }
-    return { override: row };
-  });
+export type LocalLessonOverride = {
+  lessonKey: string;
+  title: string | null;
+  topic: string | null;
+  lessonDate: string | null;
+  slotNumber: number | null;
+  difficulty: "easy" | "adaptive" | "medium" | "hard" | null;
+  status: "locked" | "in_progress" | "done" | "pending" | null;
+  teacherNote: string | null;
+  theoryMarkdown: string | null;
+  tasks: Array<{
+    id: string;
+    prompt: string;
+    expectedAnswer: string;
+    explanation: string;
+    sourceLabel: string;
+    bankTaskId: string | null;
+  }>;
+  updatedAt: string;
+};
+
+const OVERRIDES_KEY = "oge.lesson_overrides.v1";
+
+export function loadLocalLessonOverrides(): LocalLessonOverride[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(OVERRIDES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalLessonOverride(override: LocalLessonOverride) {
+  if (typeof window === "undefined") return;
+  const all = loadLocalLessonOverrides();
+  const next = [override, ...all.filter((o) => o.lessonKey !== override.lessonKey)];
+  try {
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(next));
+  } catch (e) {
+    console.error("saveLocalLessonOverride failed", e);
+  }
+}
+
+export function getLocalLessonOverride(lessonKey: string): LocalLessonOverride | null {
+  return loadLocalLessonOverrides().find((o) => o.lessonKey === lessonKey) ?? null;
+}
