@@ -151,84 +151,204 @@ export const chatWithTutor = createServerFn({ method: "POST" })
       "Ты персональный AI-репетитор по подготовке к ОГЭ. Тон — спокойный, дружелюбный, по делу.",
       "Отвечай кратко и структурно (списки, шаги, формулы по необходимости). Используй markdown.",
       "Если ученик просит объяснить задание — давай разбор шаг за шагом.",
-      "Если просит дополнительные задания — предложи 3–5 конкретных формулировок по теме.",
+      "",
+      "КРИТИЧЕСКИ ВАЖНО про задания:",
+      "- НИКОГДА не выдумывай и не сочиняй формулировки заданий ОГЭ сам.",
+      "- Если ученик просит задания/упражнения/примеры по теме — ты ОБЯЗАН вызвать инструмент find_tasks_in_bank, чтобы получить реальные задания из банка.",
+      "- В ответе цитируй ТОЛЬКО те задания, которые вернул инструмент. Указывай их id и тему. Можно немного перефразировать вступление, но текст задания (`prompt`) — дословно.",
+      "- Если инструмент вернул пустой список — честно скажи: «В банке заданий по этой теме пока нет ничего подходящего». Не придумывай взамен.",
+      "- Не более одного-двух вызовов find_tasks_in_bank на ответ.",
+      "",
+      "Если по контексту видишь, что план занятий стоит изменить (перенести урок, добавить тему, переставить порядок) — вызови инструмент propose_plan_changes. Без подтверждения ученика изменения не применяются.",
       "Если данных не хватает — задай 1 уточняющий вопрос.",
-      "Если по контексту видишь, что план занятий стоит изменить (перенести урок, добавить тему, переставить порядок) — обязательно вызови инструмент propose_plan_changes с конкретными предложениями. Без подтверждения ученика изменения не применяются.",
       data.contextSummary ? `\n\nКонтекст ученика:\n${data.contextSummary}` : "",
     ].join(" ");
 
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: aiHeaders(),
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...data.messages.map((m) => ({ role: m.role, content: m.content })),
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "propose_plan_changes",
-              description:
-                "Предложи изменения в недельном плане ученика. Каждое предложение требует подтверждения пользователя. Используй, когда видишь слабую тему, пропуск или перегруз.",
-              parameters: {
-                type: "object",
-                properties: {
-                  suggestions: {
-                    type: "array",
-                    items: {
+    const tools = [
+      {
+        type: "function" as const,
+        function: {
+          name: "find_tasks_in_bank",
+          description:
+            "Поиск реальных заданий ОГЭ в банке заданий по ключевым словам и/или предмету. Возвращает массив заданий с id, текстом (prompt), темой, сложностью. Используй ВСЕГДА, когда ученик просит задания, примеры, упражнения, тренировку — нельзя выдумывать формулировки самому.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description:
+                  "Ключевые слова из текста задания или темы (на русском). Пример: 'квадратное уравнение', 'причастный оборот', 'проценты'.",
+              },
+              subjectName: {
+                type: "string",
+                description: "Название предмета: 'Математика', 'Русский язык', 'Физика' и т.п.",
+              },
+              limit: { type: "integer", minimum: 1, maximum: 10 },
+            },
+            required: ["query"],
+          },
+        },
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "propose_plan_changes",
+          description:
+            "Предложи изменения в недельном плане ученика. Каждое предложение требует подтверждения пользователя.",
+          parameters: {
+            type: "object",
+            properties: {
+              suggestions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    action_type: {
+                      type: "string",
+                      enum: ["add_lesson", "move_lesson", "remove_lesson", "change_topic", "reorder"],
+                    },
+                    rationale: { type: "string" },
+                    payload: {
                       type: "object",
                       properties: {
-                        action_type: {
-                          type: "string",
-                          enum: ["add_lesson", "move_lesson", "remove_lesson", "change_topic", "reorder"],
-                        },
-                        rationale: { type: "string" },
-                        payload: {
-                          type: "object",
-                          properties: {
-                            subject: { type: "string" },
-                            topic: { type: "string" },
-                            lessonDate: { type: "string", description: "ISO date YYYY-MM-DD" },
-                            newDate: { type: "string", description: "ISO date YYYY-MM-DD" },
-                            slot: { type: "integer" },
-                            lessonId: { type: "string" },
-                            newTopic: { type: "string" },
-                          },
-                        },
+                        subject: { type: "string" },
+                        topic: { type: "string" },
+                        lessonDate: { type: "string", description: "ISO date YYYY-MM-DD" },
+                        newDate: { type: "string", description: "ISO date YYYY-MM-DD" },
+                        slot: { type: "integer" },
+                        lessonId: { type: "string" },
+                        newTopic: { type: "string" },
                       },
-                      required: ["action_type", "rationale"],
                     },
                   },
+                  required: ["action_type", "rationale"],
                 },
-                required: ["suggestions"],
               },
             },
+            required: ["suggestions"],
           },
-        ],
-        tool_choice: "auto",
-      }),
-    });
+        },
+      },
+    ];
 
-    const payload = await handleAiResponse(response);
-    const choice = payload.choices?.[0]?.message;
-    let reply = typeof choice?.content === "string" ? choice.content.trim() : "";
-    const toolCalls = Array.isArray(choice?.tool_calls) ? choice.tool_calls : [];
+    const conversation: Array<Record<string, unknown>> = [
+      { role: "system", content: systemPrompt },
+      ...data.messages.map((m) => ({ role: m.role, content: m.content })),
+    ];
 
     const suggestions: Array<z.infer<typeof planSuggestionSchema>> = [];
-    for (const tc of toolCalls) {
-      if (tc?.function?.name !== "propose_plan_changes") continue;
-      try {
-        const parsed = JSON.parse(tc.function.arguments ?? "{}");
-        const list = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
-        for (const s of list) {
-          const safe = planSuggestionSchema.safeParse(s);
-          if (safe.success) suggestions.push(safe.data);
+    const usedTaskIds = new Set<string>();
+    let reply = "";
+
+    // Agentic loop: allow the model to call tools (search bank) before answering.
+    for (let step = 0; step < 4; step++) {
+      const response = await fetch(GATEWAY_URL, {
+        method: "POST",
+        headers: aiHeaders(),
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          messages: conversation,
+          tools,
+          tool_choice: "auto",
+        }),
+      });
+
+      const payload = await handleAiResponse(response);
+      const choice = payload.choices?.[0]?.message;
+      if (!choice) throw new Error("AI вернул пустой ответ.");
+
+      const toolCalls = Array.isArray(choice.tool_calls) ? choice.tool_calls : [];
+
+      // Push the assistant turn (with tool_calls) into the conversation
+      conversation.push({
+        role: "assistant",
+        content: choice.content ?? "",
+        tool_calls: toolCalls.length ? toolCalls : undefined,
+      });
+
+      if (!toolCalls.length) {
+        reply = typeof choice.content === "string" ? choice.content.trim() : "";
+        break;
+      }
+
+      // Execute each tool call and append results
+      for (const tc of toolCalls) {
+        const name = tc?.function?.name;
+        let argsRaw = tc?.function?.arguments ?? "{}";
+        let parsedArgs: any = {};
+        try {
+          parsedArgs = JSON.parse(argsRaw);
+        } catch {
+          parsedArgs = {};
         }
-      } catch (err) {
-        console.error("propose_plan_changes parse failed", err);
+
+        if (name === "find_tasks_in_bank") {
+          const q = String(parsedArgs.query ?? "").slice(0, 200);
+          const subj = parsedArgs.subjectName ? String(parsedArgs.subjectName).slice(0, 80) : undefined;
+          const limit = Math.min(Math.max(Number(parsedArgs.limit ?? 5), 1), 10);
+
+          let qb = supabaseAdmin
+            .from("tasks")
+            .select("id, prompt, explanation, exam_section, difficulty, subjects(name), topics(title)")
+            .eq("is_published", true)
+            .limit(limit);
+          if (q.trim()) qb = qb.ilike("prompt", `%${q.trim()}%`);
+
+          const { data: rows, error } = await qb;
+          let tasks: Array<Record<string, unknown>> = [];
+          if (error) {
+            console.error("find_tasks_in_bank failed", error);
+          } else {
+            const filtered = (rows ?? []).filter((row: any) => {
+              if (!subj) return true;
+              const name = row?.subjects?.name ?? "";
+              const a = String(name).toLowerCase();
+              const b = subj.toLowerCase();
+              return a.includes(b) || b.includes(a);
+            });
+            tasks = filtered.map((row: any) => {
+              usedTaskIds.add(row.id);
+              return {
+                id: row.id,
+                prompt: row.prompt,
+                topic: row.topics?.title ?? null,
+                subject: row.subjects?.name ?? null,
+                difficulty: row.difficulty ?? null,
+                examSection: row.exam_section ?? null,
+              };
+            });
+          }
+
+          conversation.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({
+              count: tasks.length,
+              tasks,
+              note:
+                tasks.length === 0
+                  ? "Банк не вернул заданий. Сообщи ученику честно — НЕ выдумывай задания."
+                  : "Цитируй prompt дословно. Указывай id из этого ответа.",
+            }),
+          });
+        } else if (name === "propose_plan_changes") {
+          const list = Array.isArray(parsedArgs.suggestions) ? parsedArgs.suggestions : [];
+          for (const s of list) {
+            const safe = planSuggestionSchema.safeParse(s);
+            if (safe.success) suggestions.push(safe.data);
+          }
+          conversation.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({ ok: true, accepted: list.length }),
+          });
+        } else {
+          conversation.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({ error: `Unknown tool: ${name}` }),
+          });
+        }
       }
     }
 
@@ -239,7 +359,7 @@ export const chatWithTutor = createServerFn({ method: "POST" })
       throw new Error("AI вернул пустой ответ.");
     }
 
-    return { reply, suggestions };
+    return { reply, suggestions, usedTaskIds: Array.from(usedTaskIds) };
   });
 
 // ---------- 3) OCR diagnostic photo with Gemini Vision ----------
