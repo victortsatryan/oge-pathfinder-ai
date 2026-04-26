@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { LessonEditorDialog } from "@/components/oge/lesson-editor-dialog";
 import { checkLessonAnswers, answerValueSchema } from "@/lib/oge-lesson.functions";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
-import { getLessonDetail } from "@/lib/oge-mvp-data";
+import { applyLocalOverridesToState, getLessonDetail } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
+import { loadLocalLessonOverrides } from "@/lib/oge-lesson-edit.functions";
 
 export const Route = createFileRoute("/lesson/$lessonId")({
   loader: async ({ params }) => {
-    const state = await loadMvpState();
+    const baseState = await loadMvpState();
+    const state = applyLocalOverridesToState(baseState, loadLocalLessonOverrides());
     const detail = getLessonDetail(state, params.lessonId);
 
     if (!detail) {
