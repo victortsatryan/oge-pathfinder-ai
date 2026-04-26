@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const ANALYTICS_MODEL = "openai/gpt-5";
 const CHAT_MODEL = "openai/gpt-5";
