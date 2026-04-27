@@ -21,6 +21,13 @@ export type LocalLessonOverride = {
     sourceLabel: string;
     bankTaskId: string | null;
   }>;
+  customLinks?: Array<{
+    id: string;
+    title: string;
+    url: string;
+    kind: "video" | "article" | "practice" | "other";
+    note?: string | null;
+  }>;
   updatedAt: string;
 };
 
