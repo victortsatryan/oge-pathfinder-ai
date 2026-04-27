@@ -118,9 +118,18 @@ export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
 
 // ---------- 2) Tutor chat with context + plan suggestions (no auth, stateless) ----------
 
+const attachmentSchema = z.object({
+  name: z.string().min(1).max(200),
+  mimeType: z.string().min(1).max(120),
+  // For images/pdf: data URL (data:<mime>;base64,...). For text-like files: plain text content.
+  dataUrl: z.string().min(1).max(8_000_000).optional(),
+  textContent: z.string().min(1).max(200_000).optional(),
+});
+
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string().min(1).max(8000),
+  content: z.string().max(8000),
+  attachments: z.array(attachmentSchema).max(6).optional(),
 });
 
 const chatInputSchema = z.object({
@@ -144,13 +153,38 @@ const planSuggestionSchema = z.object({
     .default({}),
 });
 
+function buildMessageContent(msg: z.infer<typeof chatMessageSchema>) {
+  const atts = msg.attachments ?? [];
+  if (!atts.length) return msg.content;
+  const parts: Array<Record<string, unknown>> = [];
+  const textChunks: string[] = [];
+  if (msg.content && msg.content.trim()) textChunks.push(msg.content);
+  for (const a of atts) {
+    if (a.dataUrl && (a.mimeType.startsWith("image/") || a.mimeType === "application/pdf")) {
+      parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
+      textChunks.push(`[Прикреплён файл: ${a.name} (${a.mimeType})]`);
+    } else if (a.textContent) {
+      const trimmed = a.textContent.length > 40_000 ? a.textContent.slice(0, 40_000) + "…[обрезано]" : a.textContent;
+      textChunks.push(`\n--- Содержимое файла «${a.name}» (${a.mimeType}) ---\n${trimmed}\n--- конец файла ---`);
+    } else {
+      textChunks.push(`[Прикреплён файл: ${a.name} (${a.mimeType}) — не удалось прочитать содержимое]`);
+    }
+  }
+  parts.unshift({ type: "text", text: textChunks.join("\n\n") });
+  return parts;
+}
+
 export const chatWithTutor = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => chatInputSchema.parse(input))
   .handler(async ({ data }) => {
+    const hasAttachments = data.messages.some((m) => (m.attachments?.length ?? 0) > 0);
     const systemPrompt = [
       "Ты персональный AI-репетитор по подготовке к ОГЭ. Тон — спокойный, дружелюбный, по делу.",
       "Отвечай кратко и структурно (списки, шаги, формулы по необходимости). Используй markdown.",
       "Если ученик просит объяснить задание — давай разбор шаг за шагом.",
+      hasAttachments
+        ? "Если ученик прикрепил фото или документ — внимательно проанализируй его. Если это решение задачи: укажи, что верно, что нет, и как исправить. Если это конспект/учебник — извлеки ключевые идеи и предложи, как встроить их в план занятий (например, какую тему обновить, какие задания добавить). Если это страница с заданиями — предложи добавить конкретные задания в урок (через propose_plan_changes с action_type=change_topic или add_lesson, описав в rationale, какой урок и какие задания обновить).",
+        : "",
       "",
       "КРИТИЧЕСКИ ВАЖНО про задания:",
       "- НИКОГДА не выдумывай и не сочиняй формулировки заданий ОГЭ сам.",
