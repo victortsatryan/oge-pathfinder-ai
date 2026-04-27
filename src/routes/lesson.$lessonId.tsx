@@ -280,6 +280,29 @@ function LessonPage() {
                 <CardDescription>Источники, привязанные к этой теме.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
+                {detail.customLinks.length ? (
+                  <div className="content-stack">
+                    {detail.customLinks.map((link) => (
+                      <article key={link.id} className="resource-card">
+                        <div className="list-row__title">{link.title}</div>
+                        <div className="list-row__meta" style={{ textTransform: "capitalize" }}>
+                          {link.kind === "video"
+                            ? "Видео"
+                            : link.kind === "article"
+                            ? "Статья"
+                            : link.kind === "practice"
+                            ? "Практика"
+                            : "Ресурс"}
+                        </div>
+                        {link.note ? <p className="status-line">{link.note}</p> : null}
+                        <a className="action-link" href={link.url} target="_blank" rel="noreferrer">
+                          Открыть ссылку
+                        </a>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+
                 {detail.resourceLinks.length ? (
                   detail.resourceLinks.map((item: { id: string; title: string; url: string | null }) => (
                     <article key={item.id} className="resource-card">
@@ -291,9 +314,9 @@ function LessonPage() {
                       ) : null}
                     </article>
                   ))
-                ) : (
+                ) : detail.customLinks.length === 0 ? (
                   <div className="calendar-empty">Ссылки-источники пока не загружены.</div>
-                )}
+                ) : null}
               </CardContent>
             </Card>
 
