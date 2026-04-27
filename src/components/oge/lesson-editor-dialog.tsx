@@ -120,6 +120,17 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
     setBankOpen(false);
   };
 
+  const addLink = () => {
+    setCustomLinks((prev) => [
+      ...prev,
+      { id: uid(), title: "", url: "", kind: "video", note: "" },
+    ]);
+  };
+  const updateLink = (id: string, patch: Partial<PlanCustomLink>) => {
+    setCustomLinks((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  };
+  const removeLink = (id: string) => setCustomLinks((prev) => prev.filter((l) => l.id !== id));
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -141,6 +152,15 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
           sourceLabel: t.sourceLabel,
           bankTaskId: t.bankTaskId ?? null,
         })),
+        customLinks: customLinks
+          .filter((l) => l.url.trim().length > 0)
+          .map((l) => ({
+            id: l.id,
+            title: l.title.trim() || l.url,
+            url: l.url.trim(),
+            kind: l.kind,
+            note: l.note?.trim() || null,
+          })),
         updatedAt: new Date().toISOString(),
       });
       onSaved();
