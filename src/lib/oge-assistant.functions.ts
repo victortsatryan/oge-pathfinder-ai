@@ -267,8 +267,16 @@ export const chatWithTutor = createServerFn({ method: "POST" })
 
     const conversation: Array<Record<string, unknown>> = [
       { role: "system", content: systemPrompt },
-      ...data.messages.map((m) => ({ role: m.role, content: m.content })),
+      ...data.messages.map((m) => ({ role: m.role, content: buildMessageContent(m) })),
     ];
+
+    // If user message includes images/PDFs, switch to a multimodal-capable model.
+    const usesVision = data.messages.some((m) =>
+      (m.attachments ?? []).some(
+        (a) => a.dataUrl && (a.mimeType.startsWith("image/") || a.mimeType === "application/pdf"),
+      ),
+    );
+    const modelForCall = usesVision ? "google/gemini-2.5-pro" : CHAT_MODEL;
 
     const suggestions: Array<z.infer<typeof planSuggestionSchema>> = [];
     const usedTaskIds = new Set<string>();
@@ -280,7 +288,7 @@ export const chatWithTutor = createServerFn({ method: "POST" })
         method: "POST",
         headers: aiHeaders(),
         body: JSON.stringify({
-          model: CHAT_MODEL,
+          model: modelForCall,
           messages: conversation,
           tools,
           tool_choice: "auto",
