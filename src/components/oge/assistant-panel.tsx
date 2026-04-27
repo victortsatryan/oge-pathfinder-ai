@@ -237,16 +237,27 @@ export function AssistantPanel({ planItems }: Props) {
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
+    const atts = pendingAttachments;
+    if ((!trimmed && atts.length === 0) || sending) return;
     setError(null);
-    const next: ChatMessage[] = [...messages, { role: "user", content: trimmed }];
+    const userMsg: ChatMessage = {
+      role: "user",
+      content: trimmed || (atts.length ? "(см. вложения)" : ""),
+      attachments: atts.length ? atts : undefined,
+    };
+    const next: ChatMessage[] = [...messages, userMsg];
     setMessages(next);
     setInput("");
+    setPendingAttachments([]);
     setSending(true);
     try {
       const res = await chatWithTutor({
         data: {
-          messages: next.slice(-20).map(({ role, content }) => ({ role, content })),
+          messages: next.slice(-20).map((m) => ({
+            role: m.role,
+            content: m.content,
+            attachments: m.attachments,
+          })),
           contextSummary: contextSummary || undefined,
         },
       });
@@ -264,14 +275,23 @@ export function AssistantPanel({ planItems }: Props) {
       const finalSuggestions = [...suggestions, ...newSuggestions];
       setSuggestions(finalSuggestions);
 
-      // Persist conversation
+      // Persist conversation (strip large dataUrls to keep localStorage small)
+      const persistable = finalMessages.map((m) => ({
+        ...m,
+        attachments: m.attachments?.map((a) => ({
+          name: a.name,
+          mimeType: a.mimeType,
+          textContent: a.textContent,
+          // omit dataUrl to avoid blowing localStorage quota
+        })),
+      }));
       const id = conversationId ?? makeId();
-      const title = (conversations.find((c) => c.id === id)?.title ?? trimmed).slice(0, 80);
+      const title = (conversations.find((c) => c.id === id)?.title ?? (trimmed || atts[0]?.name || "Диалог")).slice(0, 80);
       const record: StoredConversation = {
         id,
         title,
         last_message_at: new Date().toISOString(),
-        messages: finalMessages,
+        messages: persistable as ChatMessage[],
         suggestions: finalSuggestions,
       };
       persist((prev) => {
