@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { searchTaskBank } from "@/lib/oge-lesson-edit.functions";
 import { saveLocalLessonOverride } from "@/lib/oge-lesson-overrides";
-import type { PlanCustomTask, PlanItem } from "@/lib/oge-mvp-data";
+import type { PlanCustomLink, PlanCustomTask, PlanItem } from "@/lib/oge-mvp-data";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 
 type Props = {
@@ -50,6 +50,9 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
           bankTaskId: null,
         }))
     ).map((t) => ({ ...t }))
+  );
+  const [customLinks, setCustomLinks] = useState<PlanCustomLink[]>(() =>
+    (lesson.customLinks ?? []).map((l) => ({ ...l })),
   );
   const [saving, setSaving] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
@@ -117,6 +120,17 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
     setBankOpen(false);
   };
 
+  const addLink = () => {
+    setCustomLinks((prev) => [
+      ...prev,
+      { id: uid(), title: "", url: "", kind: "video", note: "" },
+    ]);
+  };
+  const updateLink = (id: string, patch: Partial<PlanCustomLink>) => {
+    setCustomLinks((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  };
+  const removeLink = (id: string) => setCustomLinks((prev) => prev.filter((l) => l.id !== id));
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -138,6 +152,15 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
           sourceLabel: t.sourceLabel,
           bankTaskId: t.bankTaskId ?? null,
         })),
+        customLinks: customLinks
+          .filter((l) => l.url.trim().length > 0)
+          .map((l) => ({
+            id: l.id,
+            title: l.title.trim() || l.url,
+            url: l.url.trim(),
+            kind: l.kind,
+            note: l.note?.trim() || null,
+          })),
         updatedAt: new Date().toISOString(),
       });
       onSaved();
@@ -303,6 +326,53 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
 
             {tasks.length === 0 ? (
               <p className="text-sm text-muted-foreground">Заданий пока нет. Добавьте из банка или создайте своё.</p>
+            ) : null}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-base">Ссылки-ресурсы ({customLinks.length})</Label>
+              <Button size="sm" type="button" onClick={addLink}>+ Добавить ссылку</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Видео, статьи или практика по теме. Ученик увидит их в карточке урока и сможет открыть в новой вкладке.
+            </p>
+            {customLinks.map((l) => (
+              <div key={l.id} className="rounded-md border border-border p-3 space-y-2">
+                <div className="grid grid-cols-[1fr_140px_auto] gap-2">
+                  <Input
+                    placeholder="Название (например, видео по теореме)"
+                    value={l.title}
+                    onChange={(e) => updateLink(l.id, { title: e.target.value })}
+                    maxLength={200}
+                  />
+                  <Select value={l.kind} onValueChange={(v) => updateLink(l.id, { kind: v as PlanCustomLink["kind"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="video">Видео</SelectItem>
+                      <SelectItem value="article">Статья</SelectItem>
+                      <SelectItem value="practice">Практика</SelectItem>
+                      <SelectItem value="other">Другое</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="ghost" type="button" onClick={() => removeLink(l.id)}>Удалить</Button>
+                </div>
+                <Input
+                  placeholder="https://…"
+                  value={l.url}
+                  onChange={(e) => updateLink(l.id, { url: e.target.value })}
+                  maxLength={2000}
+                />
+                <Input
+                  placeholder="Заметка (опционально)"
+                  value={l.note ?? ""}
+                  onChange={(e) => updateLink(l.id, { note: e.target.value })}
+                  maxLength={500}
+                />
+              </div>
+            ))}
+            {customLinks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ссылок пока нет.</p>
             ) : null}
           </div>
         </div>

@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, MessageSquarePlus, Send, Sparkles, Trash2, User2, X } from "lucide-react";
+import { Check, MessageSquarePlus, Paperclip, Send, Sparkles, Trash2, User2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 import { chatWithTutor } from "@/lib/oge-assistant.functions";
 import { listDiagnosticHistory } from "@/lib/oge-diagnostic.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 
+type Attachment = {
+  name: string;
+  mimeType: string;
+  dataUrl?: string;
+  textContent?: string;
+};
+
 type ChatMessage = {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  attachments?: Attachment[];
 };
 
 type Suggestion = {
@@ -83,11 +91,55 @@ export function AssistantPanel({ planItems }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [input, setInput] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contextSummary, setContextSummary] = useState("");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setError(null);
+    const next: Attachment[] = [];
+    for (const file of Array.from(files).slice(0, 6)) {
+      if (file.size > 6_000_000) {
+        setError(`Файл «${file.name}» слишком большой (макс 6 МБ).`);
+        continue;
+      }
+      const mimeType = file.type || "application/octet-stream";
+      const isImage = mimeType.startsWith("image/");
+      const isPdf = mimeType === "application/pdf";
+      const isText =
+        mimeType.startsWith("text/") ||
+        mimeType === "application/json" ||
+        /\.(md|txt|csv|json)$/i.test(file.name);
+      try {
+        if (isImage || isPdf) {
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(file);
+          });
+          next.push({ name: file.name, mimeType, dataUrl });
+        } else if (isText) {
+          const text = await file.text();
+          next.push({ name: file.name, mimeType, textContent: text });
+        } else {
+          setError(`Тип «${file.name}» не поддерживается. Используй фото, PDF или текстовый файл.`);
+        }
+      } catch (e) {
+        console.error("file read failed", e);
+        setError(`Не удалось прочитать «${file.name}».`);
+      }
+    }
+    if (next.length) setPendingAttachments((prev) => [...prev, ...next].slice(0, 6));
+  }
+  function removeAttachment(idx: number) {
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   // Build student context from plan + diagnostics
   useEffect(() => {
@@ -185,16 +237,27 @@ export function AssistantPanel({ planItems }: Props) {
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
+    const atts = pendingAttachments;
+    if ((!trimmed && atts.length === 0) || sending) return;
     setError(null);
-    const next: ChatMessage[] = [...messages, { role: "user", content: trimmed }];
+    const userMsg: ChatMessage = {
+      role: "user",
+      content: trimmed || (atts.length ? "(см. вложения)" : ""),
+      attachments: atts.length ? atts : undefined,
+    };
+    const next: ChatMessage[] = [...messages, userMsg];
     setMessages(next);
     setInput("");
+    setPendingAttachments([]);
     setSending(true);
     try {
       const res = await chatWithTutor({
         data: {
-          messages: next.slice(-20).map(({ role, content }) => ({ role, content })),
+          messages: next.slice(-20).map((m) => ({
+            role: m.role,
+            content: m.content,
+            attachments: m.attachments,
+          })),
           contextSummary: contextSummary || undefined,
         },
       });
@@ -212,14 +275,23 @@ export function AssistantPanel({ planItems }: Props) {
       const finalSuggestions = [...suggestions, ...newSuggestions];
       setSuggestions(finalSuggestions);
 
-      // Persist conversation
+      // Persist conversation (strip large dataUrls to keep localStorage small)
+      const persistable = finalMessages.map((m) => ({
+        ...m,
+        attachments: m.attachments?.map((a) => ({
+          name: a.name,
+          mimeType: a.mimeType,
+          textContent: a.textContent,
+          // omit dataUrl to avoid blowing localStorage quota
+        })),
+      }));
       const id = conversationId ?? makeId();
-      const title = (conversations.find((c) => c.id === id)?.title ?? trimmed).slice(0, 80);
+      const title = (conversations.find((c) => c.id === id)?.title ?? (trimmed || atts[0]?.name || "Диалог")).slice(0, 80);
       const record: StoredConversation = {
         id,
         title,
         last_message_at: new Date().toISOString(),
-        messages: finalMessages,
+        messages: persistable as ChatMessage[],
         suggestions: finalSuggestions,
       };
       persist((prev) => {

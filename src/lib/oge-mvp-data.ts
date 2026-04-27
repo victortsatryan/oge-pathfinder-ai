@@ -41,6 +41,14 @@ export type PlanCustomTask = {
   bankTaskId?: string | null;
 };
 
+export type PlanCustomLink = {
+  id: string;
+  title: string;
+  url: string;
+  kind: "video" | "article" | "practice" | "other";
+  note?: string | null;
+};
+
 export type PlanItem = {
   id: string;
   subject: string;
@@ -58,6 +66,7 @@ export type PlanItem = {
   tasks: string[];
   result: LessonResult | null;
   customTasks?: PlanCustomTask[];
+  customLinks?: PlanCustomLink[];
   teacherNote?: string | null;
   theoryMarkdown?: string | null;
   difficulty?: string | null;
@@ -124,6 +133,7 @@ export type LessonDetail = {
     title: string;
     url: string | null;
   }>;
+  customLinks: PlanCustomLink[];
 };
 
 export type OgeMvpState = {
@@ -190,6 +200,7 @@ type LessonOverrideInput = {
   teacherNote: string | null;
   theoryMarkdown: string | null;
   tasks: PlanCustomTask[];
+  customLinks?: PlanCustomLink[];
 };
 
 type LoadStateInput = {
@@ -567,6 +578,7 @@ export function getLessonDetail(state: OgeMvpState, lessonId: string): LessonDet
       title: resource.title,
       url: resource.sourceUrl,
     })),
+    customLinks: lesson.customLinks ?? [],
   };
 }
 
@@ -823,6 +835,7 @@ export function applyOverridesInPlace(planList: PlanItem[], overrides: LessonOve
       note: o.teacherNote || item.note,
       status: mappedStatus,
       customTasks: o.tasks,
+      customLinks: o.customLinks ?? item.customLinks,
       teacherNote: o.teacherNote,
       theoryMarkdown: o.theoryMarkdown,
       difficulty: o.difficulty,
