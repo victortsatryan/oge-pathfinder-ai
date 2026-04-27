@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { searchTaskBank } from "@/lib/oge-lesson-edit.functions";
 import { saveLocalLessonOverride } from "@/lib/oge-lesson-overrides";
-import type { PlanCustomTask, PlanItem } from "@/lib/oge-mvp-data";
+import type { PlanCustomLink, PlanCustomTask, PlanItem } from "@/lib/oge-mvp-data";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 
 type Props = {
@@ -50,6 +50,9 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
           bankTaskId: null,
         }))
     ).map((t) => ({ ...t }))
+  );
+  const [customLinks, setCustomLinks] = useState<PlanCustomLink[]>(() =>
+    (lesson.customLinks ?? []).map((l) => ({ ...l })),
   );
   const [saving, setSaving] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
