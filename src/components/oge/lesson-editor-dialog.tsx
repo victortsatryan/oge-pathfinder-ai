@@ -328,6 +328,53 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
               <p className="text-sm text-muted-foreground">Заданий пока нет. Добавьте из банка или создайте своё.</p>
             ) : null}
           </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-base">Ссылки-ресурсы ({customLinks.length})</Label>
+              <Button size="sm" type="button" onClick={addLink}>+ Добавить ссылку</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Видео, статьи или практика по теме. Ученик увидит их в карточке урока и сможет открыть в новой вкладке.
+            </p>
+            {customLinks.map((l) => (
+              <div key={l.id} className="rounded-md border border-border p-3 space-y-2">
+                <div className="grid grid-cols-[1fr_140px_auto] gap-2">
+                  <Input
+                    placeholder="Название (например, видео по теореме)"
+                    value={l.title}
+                    onChange={(e) => updateLink(l.id, { title: e.target.value })}
+                    maxLength={200}
+                  />
+                  <Select value={l.kind} onValueChange={(v) => updateLink(l.id, { kind: v as PlanCustomLink["kind"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="video">Видео</SelectItem>
+                      <SelectItem value="article">Статья</SelectItem>
+                      <SelectItem value="practice">Практика</SelectItem>
+                      <SelectItem value="other">Другое</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="ghost" type="button" onClick={() => removeLink(l.id)}>Удалить</Button>
+                </div>
+                <Input
+                  placeholder="https://…"
+                  value={l.url}
+                  onChange={(e) => updateLink(l.id, { url: e.target.value })}
+                  maxLength={2000}
+                />
+                <Input
+                  placeholder="Заметка (опционально)"
+                  value={l.note ?? ""}
+                  onChange={(e) => updateLink(l.id, { note: e.target.value })}
+                  maxLength={500}
+                />
+              </div>
+            ))}
+            {customLinks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ссылок пока нет.</p>
+            ) : null}
+          </div>
         </div>
 
         <DialogFooter>
