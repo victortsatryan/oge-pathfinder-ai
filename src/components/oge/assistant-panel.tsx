@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, MessageSquarePlus, Send, Sparkles, Trash2, User2, X } from "lucide-react";
+import { Check, MessageSquarePlus, Paperclip, Send, Sparkles, Trash2, User2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 import { chatWithTutor } from "@/lib/oge-assistant.functions";
 import { listDiagnosticHistory } from "@/lib/oge-diagnostic.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 
+type Attachment = {
+  name: string;
+  mimeType: string;
+  dataUrl?: string;
+  textContent?: string;
+};
+
 type ChatMessage = {
   id?: string;
   role: "user" | "assistant";
   content: string;
+  attachments?: Attachment[];
 };
 
 type Suggestion = {
