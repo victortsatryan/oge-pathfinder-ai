@@ -444,6 +444,18 @@ export function AssistantPanel({ planItems }: Props) {
                 <div className="status-line" style={{ whiteSpace: "pre-wrap" }}>
                   <ReactMarkdown>{m.content}</ReactMarkdown>
                 </div>
+                {m.attachments && m.attachments.length > 0 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                    {m.attachments.map((a, ai) => (
+                      <span key={ai} className="subject-chip" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <Paperclip className="h-3 w-3" />
+                        <span style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {a.name}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </article>
             ))}
 
