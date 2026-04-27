@@ -91,11 +91,55 @@ export function AssistantPanel({ planItems }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([greeting]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [input, setInput] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contextSummary, setContextSummary] = useState("");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return;
+    setError(null);
+    const next: Attachment[] = [];
+    for (const file of Array.from(files).slice(0, 6)) {
+      if (file.size > 6_000_000) {
+        setError(`Файл «${file.name}» слишком большой (макс 6 МБ).`);
+        continue;
+      }
+      const mimeType = file.type || "application/octet-stream";
+      const isImage = mimeType.startsWith("image/");
+      const isPdf = mimeType === "application/pdf";
+      const isText =
+        mimeType.startsWith("text/") ||
+        mimeType === "application/json" ||
+        /\.(md|txt|csv|json)$/i.test(file.name);
+      try {
+        if (isImage || isPdf) {
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(file);
+          });
+          next.push({ name: file.name, mimeType, dataUrl });
+        } else if (isText) {
+          const text = await file.text();
+          next.push({ name: file.name, mimeType, textContent: text });
+        } else {
+          setError(`Тип «${file.name}» не поддерживается. Используй фото, PDF или текстовый файл.`);
+        }
+      } catch (e) {
+        console.error("file read failed", e);
+        setError(`Не удалось прочитать «${file.name}».`);
+      }
+    }
+    if (next.length) setPendingAttachments((prev) => [...prev, ...next].slice(0, 6));
+  }
+  function removeAttachment(idx: number) {
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   // Build student context from plan + diagnostics
   useEffect(() => {
