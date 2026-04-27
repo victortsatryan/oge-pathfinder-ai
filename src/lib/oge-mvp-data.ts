@@ -133,6 +133,7 @@ export type LessonDetail = {
     title: string;
     url: string | null;
   }>;
+  customLinks: PlanCustomLink[];
 };
 
 export type OgeMvpState = {
@@ -577,6 +578,7 @@ export function getLessonDetail(state: OgeMvpState, lessonId: string): LessonDet
       title: resource.title,
       url: resource.sourceUrl,
     })),
+    customLinks: lesson.customLinks ?? [],
   };
 }
 
