@@ -550,15 +550,43 @@
   .calendar-subject-strip {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
   }
 
+  /* Default: when subject-tone has NO children, render as a thin colour bar (used inside calendar day cards). */
   .subject-tone {
     display: inline-flex;
-    min-height: 10px;
-    min-width: 10px;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    width: 100%;
+    height: 8px;
     border-radius: 999px;
     background: var(--subject-color, var(--color-muted));
+    color: transparent;
+    font-size: 0;
+    line-height: 0;
+    overflow: hidden;
+  }
+
+  /* When subject-tone wraps text (e.g. in lesson rows / program titles), render as a full pill that covers the label. */
+  .subject-tone:has(> *),
+  .subject-tone:not(:empty) {
+    width: auto;
+    height: auto;
+    min-height: 30px;
+    padding: 4px 12px;
+    background: color-mix(in oklab, var(--subject-color, var(--surface-soft)) 28%, var(--color-card));
+    border: 1px solid color-mix(in oklab, var(--subject-color, var(--color-border)) 55%, transparent);
+    color: var(--color-foreground);
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .subject-tone--math {
@@ -623,6 +651,23 @@
   .lesson-dialog__stack {
     display: grid;
     gap: 12px;
+  }
+
+  /* Make the day-lesson list scrollable when it exceeds available height so all 4 cards remain reachable. */
+  .day-lesson-stack {
+    max-height: clamp(320px, 55vh, 560px);
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+  }
+
+  .day-lesson-stack::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .day-lesson-stack::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-border) 80%, transparent);
+    border-radius: 999px;
   }
 
   .lesson-row,
