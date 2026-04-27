@@ -527,6 +527,50 @@ export function AssistantPanel({ planItems }: Props) {
             </p>
           ) : null}
 
+          {pendingAttachments.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                marginTop: 10,
+                padding: 8,
+                borderRadius: 10,
+                border: "1px dashed var(--border)",
+                background: "var(--secondary)",
+              }}
+            >
+              {pendingAttachments.map((a, idx) => (
+                <span
+                  key={`${a.name}-${idx}`}
+                  className="subject-chip"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  title={a.mimeType}
+                >
+                  <Paperclip className="h-3 w-3" />
+                  <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {a.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(idx)}
+                    aria-label="Убрать вложение"
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--muted-foreground)",
+                      padding: 0,
+                      display: "inline-flex",
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -536,9 +580,29 @@ export function AssistantPanel({ planItems }: Props) {
             style={{ marginTop: 12, gap: 8 }}
           >
             <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,application/pdf,.txt,.md,.csv,.json,text/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="action-link"
+              disabled={sending}
+              onClick={() => fileInputRef.current?.click()}
+              title="Прикрепить фото или документ"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+            <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Напишите сообщение…"
+              placeholder="Напишите сообщение или прикрепите файл…"
               disabled={sending}
               style={{
                 flex: 1,
@@ -552,7 +616,7 @@ export function AssistantPanel({ planItems }: Props) {
             <button
               type="submit"
               className="action-link diagnostic-primary-action"
-              disabled={sending || !input.trim()}
+              disabled={sending || (!input.trim() && pendingAttachments.length === 0)}
             >
               <Send className="h-4 w-4" />
               <span>Отправить</span>
