@@ -11,7 +11,7 @@ import {
   ClipboardList,
   CircleHelp,
   Clock3,
-  PencilLine,
+  
   Sparkles,
   TimerReset,
 } from "lucide-react";
@@ -165,7 +165,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
   const initialPlanItems = Array.isArray(data?.planList) ? data.planList : [];
   const weeklyChecks = Array.isArray(data?.weeklyChecks) ? data.weeklyChecks : [];
   const subjectPrograms = Array.isArray(data?.subjectPrograms) ? data.subjectPrograms : [];
-  const editingHints = Array.isArray(data?.editingHints) ? data.editingHints : [];
+  
 
   const [activeView, setActiveView] = useState<ViewMode>("calendar");
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("period");
@@ -1158,27 +1158,8 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
 
             <Card className="panel rail-panel">
               <CardHeader>
-                <CardTitle>Предметы и цветовые коды</CardTitle>
-                <CardDescription>Цвет предмета в календаре, программе и карточке занятия совпадает.</CardDescription>
-              </CardHeader>
-              <CardContent className="content-stack">
-                {subjectPrograms.map((item) => (
-                  <article key={item.subject} className="subject-tile">
-                    <div className="subject-tile__top">
-                      <span className={subjectToneClass[item.subject] ?? "subject-tone"} />
-                      <span className="subject-tile__name">{item.subject}</span>
-                    </div>
-                    <strong className="subject-tile__value">{item.tasksCoverage}</strong>
-                    <span className="subject-tile__meta">{item.focus}</span>
-                  </article>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="panel rail-panel">
-              <CardHeader>
                 <CardTitle>Результаты</CardTitle>
-                <CardDescription>Сюда попадает анализ попыток и выполнения программы.</CardDescription>
+                <CardDescription>Анализ попыток и выполнения программы.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
                 <article className="result-card">
@@ -1236,21 +1217,6 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                     ) : null}
                   </div>
                 ) : null}
-              </CardContent>
-            </Card>
-
-            <Card className="panel rail-panel">
-              <CardHeader>
-                <CardTitle>Подсказки для правок</CardTitle>
-                <CardDescription>Что можно редактировать уже сейчас.</CardDescription>
-              </CardHeader>
-              <CardContent className="content-stack">
-                {editingHints.map((item) => (
-                  <div key={item} className="check-row">
-                    <PencilLine className="h-4 w-4" />
-                    <span>{item}</span>
-                  </div>
-                ))}
               </CardContent>
             </Card>
           </aside>
@@ -1397,7 +1363,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                     ))}
                   </div>
                 ) : (
-                  <div className="calendar-empty">Материалы пока не загружены в backend — как только добавите ссылки, они появятся здесь.</div>
+                  <div className="calendar-empty">К занятию пока не привязаны материалы.</div>
                 )}
 
                 {selectedLesson.tasks.length ? (

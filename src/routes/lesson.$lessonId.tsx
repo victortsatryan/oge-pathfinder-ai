@@ -152,7 +152,6 @@ function LessonPage() {
                     <div className="practice-task-card__head">
                       <div>
                         <div className="list-row__title">Задание {index + 1}</div>
-                        <div className="list-row__meta">{task.sourceLabel}</div>
                       </div>
                     </div>
                     <p className="theory-text">{task.prompt}</p>

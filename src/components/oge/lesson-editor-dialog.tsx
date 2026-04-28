@@ -303,18 +303,11 @@ export function LessonEditorDialog({ open, onOpenChange, lesson, initialTasks, o
                   onChange={(e) => updateTask(t.id, { prompt: e.target.value })}
                   rows={2}
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="Правильный ответ"
-                    value={t.expectedAnswer}
-                    onChange={(e) => updateTask(t.id, { expectedAnswer: e.target.value })}
-                  />
-                  <Input
-                    placeholder="Метка источника"
-                    value={t.sourceLabel}
-                    onChange={(e) => updateTask(t.id, { sourceLabel: e.target.value })}
-                  />
-                </div>
+                <Input
+                  placeholder="Правильный ответ"
+                  value={t.expectedAnswer}
+                  onChange={(e) => updateTask(t.id, { expectedAnswer: e.target.value })}
+                />
                 <Textarea
                   placeholder="Объяснение / решение"
                   value={t.explanation}

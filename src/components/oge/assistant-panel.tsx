@@ -360,7 +360,7 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
         </div>
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 260px) 1fr", gap: 16 }}>
+      <div className="assistant-grid">
         {/* Conversation history sidebar */}
         <aside className="analytics-surface" style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 600 }}>
           <button
@@ -603,8 +603,7 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
               e.preventDefault();
               send(input);
             }}
-            className="lesson-actions-row"
-            style={{ marginTop: 12, gap: 8 }}
+            className="assistant-input-row"
           >
             <input
               ref={fileInputRef}
