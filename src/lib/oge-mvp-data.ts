@@ -191,6 +191,10 @@ type LearningSourceInput = {
 
 type LessonOverrideInput = {
   lessonKey: string;
+  kind?: "modified" | "added" | "removed";
+  subject?: string | null;
+  section?: string | null;
+  taskRange?: string | null;
   title: string | null;
   topic: string | null;
   lessonDate: string | null;
