@@ -797,7 +797,18 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                               : "Раскрытый список занятий на день: можно открыть поп-ап каждой карточки."}
                           </div>
                         </div>
-                        {expandedDay.isToday && <span className="list-badge">Текущий день</span>}
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {expandedDay.isToday && <span className="list-badge">Текущий день</span>}
+                          {!expandedDay.isRestDay && (
+                            <button
+                              type="button"
+                              className="action-link"
+                              onClick={() => handleAddLesson({ dateISO: expandedDay.dateISO })}
+                            >
+                              + Добавить занятие
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {expandedDay.isRestDay ? (
