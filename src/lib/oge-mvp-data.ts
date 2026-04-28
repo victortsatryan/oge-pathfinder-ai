@@ -191,6 +191,10 @@ type LearningSourceInput = {
 
 type LessonOverrideInput = {
   lessonKey: string;
+  kind?: "modified" | "added" | "removed";
+  subject?: string | null;
+  section?: string | null;
+  taskRange?: string | null;
   title: string | null;
   topic: string | null;
   lessonDate: string | null;
@@ -819,10 +823,18 @@ export function applyOverridesInPlace(planList: PlanItem[], overrides: LessonOve
   const overridesByKey = new Map<string, LessonOverrideInput>();
   for (const o of overrides) overridesByKey.set(o.lessonKey, o);
   if (!overridesByKey.size) return;
+
+  // 1) Process removals — drop matching items
+  const removedKeys = new Set<string>();
+  for (const o of overrides) {
+    if (o.kind === "removed") removedKeys.add(o.lessonKey);
+  }
+
+  // 2) Patch existing items in place
   for (let i = 0; i < planList.length; i += 1) {
     const item = planList[i];
     const o = overridesByKey.get(item.id);
-    if (!o) continue;
+    if (!o || o.kind === "added" || o.kind === "removed") continue;
     const newDate = o.lessonDate || item.dateISO;
     const newSlot = o.slotNumber ?? null;
     const mappedStatus: PlanItemStatus =
@@ -831,7 +843,10 @@ export function applyOverridesInPlace(planList: PlanItem[], overrides: LessonOve
       ...item,
       dateISO: newDate,
       time: newSlot ? SESSION_TIMES[newSlot - 1] ?? item.time : item.time,
+      subject: o.subject || item.subject,
+      section: o.section || item.section,
       topic: o.topic || item.topic,
+      taskRange: o.taskRange || item.taskRange,
       note: o.teacherNote || item.note,
       status: mappedStatus,
       customTasks: o.tasks,
@@ -842,6 +857,45 @@ export function applyOverridesInPlace(planList: PlanItem[], overrides: LessonOve
       isEdited: true,
     };
   }
+
+  // 3) Filter out removed
+  if (removedKeys.size) {
+    for (let i = planList.length - 1; i >= 0; i -= 1) {
+      if (removedKeys.has(planList[i].id)) planList.splice(i, 1);
+    }
+  }
+
+  // 4) Append synthesized "added" lessons
+  for (const o of overrides) {
+    if (o.kind !== "added") continue;
+    const dateISO = o.lessonDate ?? new Date().toISOString().slice(0, 10);
+    const slot = o.slotNumber ?? 1;
+    const subject = o.subject || "Математика";
+    planList.push({
+      id: o.lessonKey,
+      subject,
+      section: o.section || subject,
+      topic: o.topic || o.title || "Новое занятие",
+      taskRange: o.taskRange || "—",
+      week: 0,
+      dateISO,
+      time: SESSION_TIMES[slot - 1] ?? SESSION_TIMES[0],
+      duration: "60 мин",
+      status: o.status === "done" ? "done" : "pending",
+      note: o.teacherNote || "",
+      resources: [],
+      externalSources: [],
+      tasks: [],
+      result: null,
+      customTasks: o.tasks,
+      customLinks: o.customLinks,
+      teacherNote: o.teacherNote,
+      theoryMarkdown: o.theoryMarkdown,
+      difficulty: o.difficulty,
+      isEdited: true,
+    });
+  }
+
   planList.sort((a, b) => (a.dateISO === b.dateISO ? a.time.localeCompare(b.time) : a.dateISO.localeCompare(b.dateISO)));
 }
 

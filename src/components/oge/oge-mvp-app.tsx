@@ -31,6 +31,13 @@ import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 import { DiagnosticPanel } from "@/components/oge/diagnostic-panel";
 import { AssistantPanel } from "@/components/oge/assistant-panel";
+import {
+  saveLocalLessonOverride,
+  markLessonRemoved,
+  makeAddedLessonKey,
+  loadLocalLessonOverrides,
+} from "@/lib/oge-lesson-overrides";
+import { applyLocalOverridesToState } from "@/lib/oge-mvp-data";
 
 type ViewMode = "list" | "calendar" | "analytics" | "diagnostic" | "assistant";
 type CalendarMode = "period" | "week";
@@ -426,6 +433,130 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     setPlanItems((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
   };
 
+  // Recompute planItems from base data + current overrides in localStorage.
+  const refreshFromOverrides = () => {
+    const next = applyLocalOverridesToState(data, loadLocalLessonOverrides());
+    setPlanItems(next.planList);
+  };
+
+  const findFreeSlot = (dateISO: string): number => {
+    const used = new Set(
+      planItems.filter((p) => p.dateISO === dateISO).map((p) => {
+        const idx = ["09:00–10:00", "10:20–11:20", "11:40–12:40", "13:30–14:30"].indexOf(p.time);
+        return idx >= 0 ? idx + 1 : null;
+      }).filter((x): x is number => x !== null),
+    );
+    for (let i = 1; i <= 4; i += 1) if (!used.has(i)) return i;
+    return 1;
+  };
+
+  const handleAddLesson = (opts: { dateISO?: string; subject?: string; topic?: string; section?: string; taskRange?: string; teacherNote?: string }) => {
+    const dateISO = opts.dateISO || new Date().toISOString().slice(0, 10);
+    const subject = opts.subject || "Математика";
+    const slot = findFreeSlot(dateISO);
+    const key = makeAddedLessonKey();
+    saveLocalLessonOverride({
+      lessonKey: key,
+      kind: "added",
+      subject,
+      section: opts.section || subject,
+      taskRange: opts.taskRange || "—",
+      title: subject,
+      topic: opts.topic || "Новое занятие",
+      lessonDate: dateISO,
+      slotNumber: slot,
+      difficulty: "adaptive",
+      status: "pending",
+      teacherNote: opts.teacherNote || null,
+      theoryMarkdown: null,
+      tasks: [],
+      customLinks: [],
+      updatedAt: new Date().toISOString(),
+    });
+    refreshFromOverrides();
+    return key;
+  };
+
+  const handleRemoveLesson = (lessonId: string) => {
+    if (!confirm("Удалить это занятие из календаря и программы?")) return;
+    markLessonRemoved(lessonId);
+    refreshFromOverrides();
+    if (selectedLessonId === lessonId) setSelectedLessonId(null);
+  };
+
+  // Apply assistant suggestion to the actual plan.
+  const applyAssistantSuggestion = (s: { action_type: string; payload: Record<string, any> | null; rationale: string | null }) => {
+    const payload = s.payload ?? {};
+    try {
+      if (s.action_type === "add_lesson") {
+        handleAddLesson({
+          dateISO: payload.lessonDate || payload.newDate,
+          subject: payload.subject,
+          topic: payload.topic || payload.newTopic,
+        });
+        return { ok: true };
+      }
+      if (s.action_type === "remove_lesson") {
+        const target = payload.lessonId
+          ? planItems.find((p) => p.id === payload.lessonId)
+          : planItems.find(
+              (p) =>
+                (!payload.subject || p.subject === payload.subject) &&
+                (!payload.lessonDate || p.dateISO === payload.lessonDate) &&
+                (!payload.topic || p.topic.toLowerCase().includes(String(payload.topic).toLowerCase())),
+            );
+        if (!target) return { ok: false, message: "Не нашёл подходящий урок для удаления." };
+        markLessonRemoved(target.id);
+        refreshFromOverrides();
+        return { ok: true };
+      }
+      if (s.action_type === "move_lesson" || s.action_type === "change_topic" || s.action_type === "reorder") {
+        const target = payload.lessonId
+          ? planItems.find((p) => p.id === payload.lessonId)
+          : planItems.find(
+              (p) =>
+                (!payload.subject || p.subject === payload.subject) &&
+                (!payload.lessonDate || p.dateISO === payload.lessonDate) &&
+                (!payload.topic || p.topic.toLowerCase().includes(String(payload.topic).toLowerCase())),
+            );
+        if (!target) return { ok: false, message: "Не нашёл подходящий урок." };
+        const newDate = payload.newDate || payload.lessonDate || target.dateISO;
+        const newSlot = payload.slot ?? null;
+        saveLocalLessonOverride({
+          lessonKey: target.id,
+          kind: "modified",
+          subject: target.subject,
+          section: target.section,
+          taskRange: target.taskRange,
+          title: target.subject,
+          topic: payload.newTopic || payload.topic || target.topic,
+          lessonDate: newDate,
+          slotNumber: newSlot,
+          difficulty: (target.difficulty as any) ?? null,
+          status: target.status,
+          teacherNote: target.teacherNote ?? target.note ?? null,
+          theoryMarkdown: target.theoryMarkdown ?? null,
+          tasks: (target.customTasks ?? []).map((t) => ({
+            id: t.id,
+            prompt: t.prompt,
+            expectedAnswer: t.expectedAnswer,
+            explanation: t.explanation,
+            sourceLabel: t.sourceLabel,
+            bankTaskId: t.bankTaskId ?? null,
+          })),
+          customLinks: target.customLinks ?? [],
+          updatedAt: new Date().toISOString(),
+        });
+        refreshFromOverrides();
+        return { ok: true };
+      }
+      return { ok: false, message: `Неизвестный тип действия: ${s.action_type}` };
+    } catch (e) {
+      console.error("applyAssistantSuggestion failed", e);
+      return { ok: false, message: e instanceof Error ? e.message : "Ошибка применения" };
+    }
+  };
+
   const handleOpenDay = (day: CalendarDay) => {
     setExpandedDayId(day.id);
   };
@@ -666,7 +797,18 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                               : "Раскрытый список занятий на день: можно открыть поп-ап каждой карточки."}
                           </div>
                         </div>
-                        {expandedDay.isToday && <span className="list-badge">Текущий день</span>}
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {expandedDay.isToday && <span className="list-badge">Текущий день</span>}
+                          {!expandedDay.isRestDay && (
+                            <button
+                              type="button"
+                              className="action-link"
+                              onClick={() => handleAddLesson({ dateISO: expandedDay.dateISO })}
+                            >
+                              + Добавить занятие
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {expandedDay.isRestDay ? (
@@ -695,6 +837,14 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                                   <Link to="/lesson/$lessonId" params={{ lessonId: lesson.id }} className="action-link">
                                     Открыть занятие
                                   </Link>
+                                  <button
+                                    type="button"
+                                    className="action-link"
+                                    style={{ color: "var(--destructive)" }}
+                                    onClick={() => handleRemoveLesson(lesson.id)}
+                                  >
+                                    Удалить
+                                  </button>
                                 </div>
                               </div>
                             </article>
@@ -721,7 +871,24 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                               {subjectProgram.tasksCoverage} · {subjectProgram.focus}
                             </div>
                           </div>
-                          <span className="list-badge">{rows.length} занятий</span>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span className="list-badge">{rows.length} занятий</span>
+                            <button
+                              type="button"
+                              className="action-link"
+                              onClick={() =>
+                                handleAddLesson({
+                                  subject: subjectProgram.subject,
+                                  section: subjectProgram.subject,
+                                  topic: subjectProgram.focus,
+                                  taskRange: subjectProgram.tasksCoverage,
+                                  dateISO: currentFocusDay?.dateISO,
+                                })
+                              }
+                            >
+                              + Добавить занятие
+                            </button>
+                          </div>
                         </div>
 
                         <Table className="program-table">
@@ -968,7 +1135,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
               ) : activeView === "diagnostic" ? (
                 <DiagnosticPanel planItems={planItems} />
               ) : (
-                <AssistantPanel planItems={planItems} />
+                <AssistantPanel planItems={planItems} onApplySuggestion={applyAssistantSuggestion} />
               )}
             </CardContent>
           </Card>
@@ -1161,6 +1328,14 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                   onClick={() => handleStatusChange(selectedLesson.id, "done")}
                 >
                   Done
+                </button>
+                <button
+                  type="button"
+                  className="status-toggle"
+                  style={{ marginLeft: "auto", color: "var(--destructive)" }}
+                  onClick={() => handleRemoveLesson(selectedLesson.id)}
+                >
+                  Удалить занятие
                 </button>
               </div>
 
