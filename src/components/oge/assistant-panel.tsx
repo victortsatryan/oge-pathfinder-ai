@@ -603,8 +603,7 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
               e.preventDefault();
               send(input);
             }}
-            className="lesson-actions-row"
-            style={{ marginTop: 12, gap: 8 }}
+            className="assistant-input-row"
           >
             <input
               ref={fileInputRef}
