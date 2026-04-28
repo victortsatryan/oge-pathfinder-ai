@@ -1329,6 +1329,14 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                 >
                   Done
                 </button>
+                <button
+                  type="button"
+                  className="status-toggle"
+                  style={{ marginLeft: "auto", color: "var(--destructive)" }}
+                  onClick={() => handleRemoveLesson(selectedLesson.id)}
+                >
+                  Удалить занятие
+                </button>
               </div>
 
               {selectedLesson.externalSources.length ? (
