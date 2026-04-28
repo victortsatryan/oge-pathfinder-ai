@@ -531,8 +531,8 @@ export function loadDefaultMvpState(input: LoadStateInput = {}): OgeMvpState {
       averageAccuracy: accuracyValues.length ? Math.round(accuracyValues.reduce((acc, value) => acc + value, 0) / accuracyValues.length) : null,
       insight:
         materialsCount > 0
-          ? "Карточки занятий уже готовы принимать материалы и отображать результаты попыток по мере работы ученика."
-          : "Сетка занятий готова, но для автоподгрузки тем и заданий нужно загрузить ссылки и материалы в backend.",
+          ? "Карточки занятий готовы принимать материалы и отображать результаты попыток."
+          : "Сетка занятий готова. Добавьте материалы и задания через ассистент или вручную.",
     },
   };
 }
