@@ -31,6 +31,13 @@ import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 import { DiagnosticPanel } from "@/components/oge/diagnostic-panel";
 import { AssistantPanel } from "@/components/oge/assistant-panel";
+import {
+  saveLocalLessonOverride,
+  markLessonRemoved,
+  makeAddedLessonKey,
+  loadLocalLessonOverrides,
+} from "@/lib/oge-lesson-overrides";
+import { applyLocalOverridesToState } from "@/lib/oge-mvp-data";
 
 type ViewMode = "list" | "calendar" | "analytics" | "diagnostic" | "assistant";
 type CalendarMode = "period" | "week";
