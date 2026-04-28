@@ -1363,7 +1363,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                     ))}
                   </div>
                 ) : (
-                  <div className="calendar-empty">Материалы пока не загружены в backend — как только добавите ссылки, они появятся здесь.</div>
+                  <div className="calendar-empty">К занятию пока не привязаны материалы.</div>
                 )}
 
                 {selectedLesson.tasks.length ? (
