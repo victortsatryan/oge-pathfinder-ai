@@ -78,9 +78,12 @@ function makeId() {
   return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-type Props = { planItems: PlanItem[] };
+type Props = {
+  planItems: PlanItem[];
+  onApplySuggestion?: (s: { action_type: string; payload: Record<string, any> | null; rationale: string | null }) => { ok: boolean; message?: string };
+};
 
-export function AssistantPanel({ planItems }: Props) {
+export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
   const greeting: ChatMessage = {
     role: "assistant",
     content:
