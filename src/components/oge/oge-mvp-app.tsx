@@ -837,6 +837,14 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                                   <Link to="/lesson/$lessonId" params={{ lessonId: lesson.id }} className="action-link">
                                     Открыть занятие
                                   </Link>
+                                  <button
+                                    type="button"
+                                    className="action-link"
+                                    style={{ color: "var(--destructive)" }}
+                                    onClick={() => handleRemoveLesson(lesson.id)}
+                                  >
+                                    Удалить
+                                  </button>
                                 </div>
                               </div>
                             </article>
