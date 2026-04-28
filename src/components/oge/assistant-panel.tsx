@@ -513,7 +513,7 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
                           onClick={() => resolveSuggestion(s.id, "apply")}
                         >
                           <Check className="h-3 w-3" />
-                          <span>Принять к сведению</span>
+                          <span>Применить к плану</span>
                         </button>
                         <button
                           type="button"
