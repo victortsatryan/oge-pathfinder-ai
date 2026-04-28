@@ -1219,21 +1219,6 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                 ) : null}
               </CardContent>
             </Card>
-
-            <Card className="panel rail-panel">
-              <CardHeader>
-                <CardTitle>Подсказки для правок</CardTitle>
-                <CardDescription>Что можно редактировать уже сейчас.</CardDescription>
-              </CardHeader>
-              <CardContent className="content-stack">
-                {editingHints.map((item) => (
-                  <div key={item} className="check-row">
-                    <PencilLine className="h-4 w-4" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
           </aside>
         </section>
       </div>
