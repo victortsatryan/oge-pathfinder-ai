@@ -1158,27 +1158,8 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
 
             <Card className="panel rail-panel">
               <CardHeader>
-                <CardTitle>Предметы и цветовые коды</CardTitle>
-                <CardDescription>Цвет предмета в календаре, программе и карточке занятия совпадает.</CardDescription>
-              </CardHeader>
-              <CardContent className="content-stack">
-                {subjectPrograms.map((item) => (
-                  <article key={item.subject} className="subject-tile">
-                    <div className="subject-tile__top">
-                      <span className={subjectToneClass[item.subject] ?? "subject-tone"} />
-                      <span className="subject-tile__name">{item.subject}</span>
-                    </div>
-                    <strong className="subject-tile__value">{item.tasksCoverage}</strong>
-                    <span className="subject-tile__meta">{item.focus}</span>
-                  </article>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="panel rail-panel">
-              <CardHeader>
                 <CardTitle>Результаты</CardTitle>
-                <CardDescription>Сюда попадает анализ попыток и выполнения программы.</CardDescription>
+                <CardDescription>Анализ попыток и выполнения программы.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
                 <article className="result-card">
