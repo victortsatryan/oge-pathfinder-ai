@@ -871,7 +871,24 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
                               {subjectProgram.tasksCoverage} · {subjectProgram.focus}
                             </div>
                           </div>
-                          <span className="list-badge">{rows.length} занятий</span>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span className="list-badge">{rows.length} занятий</span>
+                            <button
+                              type="button"
+                              className="action-link"
+                              onClick={() =>
+                                handleAddLesson({
+                                  subject: subjectProgram.subject,
+                                  section: subjectProgram.subject,
+                                  topic: subjectProgram.focus,
+                                  taskRange: subjectProgram.tasksCoverage,
+                                  dateISO: currentFocusDay?.dateISO,
+                                })
+                              }
+                            >
+                              + Добавить занятие
+                            </button>
+                          </div>
                         </div>
 
                         <Table className="program-table">
