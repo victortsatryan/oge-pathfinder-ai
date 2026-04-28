@@ -1175,3 +1175,63 @@
     font-size: 2.35rem;
   }
 }
+
+@layer components {
+  /* Assistant grid: two columns on wide screens, single column when tight */
+  .assistant-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(220px, 260px) 1fr;
+  }
+
+  @media (max-width: 900px) {
+    .assistant-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Assistant message input row — never overflows, wraps when needed */
+  .assistant-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .assistant-input-row > input[type="text"],
+  .assistant-input-row > input:not([type]) {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  /* Calendar day card grid: ensure cells don't overflow on narrow widths */
+  .calendar-day-card {
+    min-width: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .calendar-day-card__head {
+    min-width: 0;
+  }
+
+  .calendar-day-card__head > div {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .calendar-flag {
+    flex-shrink: 0;
+  }
+
+  .calendar-subject-strip {
+    box-sizing: border-box;
+  }
+
+  .calendar-subject-strip > .subject-tone {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+}
