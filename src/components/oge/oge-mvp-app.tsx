@@ -165,7 +165,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
   const initialPlanItems = Array.isArray(data?.planList) ? data.planList : [];
   const weeklyChecks = Array.isArray(data?.weeklyChecks) ? data.weeklyChecks : [];
   const subjectPrograms = Array.isArray(data?.subjectPrograms) ? data.subjectPrograms : [];
-  const editingHints = Array.isArray(data?.editingHints) ? data.editingHints : [];
+  
 
   const [activeView, setActiveView] = useState<ViewMode>("calendar");
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("period");
