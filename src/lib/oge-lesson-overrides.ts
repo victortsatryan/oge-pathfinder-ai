@@ -5,6 +5,13 @@
 
 export type LocalLessonOverride = {
   lessonKey: string;
+  // "modified" — patches an auto-generated lesson by id.
+  // "added"    — synthesizes a new lesson (provide subject, section, dateISO).
+  // "removed"  — hides a lesson (auto-generated or previously added).
+  kind?: "modified" | "added" | "removed";
+  subject?: string | null;
+  section?: string | null;
+  taskRange?: string | null;
   title: string | null;
   topic: string | null;
   lessonDate: string | null;
@@ -57,6 +64,40 @@ export function saveLocalLessonOverride(override: LocalLessonOverride) {
   }
 }
 
+export function deleteLocalLessonOverride(lessonKey: string) {
+  if (typeof window === "undefined") return;
+  const all = loadLocalLessonOverrides();
+  const next = all.filter((o) => o.lessonKey !== lessonKey);
+  try {
+    window.localStorage.setItem(OVERRIDES_KEY, JSON.stringify(next));
+  } catch (e) {
+    console.error("deleteLocalLessonOverride failed", e);
+  }
+}
+
+export function markLessonRemoved(lessonKey: string) {
+  saveLocalLessonOverride({
+    lessonKey,
+    kind: "removed",
+    subject: null,
+    section: null,
+    title: null,
+    topic: null,
+    lessonDate: null,
+    slotNumber: null,
+    difficulty: null,
+    status: null,
+    teacherNote: null,
+    theoryMarkdown: null,
+    tasks: [],
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 export function getLocalLessonOverride(lessonKey: string): LocalLessonOverride | null {
   return loadLocalLessonOverrides().find((o) => o.lessonKey === lessonKey) ?? null;
+}
+
+export function makeAddedLessonKey() {
+  return `added-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
