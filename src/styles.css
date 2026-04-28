@@ -1235,3 +1235,21 @@
     box-sizing: border-box;
   }
 }
+
+@layer components {
+  .diagnostic-focus-panel__head,
+  .diagnostic-task-card__head,
+  .diagnostic-feedback-card__head {
+    flex-wrap: wrap;
+  }
+
+  .diagnostic-focus-panel__head > *,
+  .diagnostic-task-card__head > * {
+    min-width: 0;
+  }
+
+  .diagnostic-focus-panel__head .lesson-actions-row,
+  .diagnostic-task-card__head .lesson-actions-row {
+    flex-wrap: wrap;
+  }
+}
