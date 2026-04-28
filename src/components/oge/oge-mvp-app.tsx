@@ -1099,7 +1099,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
               ) : activeView === "diagnostic" ? (
                 <DiagnosticPanel planItems={planItems} />
               ) : (
-                <AssistantPanel planItems={planItems} />
+                <AssistantPanel planItems={planItems} onApplySuggestion={applyAssistantSuggestion} />
               )}
             </CardContent>
           </Card>
