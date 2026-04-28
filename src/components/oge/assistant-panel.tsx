@@ -314,7 +314,19 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
   function resolveSuggestion(id: string, decision: "apply" | "reject") {
     setResolvingId(id);
     try {
-      const newStatus: Suggestion["status"] = decision === "apply" ? "applied" : "rejected";
+      const target = suggestions.find((s) => s.id === id);
+      let newStatus: Suggestion["status"] = decision === "apply" ? "applied" : "rejected";
+      if (decision === "apply" && target && onApplySuggestion) {
+        const res = onApplySuggestion({
+          action_type: target.action_type,
+          payload: target.payload,
+          rationale: target.rationale,
+        });
+        if (!res.ok) {
+          setError(res.message || "Не удалось применить изменение к плану.");
+          newStatus = "pending";
+        }
+      }
       const updated = suggestions.map((s) => (s.id === id ? { ...s, status: newStatus } : s));
       setSuggestions(updated);
       if (conversationId) {
