@@ -61,6 +61,78 @@ export type Database = {
           },
         ]
       }
+      ai_request_logs: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          prompt: string
+          source: string
+          subject: string | null
+          tokens_used: number | null
+          topic: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          prompt: string
+          source: string
+          subject?: string | null
+          tokens_used?: number | null
+          topic?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          prompt?: string
+          source?: string
+          subject?: string | null
+          tokens_used?: number | null
+          topic?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_response_cache: {
+        Row: {
+          created_at: string
+          id: string
+          normalized_prompt: string
+          prompt_hash: string
+          response_text: string
+          subject: string | null
+          topic: string | null
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          normalized_prompt: string
+          prompt_hash: string
+          response_text: string
+          subject?: string | null
+          topic?: string | null
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          normalized_prompt?: string
+          prompt_hash?: string
+          response_text?: string
+          subject?: string | null
+          topic?: string | null
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: []
+      }
       assistant_conversations: {
         Row: {
           created_at: string
@@ -977,6 +1049,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_ai_requests_today: {
+        Args: { _ip: string; _user_id: string }
+        Returns: {
+          global_api_count: number
+          user_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
