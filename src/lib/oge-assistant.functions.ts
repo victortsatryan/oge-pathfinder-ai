@@ -277,7 +277,18 @@ export const chatWithTutor = createServerFn({ method: "POST" })
         (a) => a.dataUrl && (a.mimeType.startsWith("image/") || a.mimeType === "application/pdf"),
       ),
     );
-    const modelForCall = usesVision ? "google/gemini-2.5-pro" : CHAT_MODEL;
+    const modelForCall = usesVision ? VISION_MODEL : CHAT_MODEL;
+
+    const caller = await resolveCallerFromRequest();
+    // Enforce limits up-front so we fail fast and predictably.
+    try {
+      await ensureLimitsOrThrow(caller);
+    } catch (err) {
+      rethrowAiError(err);
+    }
+
+    const lastUserMsg =
+      [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
     const suggestions: Array<z.infer<typeof planSuggestionSchema>> = [];
     const usedTaskIds = new Set<string>();
@@ -285,20 +296,23 @@ export const chatWithTutor = createServerFn({ method: "POST" })
 
     // Agentic loop: allow the model to call tools (search bank) before answering.
     for (let step = 0; step < 4; step++) {
-      const response = await fetch(GATEWAY_URL, {
-        method: "POST",
-        headers: aiHeaders(),
-        body: JSON.stringify({
+      let payload: any;
+      try {
+        const result = await callChatCompletion({
+          caller,
           model: modelForCall,
-          messages: conversation,
+          messages: conversation as any,
           tools,
           tool_choice: "auto",
-        }),
-      });
-
-      const payload = await handleAiResponse(response);
-      const choice = payload.choices?.[0]?.message;
+          promptForLog: `chatWithTutor: ${String(lastUserMsg).slice(0, 200)}`,
+        });
+        payload = result.raw;
+      } catch (err) {
+        rethrowAiError(err);
+      }
+      const choice = payload?.choices?.[0]?.message;
       if (!choice) throw new Error("AI вернул пустой ответ.");
+
 
       const toolCalls = Array.isArray(choice.tool_calls) ? choice.tool_calls : [];
 
