@@ -62,10 +62,34 @@ const analysisOutputSchema = z.object({
 export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => analysisSchema.parse(input))
   .handler(async ({ data }) => {
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: aiHeaders(),
-      body: JSON.stringify({
+    const caller = await resolveCallerFromRequest();
+    const tools = [
+      {
+        type: "function" as const,
+        function: {
+          name: "return_diagnostic_analysis",
+          description: "Return structured analysis of a single diagnostic result.",
+          parameters: {
+            type: "object",
+            properties: {
+              summary: { type: "string" },
+              weakTopics: { type: "array", items: { type: "string" } },
+              errorPatterns: { type: "array", items: { type: "string" } },
+              recommendations: { type: "array", items: { type: "string" } },
+              extraTasks: { type: "array", items: { type: "string" } },
+              difficulty: { type: "string", enum: ["easy", "adaptive", "medium", "hard"] },
+            },
+            required: ["summary", "weakTopics", "errorPatterns", "recommendations", "extraTasks", "difficulty"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ];
+
+    let payload: any;
+    try {
+      const result = await callChatCompletion({
+        caller,
         model: ANALYTICS_MODEL,
         messages: [
           {
@@ -78,37 +102,20 @@ export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
             content: `Проанализируй результат диагностики:\n${JSON.stringify(data, null, 2)}\n\nНужно: краткий вывод, слабые темы, повторяющиеся типы ошибок, рекомендации к занятиям, какие задания дорешать, рекомендуемая сложность.`,
           },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_diagnostic_analysis",
-              description: "Return structured analysis of a single diagnostic result.",
-              parameters: {
-                type: "object",
-                properties: {
-                  summary: { type: "string" },
-                  weakTopics: { type: "array", items: { type: "string" } },
-                  errorPatterns: { type: "array", items: { type: "string" } },
-                  recommendations: { type: "array", items: { type: "string" } },
-                  extraTasks: { type: "array", items: { type: "string" } },
-                  difficulty: { type: "string", enum: ["easy", "adaptive", "medium", "hard"] },
-                },
-                required: ["summary", "weakTopics", "errorPatterns", "recommendations", "extraTasks", "difficulty"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
+        tools,
         tool_choice: { type: "function", function: { name: "return_diagnostic_analysis" } },
-      }),
-    });
-
-    const payload = await handleAiResponse(response);
-    const args = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        promptForLog: `analyzeDiagnosticResult: ${data.subjectName}`,
+        subject: data.subjectName,
+      });
+      payload = result.raw;
+    } catch (err) {
+      rethrowAiError(err);
+    }
+    const args = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("AI не вернул структуру разбора.");
     return analysisOutputSchema.parse(JSON.parse(args));
   });
+
 
 // ---------- 2) Tutor chat with context + plan suggestions (no auth, stateless) ----------
 
