@@ -2,29 +2,23 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  AiLimitError,
+  callChatCompletion,
+  ensureLimitsOrThrow,
+  resolveCallerFromRequest,
+} from "@/lib/ai-gateway.server";
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const ANALYTICS_MODEL = "openai/gpt-5";
-const CHAT_MODEL = "openai/gpt-5";
+const ANALYTICS_MODEL = "gpt-4o-mini";
+const CHAT_MODEL = "gpt-4o-mini";
+const VISION_MODEL = "gpt-4o";
 
-function aiHeaders() {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY is not configured");
-  return {
-    Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
-  };
+function rethrowAiError(err: unknown): never {
+  if (err instanceof AiLimitError) throw err;
+  if (err instanceof Error) throw err;
+  throw new Error("AI временно недоступен. Попробуйте позже.");
 }
 
-async function handleAiResponse(response: Response) {
-  if (response.status === 429) throw new Error("Превышен лимит запросов AI. Подождите минуту и повторите.");
-  if (response.status === 402) throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`AI gateway error [${response.status}]: ${text}`);
-  }
-  return response.json();
-}
 
 // ---------- 1) Detailed analysis of a finished diagnostic ----------
 
@@ -68,10 +62,34 @@ const analysisOutputSchema = z.object({
 export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => analysisSchema.parse(input))
   .handler(async ({ data }) => {
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: aiHeaders(),
-      body: JSON.stringify({
+    const caller = await resolveCallerFromRequest();
+    const tools = [
+      {
+        type: "function" as const,
+        function: {
+          name: "return_diagnostic_analysis",
+          description: "Return structured analysis of a single diagnostic result.",
+          parameters: {
+            type: "object",
+            properties: {
+              summary: { type: "string" },
+              weakTopics: { type: "array", items: { type: "string" } },
+              errorPatterns: { type: "array", items: { type: "string" } },
+              recommendations: { type: "array", items: { type: "string" } },
+              extraTasks: { type: "array", items: { type: "string" } },
+              difficulty: { type: "string", enum: ["easy", "adaptive", "medium", "hard"] },
+            },
+            required: ["summary", "weakTopics", "errorPatterns", "recommendations", "extraTasks", "difficulty"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ];
+
+    let payload: any;
+    try {
+      const result = await callChatCompletion({
+        caller,
         model: ANALYTICS_MODEL,
         messages: [
           {
@@ -84,37 +102,20 @@ export const analyzeDiagnosticResult = createServerFn({ method: "POST" })
             content: `Проанализируй результат диагностики:\n${JSON.stringify(data, null, 2)}\n\nНужно: краткий вывод, слабые темы, повторяющиеся типы ошибок, рекомендации к занятиям, какие задания дорешать, рекомендуемая сложность.`,
           },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_diagnostic_analysis",
-              description: "Return structured analysis of a single diagnostic result.",
-              parameters: {
-                type: "object",
-                properties: {
-                  summary: { type: "string" },
-                  weakTopics: { type: "array", items: { type: "string" } },
-                  errorPatterns: { type: "array", items: { type: "string" } },
-                  recommendations: { type: "array", items: { type: "string" } },
-                  extraTasks: { type: "array", items: { type: "string" } },
-                  difficulty: { type: "string", enum: ["easy", "adaptive", "medium", "hard"] },
-                },
-                required: ["summary", "weakTopics", "errorPatterns", "recommendations", "extraTasks", "difficulty"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
+        tools,
         tool_choice: { type: "function", function: { name: "return_diagnostic_analysis" } },
-      }),
-    });
-
-    const payload = await handleAiResponse(response);
-    const args = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        promptForLog: `analyzeDiagnosticResult: ${data.subjectName}`,
+        subject: data.subjectName,
+      });
+      payload = result.raw;
+    } catch (err) {
+      rethrowAiError(err);
+    }
+    const args = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("AI не вернул структуру разбора.");
     return analysisOutputSchema.parse(JSON.parse(args));
   });
+
 
 // ---------- 2) Tutor chat with context + plan suggestions (no auth, stateless) ----------
 
@@ -276,7 +277,18 @@ export const chatWithTutor = createServerFn({ method: "POST" })
         (a) => a.dataUrl && (a.mimeType.startsWith("image/") || a.mimeType === "application/pdf"),
       ),
     );
-    const modelForCall = usesVision ? "google/gemini-2.5-pro" : CHAT_MODEL;
+    const modelForCall = usesVision ? VISION_MODEL : CHAT_MODEL;
+
+    const caller = await resolveCallerFromRequest();
+    // Enforce limits up-front so we fail fast and predictably.
+    try {
+      await ensureLimitsOrThrow(caller);
+    } catch (err) {
+      rethrowAiError(err);
+    }
+
+    const lastUserMsg =
+      [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
     const suggestions: Array<z.infer<typeof planSuggestionSchema>> = [];
     const usedTaskIds = new Set<string>();
@@ -284,20 +296,23 @@ export const chatWithTutor = createServerFn({ method: "POST" })
 
     // Agentic loop: allow the model to call tools (search bank) before answering.
     for (let step = 0; step < 4; step++) {
-      const response = await fetch(GATEWAY_URL, {
-        method: "POST",
-        headers: aiHeaders(),
-        body: JSON.stringify({
+      let payload: any;
+      try {
+        const result = await callChatCompletion({
+          caller,
           model: modelForCall,
-          messages: conversation,
+          messages: conversation as any,
           tools,
           tool_choice: "auto",
-        }),
-      });
-
-      const payload = await handleAiResponse(response);
-      const choice = payload.choices?.[0]?.message;
+          promptForLog: `chatWithTutor: ${String(lastUserMsg).slice(0, 200)}`,
+        });
+        payload = result.raw;
+      } catch (err) {
+        rethrowAiError(err);
+      }
+      const choice = payload?.choices?.[0]?.message;
       if (!choice) throw new Error("AI вернул пустой ответ.");
+
 
       const toolCalls = Array.isArray(choice.tool_calls) ? choice.tool_calls : [];
 
@@ -434,11 +449,49 @@ const ocrOutputSchema = z.object({
 export const ocrDiagnosticPhoto = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ocrInputSchema.parse(input))
   .handler(async ({ data }) => {
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: aiHeaders(),
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+    const caller = await resolveCallerFromRequest();
+    const tools = [
+      {
+        type: "function" as const,
+        function: {
+          name: "return_ocr_result",
+          parameters: {
+            type: "object",
+            properties: {
+              taskDetails: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    taskNumber: { type: "integer" },
+                    taskType: { type: "string" },
+                    topicTitle: { type: "string" },
+                    errorTitle: { type: "string" },
+                    userAnswer: { type: "string" },
+                    correctAnswer: { type: "string" },
+                    isCorrect: { type: "boolean" },
+                    comment: { type: "string" },
+                  },
+                  required: ["taskNumber"],
+                  additionalProperties: false,
+                },
+              },
+              detectedScore: { type: "number" },
+              detectedMaxScore: { type: "number" },
+              notes: { type: "string" },
+            },
+            required: ["taskDetails"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ];
+
+    let payload: any;
+    try {
+      const result = await callChatCompletion({
+        caller,
+        model: VISION_MODEL,
         messages: [
           {
             role: "system",
@@ -453,51 +506,20 @@ export const ocrDiagnosticPhoto = createServerFn({ method: "POST" })
                 text: `Распознай результат диагностики${data.subjectName ? ` по предмету «${data.subjectName}»` : ""}. Для каждого задания заполни: № задания, тему, тип задания, ответ ученика, правильный ответ, верно/нет, тип ошибки.`,
               },
               { type: "image_url", image_url: { url: data.imageUrl } },
-            ],
+            ] as any,
           },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_ocr_result",
-              parameters: {
-                type: "object",
-                properties: {
-                  taskDetails: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        taskNumber: { type: "integer" },
-                        taskType: { type: "string" },
-                        topicTitle: { type: "string" },
-                        errorTitle: { type: "string" },
-                        userAnswer: { type: "string" },
-                        correctAnswer: { type: "string" },
-                        isCorrect: { type: "boolean" },
-                        comment: { type: "string" },
-                      },
-                      required: ["taskNumber"],
-                      additionalProperties: false,
-                    },
-                  },
-                  detectedScore: { type: "number" },
-                  detectedMaxScore: { type: "number" },
-                  notes: { type: "string" },
-                },
-                required: ["taskDetails"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
+        tools,
         tool_choice: { type: "function", function: { name: "return_ocr_result" } },
-      }),
-    });
-
-    const payload = await handleAiResponse(response);
-    const args = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        promptForLog: `ocrDiagnosticPhoto${data.subjectName ? `: ${data.subjectName}` : ""}`,
+        subject: data.subjectName ?? null,
+      });
+      payload = result.raw;
+    } catch (err) {
+      rethrowAiError(err);
+    }
+    const args = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("AI не смог распознать фото.");
     return ocrOutputSchema.parse(JSON.parse(args));
   });
+

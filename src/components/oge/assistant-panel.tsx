@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 
 import { chatWithTutor } from "@/lib/oge-assistant.functions";
 import { listDiagnosticHistory } from "@/lib/oge-diagnostic.functions";
+import { getAiLimitStatus } from "@/lib/ai-limits.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 
 type Attachment = {
@@ -98,6 +99,24 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contextSummary, setContextSummary] = useState("");
+  const [limit, setLimit] = useState<{ remaining: number; total: number; globalExhausted: boolean } | null>(null);
+
+  async function refreshLimit() {
+    try {
+      const s = await getAiLimitStatus();
+      setLimit({
+        remaining: s.userRemaining,
+        total: s.perUserLimit,
+        globalExhausted: s.globalExhausted,
+      });
+    } catch (e) {
+      console.warn("failed to load AI limit", e);
+    }
+  }
+
+  useEffect(() => {
+    refreshLimit();
+  }, []);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -308,6 +327,7 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
       setError(msg);
     } finally {
       setSending(false);
+      refreshLimit();
     }
   }
 
@@ -595,6 +615,20 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
                   </button>
                 </span>
               ))}
+            </div>
+          ) : null}
+
+          {limit ? (
+            <div
+              style={{
+                fontSize: 12,
+                color: limit.remaining <= 3 || limit.globalExhausted ? "var(--destructive)" : "var(--muted-foreground)",
+                padding: "0 4px 6px",
+              }}
+            >
+              {limit.globalExhausted
+                ? "Сегодня общий лимит AI-запросов исчерпан. Попробуйте завтра."
+                : `Осталось ${limit.remaining} из ${limit.total} AI-запросов на сегодня`}
             </div>
           ) : null}
 
