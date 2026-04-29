@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 
 import { chatWithTutor } from "@/lib/oge-assistant.functions";
 import { listDiagnosticHistory } from "@/lib/oge-diagnostic.functions";
+import { getAiLimitStatus } from "@/lib/ai-limits.functions";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 
 type Attachment = {
