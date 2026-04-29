@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.count_ai_requests_today(UUID, TEXT) FROM PUBLIC, anon, authenticated;
