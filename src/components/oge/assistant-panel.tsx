@@ -99,6 +99,24 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contextSummary, setContextSummary] = useState("");
+  const [limit, setLimit] = useState<{ remaining: number; total: number; globalExhausted: boolean } | null>(null);
+
+  async function refreshLimit() {
+    try {
+      const s = await getAiLimitStatus();
+      setLimit({
+        remaining: s.userRemaining,
+        total: s.perUserLimit,
+        globalExhausted: s.globalExhausted,
+      });
+    } catch (e) {
+      console.warn("failed to load AI limit", e);
+    }
+  }
+
+  useEffect(() => {
+    refreshLimit();
+  }, []);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
