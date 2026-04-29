@@ -4,19 +4,11 @@ import { z } from "zod";
 import type { PlanItem } from "@/lib/oge-mvp-data";
 import { getLessonDetail } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
-
-const aiHeaders = () => {
-  const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
-
-  if (!LOVABLE_API_KEY) {
-    throw new Error("LOVABLE_API_KEY is not configured");
-  }
-
-  return {
-    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    "Content-Type": "application/json",
-  };
-};
+import {
+  AiLimitError,
+  callChatCompletion,
+  resolveCallerFromRequest,
+} from "@/lib/ai-gateway.server";
 
 const aiResponseSchema = z.object({
   summary: z.string().min(1),
@@ -71,6 +63,7 @@ ${JSON.stringify(data, null, 2)}
 3. Практические рекомендации.
 4. Дополнительные задания.
 5. Рекомендуемый уровень сложности на ближайший этап.`,
+      promptForLog: "generateDiagnosticAiPlan",
     });
   });
 
@@ -110,67 +103,67 @@ ${JSON.stringify(
 3. Что повторить.
 4. Какие ещё задания дать.
 5. Как скорректировать сложность дальше.`,
+      promptForLog: `generateLessonAiFeedback: ${detail.lesson.subject}/${detail.lesson.topic}`,
+      subject: detail.lesson.subject,
+      topic: detail.lesson.topic,
     });
   });
 
-async function callTutorAi({ systemPrompt, userPrompt }: { systemPrompt: string; userPrompt: string }) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: aiHeaders(),
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "return_tutor_feedback",
-            description: "Return concise tutor feedback, weak topics, recommendations, extra tasks, and next difficulty.",
-            parameters: {
-              type: "object",
-              properties: {
-                summary: { type: "string" },
-                weakTopics: { type: "array", items: { type: "string" } },
-                recommendations: { type: "array", items: { type: "string" } },
-                extraTasks: { type: "array", items: { type: "string" } },
-                difficulty: { type: "string", enum: ["easy", "adaptive", "medium", "hard"] },
-              },
-              required: ["summary", "weakTopics", "recommendations", "extraTasks", "difficulty"],
-              additionalProperties: false,
-            },
+async function callTutorAi(opts: {
+  systemPrompt: string;
+  userPrompt: string;
+  promptForLog: string;
+  subject?: string | null;
+  topic?: string | null;
+}) {
+  const caller = await resolveCallerFromRequest();
+  const tools = [
+    {
+      type: "function" as const,
+      function: {
+        name: "return_tutor_feedback",
+        description:
+          "Return concise tutor feedback, weak topics, recommendations, extra tasks, and next difficulty.",
+        parameters: {
+          type: "object",
+          properties: {
+            summary: { type: "string" },
+            weakTopics: { type: "array", items: { type: "string" } },
+            recommendations: { type: "array", items: { type: "string" } },
+            extraTasks: { type: "array", items: { type: "string" } },
+            difficulty: { type: "string", enum: ["easy", "adaptive", "medium", "hard"] },
           },
+          required: ["summary", "weakTopics", "recommendations", "extraTasks", "difficulty"],
+          additionalProperties: false,
         },
-      ],
-      tool_choice: { type: "function", function: { name: "return_tutor_feedback" } },
-      reasoning: {
-        effort: "medium",
       },
-    }),
-  });
+    },
+  ];
 
-  if (response.status === 429) {
-    throw new Error("AI rate limit exceeded (429)");
+  let payload: any;
+  try {
+    const result = await callChatCompletion({
+      caller,
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: opts.systemPrompt },
+        { role: "user", content: opts.userPrompt },
+      ],
+      tools,
+      tool_choice: { type: "function", function: { name: "return_tutor_feedback" } },
+      promptForLog: opts.promptForLog,
+      subject: opts.subject ?? null,
+      topic: opts.topic ?? null,
+    });
+    payload = result.raw;
+  } catch (err) {
+    if (err instanceof AiLimitError) throw err;
+    if (err instanceof Error) throw err;
+    throw new Error("AI временно недоступен. Попробуйте позже.");
   }
 
-  if (response.status === 402) {
-    throw new Error("AI credits required (402)");
-  }
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI gateway failed [${response.status}]: ${errorText}`);
-  }
-
-  const payload = await response.json();
-  const toolArgs = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-
-  if (!toolArgs) {
-    throw new Error("AI response did not include tool output");
-  }
-
+  const toolArgs = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  if (!toolArgs) throw new Error("AI response did not include tool output");
   return aiResponseSchema.parse(JSON.parse(toolArgs));
 }
 
