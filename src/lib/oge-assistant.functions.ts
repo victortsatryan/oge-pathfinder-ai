@@ -2,29 +2,23 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  AiLimitError,
+  callChatCompletion,
+  ensureLimitsOrThrow,
+  resolveCallerFromRequest,
+} from "@/lib/ai-gateway.server";
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const ANALYTICS_MODEL = "openai/gpt-5";
-const CHAT_MODEL = "openai/gpt-5";
+const ANALYTICS_MODEL = "gpt-4o-mini";
+const CHAT_MODEL = "gpt-4o-mini";
+const VISION_MODEL = "gpt-4o";
 
-function aiHeaders() {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY is not configured");
-  return {
-    Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
-  };
+function rethrowAiError(err: unknown): never {
+  if (err instanceof AiLimitError) throw err;
+  if (err instanceof Error) throw err;
+  throw new Error("AI временно недоступен. Попробуйте позже.");
 }
 
-async function handleAiResponse(response: Response) {
-  if (response.status === 429) throw new Error("Превышен лимит запросов AI. Подождите минуту и повторите.");
-  if (response.status === 402) throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`AI gateway error [${response.status}]: ${text}`);
-  }
-  return response.json();
-}
 
 // ---------- 1) Detailed analysis of a finished diagnostic ----------
 
