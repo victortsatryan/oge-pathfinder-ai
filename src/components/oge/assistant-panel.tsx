@@ -618,6 +618,20 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
             </div>
           ) : null}
 
+          {limit ? (
+            <div
+              style={{
+                fontSize: 12,
+                color: limit.remaining <= 3 || limit.globalExhausted ? "var(--destructive)" : "var(--muted-foreground)",
+                padding: "0 4px 6px",
+              }}
+            >
+              {limit.globalExhausted
+                ? "Сегодня общий лимит AI-запросов исчерпан. Попробуйте завтра."
+                : `Осталось ${limit.remaining} из ${limit.total} AI-запросов на сегодня`}
+            </div>
+          ) : null}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
