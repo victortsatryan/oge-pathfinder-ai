@@ -65,8 +65,8 @@ function hashPrompt(text: string, model: string) {
 
 export async function checkLimits(caller: AiCaller) {
   const { data, error } = await supabaseAdmin.rpc("count_ai_requests_today", {
-    _user_id: caller.userId,
-    _ip: caller.ip,
+    _user_id: caller.userId as any,
+    _ip: caller.ip as any,
   });
   if (error) {
     console.error("count_ai_requests_today failed", error);
