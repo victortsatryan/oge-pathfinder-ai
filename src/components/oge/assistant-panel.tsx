@@ -327,6 +327,7 @@ export function AssistantPanel({ planItems, onApplySuggestion }: Props) {
       setError(msg);
     } finally {
       setSending(false);
+      refreshLimit();
     }
   }
 
