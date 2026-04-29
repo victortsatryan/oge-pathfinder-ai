@@ -449,11 +449,49 @@ const ocrOutputSchema = z.object({
 export const ocrDiagnosticPhoto = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ocrInputSchema.parse(input))
   .handler(async ({ data }) => {
-    const response = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: aiHeaders(),
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+    const caller = await resolveCallerFromRequest();
+    const tools = [
+      {
+        type: "function" as const,
+        function: {
+          name: "return_ocr_result",
+          parameters: {
+            type: "object",
+            properties: {
+              taskDetails: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    taskNumber: { type: "integer" },
+                    taskType: { type: "string" },
+                    topicTitle: { type: "string" },
+                    errorTitle: { type: "string" },
+                    userAnswer: { type: "string" },
+                    correctAnswer: { type: "string" },
+                    isCorrect: { type: "boolean" },
+                    comment: { type: "string" },
+                  },
+                  required: ["taskNumber"],
+                  additionalProperties: false,
+                },
+              },
+              detectedScore: { type: "number" },
+              detectedMaxScore: { type: "number" },
+              notes: { type: "string" },
+            },
+            required: ["taskDetails"],
+            additionalProperties: false,
+          },
+        },
+      },
+    ];
+
+    let payload: any;
+    try {
+      const result = await callChatCompletion({
+        caller,
+        model: VISION_MODEL,
         messages: [
           {
             role: "system",
@@ -468,51 +506,20 @@ export const ocrDiagnosticPhoto = createServerFn({ method: "POST" })
                 text: `Распознай результат диагностики${data.subjectName ? ` по предмету «${data.subjectName}»` : ""}. Для каждого задания заполни: № задания, тему, тип задания, ответ ученика, правильный ответ, верно/нет, тип ошибки.`,
               },
               { type: "image_url", image_url: { url: data.imageUrl } },
-            ],
+            ] as any,
           },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_ocr_result",
-              parameters: {
-                type: "object",
-                properties: {
-                  taskDetails: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        taskNumber: { type: "integer" },
-                        taskType: { type: "string" },
-                        topicTitle: { type: "string" },
-                        errorTitle: { type: "string" },
-                        userAnswer: { type: "string" },
-                        correctAnswer: { type: "string" },
-                        isCorrect: { type: "boolean" },
-                        comment: { type: "string" },
-                      },
-                      required: ["taskNumber"],
-                      additionalProperties: false,
-                    },
-                  },
-                  detectedScore: { type: "number" },
-                  detectedMaxScore: { type: "number" },
-                  notes: { type: "string" },
-                },
-                required: ["taskDetails"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
+        tools,
         tool_choice: { type: "function", function: { name: "return_ocr_result" } },
-      }),
-    });
-
-    const payload = await handleAiResponse(response);
-    const args = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+        promptForLog: `ocrDiagnosticPhoto${data.subjectName ? `: ${data.subjectName}` : ""}`,
+        subject: data.subjectName ?? null,
+      });
+      payload = result.raw;
+    } catch (err) {
+      rethrowAiError(err);
+    }
+    const args = payload?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) throw new Error("AI не смог распознать фото.");
     return ocrOutputSchema.parse(JSON.parse(args));
   });
+
