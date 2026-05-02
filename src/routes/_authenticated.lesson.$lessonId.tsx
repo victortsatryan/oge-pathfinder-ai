@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LessonEditorDialog } from "@/components/oge/lesson-editor-dialog";
+import { UserMenu } from "@/components/oge/user-menu";
 import { checkLessonAnswers, answerValueSchema } from "@/lib/oge-lesson.functions";
 import type { LessonPracticeTask } from "@/lib/oge-mvp-data";
 import { applyLocalOverridesToState, getLessonDetail } from "@/lib/oge-mvp-data";
@@ -96,16 +97,19 @@ function LessonPage() {
     <main className="app-shell">
       <div className="page-grid lesson-page-layout">
         <section className="panel panel-hero lesson-hero">
-          <div className="hero-stack">
-            <p className="eyebrow">{progressLabel}</p>
-            <h1 className="display-title lesson-display-title">{detail.lesson.subject}</h1>
-            <p className="lead-copy lesson-subtitle">{detail.lesson.topic}</p>
-            <p className="lead-copy">{detail.coachIntro}</p>
-            <div className="mt-3">
-              <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
-                ✎ Редактировать занятие
-              </Button>
+          <div className="flex items-start justify-between gap-4">
+            <div className="hero-stack">
+              <p className="eyebrow">{progressLabel}</p>
+              <h1 className="display-title lesson-display-title">{detail.lesson.subject}</h1>
+              <p className="lead-copy lesson-subtitle">{detail.lesson.topic}</p>
+              <p className="lead-copy">{detail.coachIntro}</p>
+              <div className="mt-3">
+                <Button size="sm" variant="outline" onClick={() => setEditorOpen(true)}>
+                  ✎ Редактировать занятие
+                </Button>
+              </div>
             </div>
+            <UserMenu />
           </div>
 
           <div className="lesson-stepper" role="tablist" aria-label="Этапы занятия">
