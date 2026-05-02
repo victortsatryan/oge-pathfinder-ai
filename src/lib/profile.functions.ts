@@ -59,7 +59,7 @@ export const updateMyProfile = createServerFn({ method: "POST" })
 
     const { data: updated, error } = await supabase
       .from("profiles")
-      .update(payload)
+      .update(payload as never)
       .eq("user_id", userId)
       .select(
         "user_id, display_name, first_name, last_name, grade, program, subjects, avatar_url, target_grade, target_score, exam_year",
@@ -95,7 +95,7 @@ export const getMyProgress = createServerFn({ method: "GET" })
       const correct = subjectAttempts.filter((a) => a.is_correct === true).length;
       const total = subjectAttempts.length;
       const subjectLessons = (lessons ?? []).filter((l) => l.subject_id === s.id);
-      const completedLessons = subjectLessons.filter((l) => l.status === "completed" || l.status === "done").length;
+      const completedLessons = subjectLessons.filter((l) => l.status === "completed").length;
       const totalLessons = subjectLessons.length;
 
       return {
