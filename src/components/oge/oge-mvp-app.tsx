@@ -650,11 +650,15 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
     <main className="app-shell">
       <div className="page-grid app-layout">
         <section className="panel panel-hero">
-          <div className="hero-stack">
-            <p className="eyebrow">ОГЭ AI Coach</p>
-            <h1 className="display-title">Календарь обучения на весь период подготовки.</h1>
-            <p className="lead-copy">{data.plan.planSummary}</p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="hero-stack">
+              <p className="eyebrow">ОГЭ AI Coach</p>
+              <h1 className="display-title">Календарь обучения на весь период подготовки.</h1>
+              <p className="lead-copy">{data.plan.planSummary}</p>
+            </div>
+            <UserMenu />
           </div>
+
 
           <div className="info-strip">
             <CalendarCheck2 className="h-4 w-4" />
