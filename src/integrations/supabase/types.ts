@@ -689,7 +689,12 @@ export type Database = {
           created_at: string
           display_name: string | null
           exam_year: number | null
+          first_name: string | null
+          grade: number | null
           id: string
+          last_name: string | null
+          program: string | null
+          subjects: string[]
           target_grade: number | null
           target_score: number | null
           updated_at: string
@@ -700,7 +705,12 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           exam_year?: number | null
+          first_name?: string | null
+          grade?: number | null
           id?: string
+          last_name?: string | null
+          program?: string | null
+          subjects?: string[]
           target_grade?: number | null
           target_score?: number | null
           updated_at?: string
@@ -711,7 +721,12 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           exam_year?: number | null
+          first_name?: string | null
+          grade?: number | null
           id?: string
+          last_name?: string | null
+          program?: string | null
+          subjects?: string[]
           target_grade?: number | null
           target_score?: number | null
           updated_at?: string
