@@ -31,6 +31,7 @@ import { generateDiagnosticAiPlan } from "@/lib/oge-ai.functions";
 import type { CalendarDay, OgeMvpState, PlanItem, PlanItemStatus } from "@/lib/oge-mvp-data";
 import { DiagnosticPanel } from "@/components/oge/diagnostic-panel";
 import { AssistantPanel } from "@/components/oge/assistant-panel";
+import { UserMenu } from "@/components/oge/user-menu";
 import {
   saveLocalLessonOverride,
   markLessonRemoved,
