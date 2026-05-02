@@ -5,7 +5,7 @@ import { applyLocalOverridesToState } from "@/lib/oge-mvp-data";
 import { loadMvpState } from "@/lib/oge-mvp.functions";
 import { loadLocalLessonOverrides } from "@/lib/oge-lesson-overrides";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "ОГЭ AI Coach — календарь подготовки" },
