@@ -11,7 +11,7 @@ import { applyLocalOverridesToState, getLessonDetail } from "@/lib/oge-mvp-data"
 import { loadMvpState } from "@/lib/oge-mvp.functions";
 import { loadLocalLessonOverrides } from "@/lib/oge-lesson-overrides";
 
-export const Route = createFileRoute("/lesson/$lessonId")({
+export const Route = createFileRoute("/_authenticated/lesson/$lessonId")({
   loader: async ({ params }) => {
     const baseState = await loadMvpState();
     const state = applyLocalOverridesToState(baseState, loadLocalLessonOverrides());
