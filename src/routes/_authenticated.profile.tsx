@@ -235,7 +235,7 @@ function ProfilePage() {
                 <p className="text-sm text-muted-foreground">Пока нет данных. Начните с диагностики или занятий.</p>
               ) : (
                 <ul className="space-y-4">
-                  {progress.bySubject.map((row) => (
+                  {progress.bySubject.map((row: any) => (
                     <li key={row.subjectId} className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium">{row.name}</span>

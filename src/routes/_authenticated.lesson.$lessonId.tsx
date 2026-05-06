@@ -285,7 +285,7 @@ function LessonPage() {
               <CardContent className="content-stack">
                 {detail.customLinks.length ? (
                   <div className="content-stack">
-                    {detail.customLinks.map((link) => (
+                    {detail.customLinks.map((link: any) => (
                       <article key={link.id} className="resource-card">
                         <div className="list-row__title">{link.title}</div>
                         <div className="list-row__meta" style={{ textTransform: "capitalize" }}>
