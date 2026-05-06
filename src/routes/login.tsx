@@ -4,7 +4,6 @@ import { Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { lovable } from "@/integrations/lovable/index";
 import { supabase } from "@/integrations/supabase/client";
 
 type LoginSearch = { redirect?: string };
@@ -32,16 +31,18 @@ function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin + (search.redirect ?? "/"),
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + (search.redirect ?? "/"),
+        },
       });
-      if (result.error) {
+      if (oauthError) {
         setError("Не удалось войти через Google. Попробуйте ещё раз.");
         setBusy(false);
         return;
       }
-      if (result.redirected) return;
-      navigate({ to: search.redirect ?? "/" });
+      // Браузер перенаправит на Google автоматически
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка входа");
       setBusy(false);
