@@ -693,7 +693,9 @@ export type Database = {
           grade: number | null
           id: string
           last_name: string | null
+          onboarding_completed: boolean
           program: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
           subjects: string[]
           target_grade: number | null
           target_score: number | null
@@ -709,7 +711,9 @@ export type Database = {
           grade?: number | null
           id?: string
           last_name?: string | null
+          onboarding_completed?: boolean
           program?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           subjects?: string[]
           target_grade?: number | null
           target_score?: number | null
@@ -725,12 +729,50 @@ export type Database = {
           grade?: number | null
           id?: string
           last_name?: string | null
+          onboarding_completed?: boolean
           program?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           subjects?: string[]
           target_grade?: number | null
           target_score?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          created_at: string
+          first_name: string
+          grade: number | null
+          id: string
+          last_name: string | null
+          notes: string | null
+          subjects: string[]
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_name: string
+          grade?: number | null
+          id?: string
+          last_name?: string | null
+          notes?: string | null
+          subjects?: string[]
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          grade?: number | null
+          id?: string
+          last_name?: string | null
+          notes?: string | null
+          subjects?: string[]
+          teacher_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1085,6 +1127,7 @@ export type Database = {
       difficulty_level: "easy" | "medium" | "hard" | "adaptive"
       lesson_status: "locked" | "available" | "completed" | "missed"
       resource_type: "theory" | "video" | "practice"
+      user_role: "student" | "teacher"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1217,6 +1260,7 @@ export const Constants = {
       difficulty_level: ["easy", "medium", "hard", "adaptive"],
       lesson_status: ["locked", "available", "completed", "missed"],
       resource_type: ["theory", "video", "practice"],
+      user_role: ["student", "teacher"],
     },
   },
 } as const
