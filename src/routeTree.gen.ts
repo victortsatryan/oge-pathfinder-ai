@@ -16,6 +16,8 @@ import { Route as AuthenticatedTeacherRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated.student'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated.profile'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated.onboarding'
+import { Route as AuthenticatedStudentIndexRouteImport } from './routes/_authenticated.student.index'
+import { Route as AuthenticatedStudentCalendarRouteImport } from './routes/_authenticated.student.calendar'
 import { Route as AuthenticatedLessonLessonIdRouteImport } from './routes/_authenticated.lesson.$lessonId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -52,6 +54,18 @@ const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedStudentIndexRoute =
+  AuthenticatedStudentIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
+const AuthenticatedStudentCalendarRoute =
+  AuthenticatedStudentCalendarRouteImport.update({
+    id: '/calendar',
+    path: '/calendar',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
 const AuthenticatedLessonLessonIdRoute =
   AuthenticatedLessonLessonIdRouteImport.update({
     id: '/lesson/$lessonId',
@@ -64,18 +78,21 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/student': typeof AuthenticatedStudentRoute
+  '/student': typeof AuthenticatedStudentRouteWithChildren
   '/teacher': typeof AuthenticatedTeacherRoute
   '/lesson/$lessonId': typeof AuthenticatedLessonLessonIdRoute
+  '/student/calendar': typeof AuthenticatedStudentCalendarRoute
+  '/student/': typeof AuthenticatedStudentIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/student': typeof AuthenticatedStudentRoute
   '/teacher': typeof AuthenticatedTeacherRoute
   '/': typeof AuthenticatedIndexRoute
   '/lesson/$lessonId': typeof AuthenticatedLessonLessonIdRoute
+  '/student/calendar': typeof AuthenticatedStudentCalendarRoute
+  '/student': typeof AuthenticatedStudentIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -83,10 +100,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/_authenticated/student': typeof AuthenticatedStudentRoute
+  '/_authenticated/student': typeof AuthenticatedStudentRouteWithChildren
   '/_authenticated/teacher': typeof AuthenticatedTeacherRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/lesson/$lessonId': typeof AuthenticatedLessonLessonIdRoute
+  '/_authenticated/student/calendar': typeof AuthenticatedStudentCalendarRoute
+  '/_authenticated/student/': typeof AuthenticatedStudentIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,15 +117,18 @@ export interface FileRouteTypes {
     | '/student'
     | '/teacher'
     | '/lesson/$lessonId'
+    | '/student/calendar'
+    | '/student/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/onboarding'
     | '/profile'
-    | '/student'
     | '/teacher'
     | '/'
     | '/lesson/$lessonId'
+    | '/student/calendar'
+    | '/student'
   id:
     | '__root__'
     | '/_authenticated'
@@ -117,6 +139,8 @@ export interface FileRouteTypes {
     | '/_authenticated/teacher'
     | '/_authenticated/'
     | '/_authenticated/lesson/$lessonId'
+    | '/_authenticated/student/calendar'
+    | '/_authenticated/student/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -175,6 +199,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/student/': {
+      id: '/_authenticated/student/'
+      path: '/'
+      fullPath: '/student/'
+      preLoaderRoute: typeof AuthenticatedStudentIndexRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/student/calendar': {
+      id: '/_authenticated/student/calendar'
+      path: '/calendar'
+      fullPath: '/student/calendar'
+      preLoaderRoute: typeof AuthenticatedStudentCalendarRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
     '/_authenticated/lesson/$lessonId': {
       id: '/_authenticated/lesson/$lessonId'
       path: '/lesson/$lessonId'
@@ -185,10 +223,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedStudentRouteChildren {
+  AuthenticatedStudentCalendarRoute: typeof AuthenticatedStudentCalendarRoute
+  AuthenticatedStudentIndexRoute: typeof AuthenticatedStudentIndexRoute
+}
+
+const AuthenticatedStudentRouteChildren: AuthenticatedStudentRouteChildren = {
+  AuthenticatedStudentCalendarRoute: AuthenticatedStudentCalendarRoute,
+  AuthenticatedStudentIndexRoute: AuthenticatedStudentIndexRoute,
+}
+
+const AuthenticatedStudentRouteWithChildren =
+  AuthenticatedStudentRoute._addFileChildren(AuthenticatedStudentRouteChildren)
+
 interface AuthenticatedRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
-  AuthenticatedStudentRoute: typeof AuthenticatedStudentRoute
+  AuthenticatedStudentRoute: typeof AuthenticatedStudentRouteWithChildren
   AuthenticatedTeacherRoute: typeof AuthenticatedTeacherRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedLessonLessonIdRoute: typeof AuthenticatedLessonLessonIdRoute
@@ -197,7 +248,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedStudentRoute: AuthenticatedStudentRoute,
+  AuthenticatedStudentRoute: AuthenticatedStudentRouteWithChildren,
   AuthenticatedTeacherRoute: AuthenticatedTeacherRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedLessonLessonIdRoute: AuthenticatedLessonLessonIdRoute,
