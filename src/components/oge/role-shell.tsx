@@ -27,7 +27,7 @@ export function RoleShell({
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link to="/" className="font-semibold tracking-tight truncate">
-              ОГЭ AI Coach
+              educaite
             </Link>
             {accent ? (
               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">

@@ -55,7 +55,7 @@ function LoginPage() {
           <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
             <Sparkles className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">ОГЭ AI Coach</CardTitle>
+          <CardTitle className="text-2xl">educaite</CardTitle>
           <CardDescription>
             Войдите через Google, чтобы получить доступ к календарю подготовки, диагностике и AI-ассистенту.
           </CardDescription>

@@ -653,7 +653,7 @@ export function OgeMvpApp({ data }: OgeMvpAppProps) {
         <section className="panel panel-hero">
           <div className="flex items-start justify-between gap-4">
             <div className="hero-stack">
-              <p className="eyebrow">ОГЭ AI Coach</p>
+              <p className="eyebrow">educaite</p>
               <h1 className="display-title">Календарь обучения на весь период подготовки.</h1>
               <p className="lead-copy">{data.plan.planSummary}</p>
             </div>
