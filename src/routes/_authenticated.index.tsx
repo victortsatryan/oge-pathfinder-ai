@@ -1,38 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { OgeMvpApp } from "@/components/oge/oge-mvp-app";
-import { applyLocalOverridesToState } from "@/lib/oge-mvp-data";
-import { loadMvpState } from "@/lib/oge-mvp.functions";
-import { loadLocalLessonOverrides } from "@/lib/oge-lesson-overrides";
+import { getMyRole } from "@/lib/role.functions";
 
 export const Route = createFileRoute("/_authenticated/")({
-  head: () => ({
-    meta: [
-      { title: "ОГЭ AI Coach — календарь подготовки" },
-      {
-        name: "description",
-        content:
-          "Календарь подготовки к ОГЭ на весь период: дневная сетка, недельный режим, статусы занятий и связанные материалы.",
-      },
-      { property: "og:title", content: "ОГЭ AI Coach — календарь подготовки" },
-      {
-        property: "og:description",
-        content: "Учебный план по дням, неделям и предметам с карточками занятий, материалами и результатами.",
-      },
-    ],
-  }),
   loader: async () => {
-    const base = await loadMvpState();
-    return applyLocalOverridesToState(base, loadLocalLessonOverrides());
+    const { role, onboarding_completed } = await getMyRole();
+    if (!role || !onboarding_completed) {
+      throw redirect({ to: "/onboarding" });
+    }
+    throw redirect({ to: role === "teacher" ? "/teacher" : "/student" });
   },
-  staleTime: 30_000,
-  pendingComponent: () => <div className="p-6 text-sm text-muted-foreground">Загружаем календарь обучения…</div>,
-  component: Index,
+  component: () => null,
 });
-
-function Index() {
-  const data = Route.useLoaderData();
-
-  return <OgeMvpApp data={data} />;
-}
-

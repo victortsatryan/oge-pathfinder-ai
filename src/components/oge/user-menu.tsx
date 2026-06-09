@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, Repeat } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut, useAuth } from "@/hooks/use-auth";
+import { resetMyRole } from "@/lib/role.functions";
 
 function initialsOf(input: string | null | undefined): string {
   if (!input) return "?";
@@ -69,6 +70,17 @@ export function UserMenu() {
             <UserIcon className="h-4 w-4" />
             Мой профиль
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={async (event) => {
+            event.preventDefault();
+            await resetMyRole();
+            navigate({ to: "/onboarding" });
+          }}
+          className="cursor-pointer"
+        >
+          <Repeat className="h-4 w-4 mr-2" />
+          Сменить роль
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
