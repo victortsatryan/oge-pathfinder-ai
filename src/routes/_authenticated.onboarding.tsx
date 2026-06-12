@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { GraduationCap, Users, Loader2 } from "lucide-react";
 
@@ -11,7 +11,6 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 });
 
 function OnboardingPage() {
-  const navigate = useNavigate();
   const [submitting, setSubmitting] = useState<"student" | "teacher" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +18,7 @@ function OnboardingPage() {
     setSubmitting(role);
     setError(null);
     window.localStorage.setItem("educaite-demo-role", role);
-    navigate({ to: role === "teacher" ? "/teacher" : "/student" });
+    window.location.href = role === "teacher" ? "/teacher" : "/student";
   };
 
   return (
