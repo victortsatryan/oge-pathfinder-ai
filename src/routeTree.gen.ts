@@ -35,6 +35,7 @@ import { Route as AuthenticatedTeacherStudentsIndexRouteImport } from './routes/
 import { Route as AuthenticatedTeacherStudentsStudentIdRouteImport } from './routes/_authenticated.teacher.students.$studentId'
 import { Route as AuthenticatedStudentTopicsTopicIdRouteImport } from './routes/_authenticated.student.topics.$topicId'
 import { Route as AuthenticatedStudentSubjectsSubjectIdRouteImport } from './routes/_authenticated.student.subjects.$subjectId'
+import { Route as AuthenticatedStudentLessonLessonIdRouteImport } from './routes/_authenticated.student.lesson.$lessonId'
 import { Route as AuthenticatedStudentDiagnosticSessionIdRouteImport } from './routes/_authenticated.student.diagnostic.$sessionId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -185,6 +186,12 @@ const AuthenticatedStudentSubjectsSubjectIdRoute =
     path: '/subjects/$subjectId',
     getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
+const AuthenticatedStudentLessonLessonIdRoute =
+  AuthenticatedStudentLessonLessonIdRouteImport.update({
+    id: '/lesson/$lessonId',
+    path: '/lesson/$lessonId',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
 const AuthenticatedStudentDiagnosticSessionIdRoute =
   AuthenticatedStudentDiagnosticSessionIdRouteImport.update({
     id: '/$sessionId',
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/student/': typeof AuthenticatedStudentIndexRoute
   '/teacher/': typeof AuthenticatedTeacherIndexRoute
   '/student/diagnostic/$sessionId': typeof AuthenticatedStudentDiagnosticSessionIdRoute
+  '/student/lesson/$lessonId': typeof AuthenticatedStudentLessonLessonIdRoute
   '/student/subjects/$subjectId': typeof AuthenticatedStudentSubjectsSubjectIdRoute
   '/student/topics/$topicId': typeof AuthenticatedStudentTopicsTopicIdRoute
   '/teacher/students/$studentId': typeof AuthenticatedTeacherStudentsStudentIdRoute
@@ -241,6 +249,7 @@ export interface FileRoutesByTo {
   '/student': typeof AuthenticatedStudentIndexRoute
   '/teacher': typeof AuthenticatedTeacherIndexRoute
   '/student/diagnostic/$sessionId': typeof AuthenticatedStudentDiagnosticSessionIdRoute
+  '/student/lesson/$lessonId': typeof AuthenticatedStudentLessonLessonIdRoute
   '/student/subjects/$subjectId': typeof AuthenticatedStudentSubjectsSubjectIdRoute
   '/student/topics/$topicId': typeof AuthenticatedStudentTopicsTopicIdRoute
   '/teacher/students/$studentId': typeof AuthenticatedTeacherStudentsStudentIdRoute
@@ -271,6 +280,7 @@ export interface FileRoutesById {
   '/_authenticated/student/': typeof AuthenticatedStudentIndexRoute
   '/_authenticated/teacher/': typeof AuthenticatedTeacherIndexRoute
   '/_authenticated/student/diagnostic/$sessionId': typeof AuthenticatedStudentDiagnosticSessionIdRoute
+  '/_authenticated/student/lesson/$lessonId': typeof AuthenticatedStudentLessonLessonIdRoute
   '/_authenticated/student/subjects/$subjectId': typeof AuthenticatedStudentSubjectsSubjectIdRoute
   '/_authenticated/student/topics/$topicId': typeof AuthenticatedStudentTopicsTopicIdRoute
   '/_authenticated/teacher/students/$studentId': typeof AuthenticatedTeacherStudentsStudentIdRoute
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
     | '/student/'
     | '/teacher/'
     | '/student/diagnostic/$sessionId'
+    | '/student/lesson/$lessonId'
     | '/student/subjects/$subjectId'
     | '/student/topics/$topicId'
     | '/teacher/students/$studentId'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teacher'
     | '/student/diagnostic/$sessionId'
+    | '/student/lesson/$lessonId'
     | '/student/subjects/$subjectId'
     | '/student/topics/$topicId'
     | '/teacher/students/$studentId'
@@ -356,6 +368,7 @@ export interface FileRouteTypes {
     | '/_authenticated/student/'
     | '/_authenticated/teacher/'
     | '/_authenticated/student/diagnostic/$sessionId'
+    | '/_authenticated/student/lesson/$lessonId'
     | '/_authenticated/student/subjects/$subjectId'
     | '/_authenticated/student/topics/$topicId'
     | '/_authenticated/teacher/students/$studentId'
@@ -551,6 +564,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentSubjectsSubjectIdRouteImport
       parentRoute: typeof AuthenticatedStudentRoute
     }
+    '/_authenticated/student/lesson/$lessonId': {
+      id: '/_authenticated/student/lesson/$lessonId'
+      path: '/lesson/$lessonId'
+      fullPath: '/student/lesson/$lessonId'
+      preLoaderRoute: typeof AuthenticatedStudentLessonLessonIdRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
     '/_authenticated/student/diagnostic/$sessionId': {
       id: '/_authenticated/student/diagnostic/$sessionId'
       path: '/$sessionId'
@@ -585,6 +605,7 @@ interface AuthenticatedStudentRouteChildren {
   AuthenticatedStudentPathRoute: typeof AuthenticatedStudentPathRoute
   AuthenticatedStudentProgressRoute: typeof AuthenticatedStudentProgressRoute
   AuthenticatedStudentIndexRoute: typeof AuthenticatedStudentIndexRoute
+  AuthenticatedStudentLessonLessonIdRoute: typeof AuthenticatedStudentLessonLessonIdRoute
   AuthenticatedStudentSubjectsSubjectIdRoute: typeof AuthenticatedStudentSubjectsSubjectIdRoute
   AuthenticatedStudentTopicsTopicIdRoute: typeof AuthenticatedStudentTopicsTopicIdRoute
 }
@@ -599,6 +620,8 @@ const AuthenticatedStudentRouteChildren: AuthenticatedStudentRouteChildren = {
   AuthenticatedStudentPathRoute: AuthenticatedStudentPathRoute,
   AuthenticatedStudentProgressRoute: AuthenticatedStudentProgressRoute,
   AuthenticatedStudentIndexRoute: AuthenticatedStudentIndexRoute,
+  AuthenticatedStudentLessonLessonIdRoute:
+    AuthenticatedStudentLessonLessonIdRoute,
   AuthenticatedStudentSubjectsSubjectIdRoute:
     AuthenticatedStudentSubjectsSubjectIdRoute,
   AuthenticatedStudentTopicsTopicIdRoute:
@@ -664,3 +687,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
