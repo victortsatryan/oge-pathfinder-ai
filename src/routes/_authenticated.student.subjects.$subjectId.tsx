@@ -123,7 +123,13 @@ function TopicNode({ node, depth }: { node: any; depth: number }) {
         </button>
         <div className="flex items-center gap-3">
           <span className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT[status] ?? STATUS_DOT.not_started}`} />
-          <span className="font-medium">{node.title}</span>
+          <Link
+            to="/student/topics/$topicId"
+            params={{ topicId: node.id }}
+            className="font-medium hover:underline"
+          >
+            {node.title}
+          </Link>
           {node.topic_type && node.topic_type !== "topic" && (
             <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--pf-muted)]">
               · {node.topic_type}

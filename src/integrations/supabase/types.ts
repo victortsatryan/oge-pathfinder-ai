@@ -1030,6 +1030,133 @@ export type Database = {
           },
         ]
       }
+      material_tags: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          tag: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          tag: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_tags_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materials: {
+        Row: {
+          content_text: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: number
+          estimated_time_minutes: number | null
+          id: string
+          image_url: string | null
+          is_public: boolean
+          language: string
+          learning_objective_id: string | null
+          material_type: string
+          program_id: string | null
+          source_name: string | null
+          source_url: string | null
+          subject_id: string
+          title: string
+          topic_id: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          content_text?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          estimated_time_minutes?: number | null
+          id?: string
+          image_url?: string | null
+          is_public?: boolean
+          language?: string
+          learning_objective_id?: string | null
+          material_type: string
+          program_id?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          subject_id: string
+          title: string
+          topic_id?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          content_text?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          estimated_time_minutes?: number | null
+          id?: string
+          image_url?: string | null
+          is_public?: boolean
+          language?: string
+          learning_objective_id?: string | null
+          material_type?: string
+          program_id?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          subject_id?: string
+          title?: string
+          topic_id?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_learning_objective_id_fkey"
+            columns: ["learning_objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materials_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1677,24 +1804,69 @@ export type Database = {
           },
         ]
       }
+      task_solutions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          solution_steps: Json | null
+          solution_text: string | null
+          task_id: string
+          updated_at: string
+          video_solution_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          solution_steps?: Json | null
+          solution_text?: string | null
+          task_id: string
+          updated_at?: string
+          video_solution_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          solution_steps?: Json | null
+          solution_text?: string | null
+          task_id?: string
+          updated_at?: string
+          video_solution_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_solutions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           answer_type: string
           correct_answer: Json | null
           created_at: string
           difficulty: Database["public"]["Enums"]["difficulty_level"]
+          estimated_time_minutes: number | null
           exam_section: string | null
           explanation: string | null
           id: string
           is_published: boolean
           learning_objective_id: string | null
           options: Json
+          program_id: string | null
           prompt: string
+          source_name: string | null
           source_url: string | null
           subject_id: string
           tags: string[]
           task_key: string
           task_type: string | null
+          title: string | null
           topic_id: string | null
           updated_at: string
         }
@@ -1703,18 +1875,22 @@ export type Database = {
           correct_answer?: Json | null
           created_at?: string
           difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          estimated_time_minutes?: number | null
           exam_section?: string | null
           explanation?: string | null
           id?: string
           is_published?: boolean
           learning_objective_id?: string | null
           options?: Json
+          program_id?: string | null
           prompt: string
+          source_name?: string | null
           source_url?: string | null
           subject_id: string
           tags?: string[]
           task_key: string
           task_type?: string | null
+          title?: string | null
           topic_id?: string | null
           updated_at?: string
         }
@@ -1723,18 +1899,22 @@ export type Database = {
           correct_answer?: Json | null
           created_at?: string
           difficulty?: Database["public"]["Enums"]["difficulty_level"]
+          estimated_time_minutes?: number | null
           exam_section?: string | null
           explanation?: string | null
           id?: string
           is_published?: boolean
           learning_objective_id?: string | null
           options?: Json
+          program_id?: string | null
           prompt?: string
+          source_name?: string | null
           source_url?: string | null
           subject_id?: string
           tags?: string[]
           task_key?: string
           task_type?: string | null
+          title?: string | null
           topic_id?: string | null
           updated_at?: string
         }
@@ -1747,6 +1927,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
@@ -1755,6 +1942,118 @@ export type Database = {
           },
           {
             foreignKeyName: "tasks_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_tasks: {
+        Row: {
+          created_at: string
+          id: string
+          order_index: number
+          points: number
+          task_id: string
+          test_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_index?: number
+          points?: number
+          task_id: string
+          test_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_index?: number
+          points?: number
+          task_id?: string
+          test_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_tasks_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tests: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: number
+          duration_minutes: number | null
+          id: string
+          is_public: boolean
+          program_id: string | null
+          subject_id: string
+          test_type: string
+          title: string
+          topic_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          duration_minutes?: number | null
+          id?: string
+          is_public?: boolean
+          program_id?: string | null
+          subject_id: string
+          test_type?: string
+          title: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          duration_minutes?: number | null
+          id?: string
+          is_public?: boolean
+          program_id?: string | null
+          subject_id?: string
+          test_type?: string
+          title?: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tests_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tests_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tests_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
