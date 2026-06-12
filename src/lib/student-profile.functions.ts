@@ -357,3 +357,62 @@ export const getStudentProfileAnalytics = createServerFn({ method: "GET" })
       lastActivityAt: lastActivity,
     };
   });
+
+// ---------- Subject topic tree (with nesting + my progress) ----------
+
+export const getSubjectTopicTree = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ subject_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+
+    const { data: topics, error } = await sb
+      .from("topics")
+      .select(
+        "id, title, description, parent_topic_id, level, sort_order, topic_type",
+      )
+      .eq("subject_id", data.subject_id)
+      .eq("is_public", true)
+      .order("sort_order");
+    if (error) throw error;
+
+    const { data: profile } = await sb
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    let progressByTopic = new Map<string, any>();
+    if (profile) {
+      const { data: prog } = await sb
+        .from("student_topic_progress")
+        .select(
+          "topic_id, mastery_score, status, attempts_count, mistakes_count, last_activity_at",
+        )
+        .eq("student_profile_id", profile.id)
+        .eq("subject_id", data.subject_id);
+      for (const p of (prog ?? []) as any[])
+        progressByTopic.set(p.topic_id, p);
+    }
+
+    // Build tree
+    const byParent = new Map<string | null, any[]>();
+    for (const t of (topics ?? []) as any[]) {
+      const key = t.parent_topic_id ?? null;
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key)!.push({
+        ...t,
+        progress: progressByTopic.get(t.id) ?? null,
+        children: [] as any[],
+      });
+    }
+    const attach = (node: any) => {
+      node.children = byParent.get(node.id) ?? [];
+      for (const c of node.children) attach(c);
+    };
+    const roots = byParent.get(null) ?? [];
+    for (const r of roots) attach(r);
+    return roots;
+  });
