@@ -1,40 +1,15 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { GraduationCap, Users, Loader2 } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { GraduationCap, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserMenu } from "@/components/oge/user-menu";
-import { getMyRole, setMyRole } from "@/lib/role.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
-  loader: async () => {
-    const r = await getMyRole();
-    if (r.role && r.onboarding_completed) {
-      throw redirect({ to: r.role === "teacher" ? "/teacher" : "/student" });
-    }
-    return r;
-  },
   component: OnboardingPage,
 });
 
 function OnboardingPage() {
-  const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState<"student" | "teacher" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const choose = async (role: "student" | "teacher") => {
-    setSubmitting(role);
-    setError(null);
-    try {
-      await setMyRole({ data: { role } });
-      navigate({ to: role === "teacher" ? "/teacher" : "/student" });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось сохранить роль");
-      setSubmitting(null);
-    }
-  };
-
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-10">
@@ -63,13 +38,11 @@ function OnboardingPage() {
             <CardContent className="mt-auto">
               <Button
                 className="w-full"
-                onClick={() => choose("student")}
-                disabled={submitting !== null}
+                asChild
               >
-                {submitting === "student" ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : null}
-                Продолжить как ученик
+                <a href="/student" onClick={() => window.localStorage.setItem("educaite-demo-role", "student")}>
+                  Продолжить как ученик
+                </a>
               </Button>
             </CardContent>
           </Card>
@@ -89,19 +62,15 @@ function OnboardingPage() {
               <Button
                 className="w-full"
                 variant="secondary"
-                onClick={() => choose("teacher")}
-                disabled={submitting !== null}
+                asChild
               >
-                {submitting === "teacher" ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : null}
-                Продолжить как преподаватель
+                <a href="/teacher" onClick={() => window.localStorage.setItem("educaite-demo-role", "teacher")}>
+                  Продолжить как преподаватель
+                </a>
               </Button>
             </CardContent>
           </Card>
         </div>
-
-        {error ? <p className="text-sm text-destructive text-center mt-6">{error}</p> : null}
       </div>
     </main>
   );

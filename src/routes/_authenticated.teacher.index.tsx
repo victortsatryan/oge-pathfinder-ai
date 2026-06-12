@@ -3,18 +3,14 @@ import { UserPlus, ClipboardList } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { listMyStudents } from "@/lib/students.functions";
+import { demoStudents } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/teacher/")({
-  loader: async () => {
-    const students = await listMyStudents();
-    return { students };
-  },
   component: TeacherHome,
 });
 
 function TeacherHome() {
-  const { students } = Route.useLoaderData();
+  const students = demoStudents;
 
   return (
     <div className="space-y-6">

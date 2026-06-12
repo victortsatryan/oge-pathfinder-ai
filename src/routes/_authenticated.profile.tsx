@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { UserMenu } from "@/components/oge/user-menu";
-import { getMyProfile, getMyProgress, updateMyProfile } from "@/lib/profile.functions";
+import { demoProfile, demoProgress } from "@/lib/demo-data";
 
 const SUBJECT_OPTIONS = [
   "Математика",
@@ -29,15 +29,12 @@ const SUBJECT_OPTIONS = [
 const GRADE_OPTIONS = [5, 6, 7, 8, 9, 10, 11];
 
 export const Route = createFileRoute("/_authenticated/profile")({
-  loader: async () => {
-    const [profile, progress] = await Promise.all([getMyProfile(), getMyProgress()]);
-    return { profile, progress };
-  },
   component: ProfilePage,
 });
 
 function ProfilePage() {
-  const { profile, progress } = Route.useLoaderData();
+  const profile = demoProfile;
+  const progress = demoProgress;
   const [firstName, setFirstName] = useState(profile.first_name ?? "");
   const [lastName, setLastName] = useState(profile.last_name ?? "");
   const [grade, setGrade] = useState<number | "">(profile.grade ?? "");
@@ -64,17 +61,10 @@ function ProfilePage() {
     setSaving(true);
     setError(null);
     try {
-      const display = [firstName, lastName].filter(Boolean).join(" ").trim();
-      await updateMyProfile({
-        data: {
-          first_name: firstName.trim() || null,
-          last_name: lastName.trim() || null,
-          display_name: display || null,
-          grade: grade === "" ? null : Number(grade),
-          program: program.trim() || null,
-          subjects,
-        },
-      });
+      window.localStorage.setItem(
+        "educaite-demo-profile",
+        JSON.stringify({ firstName, lastName, grade, program, subjects }),
+      );
       setSavedAt(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось сохранить профиль");

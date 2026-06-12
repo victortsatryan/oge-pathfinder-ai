@@ -5,11 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { getStudent } from "@/lib/students.functions";
+import { demoStudents } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/$studentId")({
   loader: async ({ params }) => {
-    const student = await getStudent({ data: { id: params.studentId } });
+    const student = demoStudents.find((item) => item.id === params.studentId);
     if (!student) throw notFound();
     return student;
   },
