@@ -408,7 +408,6 @@ export const completeDiagnosticSession = createServerFn({ method: "POST" })
       }
     }
 
-    }
 
     // Mistakes
     if (mistakeRows.length > 0) {
