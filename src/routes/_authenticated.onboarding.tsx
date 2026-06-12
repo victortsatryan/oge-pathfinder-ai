@@ -1,20 +1,12 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { GraduationCap, Users, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserMenu } from "@/components/oge/user-menu";
-import { getMyRole, setMyRole } from "@/lib/role.functions";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
-  loader: async () => {
-    const r = await getMyRole();
-    if (r.role && r.onboarding_completed) {
-      throw redirect({ to: r.role === "teacher" ? "/teacher" : "/student" });
-    }
-    return r;
-  },
   component: OnboardingPage,
 });
 
@@ -26,13 +18,8 @@ function OnboardingPage() {
   const choose = async (role: "student" | "teacher") => {
     setSubmitting(role);
     setError(null);
-    try {
-      await setMyRole({ data: { role } });
-      navigate({ to: role === "teacher" ? "/teacher" : "/student" });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось сохранить роль");
-      setSubmitting(null);
-    }
+    window.localStorage.setItem("educaite-demo-role", role);
+    navigate({ to: role === "teacher" ? "/teacher" : "/student" });
   };
 
   return (
