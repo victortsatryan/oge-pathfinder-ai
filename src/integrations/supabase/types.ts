@@ -740,6 +740,242 @@ export type Database = {
         }
         Relationships: []
       }
+      student_mistakes: {
+        Row: {
+          created_at: string
+          id: string
+          mistake_description: string | null
+          mistake_type: string
+          source: string | null
+          student_profile_id: string
+          subject_id: string | null
+          task_id: string | null
+          topic_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mistake_description?: string | null
+          mistake_type: string
+          source?: string | null
+          student_profile_id: string
+          subject_id?: string | null
+          task_id?: string | null
+          topic_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mistake_description?: string | null
+          mistake_type?: string
+          source?: string | null
+          student_profile_id?: string
+          subject_id?: string | null
+          task_id?: string | null
+          topic_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_mistakes_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_mistakes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_mistakes_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_profiles: {
+        Row: {
+          age: number | null
+          country: string | null
+          created_at: string
+          display_name: string | null
+          grade: string | null
+          id: string
+          language: string
+          learning_goal: string | null
+          preferred_intensity: string | null
+          target_date: string | null
+          target_exam: string | null
+          target_score: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age?: number | null
+          country?: string | null
+          created_at?: string
+          display_name?: string | null
+          grade?: string | null
+          id?: string
+          language?: string
+          learning_goal?: string | null
+          preferred_intensity?: string | null
+          target_date?: string | null
+          target_exam?: string | null
+          target_score?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age?: number | null
+          country?: string | null
+          created_at?: string
+          display_name?: string | null
+          grade?: string | null
+          id?: string
+          language?: string
+          learning_goal?: string | null
+          preferred_intensity?: string | null
+          target_date?: string | null
+          target_exam?: string | null
+          target_score?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      student_subjects: {
+        Row: {
+          created_at: string
+          goal: string | null
+          id: string
+          started_at: string | null
+          status: string
+          student_profile_id: string
+          subject_id: string
+          target_level: string | null
+          target_score: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          goal?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          student_profile_id: string
+          subject_id: string
+          target_level?: string | null
+          target_score?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          goal?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          student_profile_id?: string
+          subject_id?: string
+          target_level?: string | null
+          target_score?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_subjects_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_topic_progress: {
+        Row: {
+          attempts_count: number
+          confidence_level: number | null
+          created_at: string
+          diagnostic_score: number | null
+          id: string
+          last_activity_at: string | null
+          mastery_score: number
+          mistakes_count: number
+          practice_score: number | null
+          status: string
+          student_profile_id: string
+          subject_id: string
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts_count?: number
+          confidence_level?: number | null
+          created_at?: string
+          diagnostic_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          mastery_score?: number
+          mistakes_count?: number
+          practice_score?: number | null
+          status?: string
+          student_profile_id: string
+          subject_id: string
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts_count?: number
+          confidence_level?: number | null
+          created_at?: string
+          diagnostic_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          mastery_score?: number
+          mistakes_count?: number
+          practice_score?: number | null
+          status?: string
+          student_profile_id?: string
+          subject_id?: string
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_topic_progress_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_topic_progress_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_topic_progress_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           created_at: string
@@ -823,30 +1059,51 @@ export type Database = {
       }
       subjects: {
         Row: {
+          category: string | null
           color_token: string | null
           created_at: string
+          created_by: string | null
+          description: string | null
           exam_code: string | null
+          exam_type: string | null
           id: string
+          is_public: boolean
+          is_school_subject: boolean
+          language: string
           name: string
           slug: string
           sort_order: number
           updated_at: string
         }
         Insert: {
+          category?: string | null
           color_token?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
           exam_code?: string | null
+          exam_type?: string | null
           id?: string
+          is_public?: boolean
+          is_school_subject?: boolean
+          language?: string
           name: string
           slug: string
           sort_order?: number
           updated_at?: string
         }
         Update: {
+          category?: string | null
           color_token?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
           exam_code?: string | null
+          exam_type?: string | null
           id?: string
+          is_public?: boolean
+          is_school_subject?: boolean
+          language?: string
           name?: string
           slug?: string
           sort_order?: number
@@ -1015,9 +1272,13 @@ export type Database = {
       topics: {
         Row: {
           created_at: string
+          description: string | null
           exam_section: string | null
           id: string
+          level: number
+          parent_topic_id: string | null
           sort_order: number
+          source_standard: string | null
           subject_id: string
           theme_code: string | null
           title: string
@@ -1025,9 +1286,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           exam_section?: string | null
           id?: string
+          level?: number
+          parent_topic_id?: string | null
           sort_order?: number
+          source_standard?: string | null
           subject_id: string
           theme_code?: string | null
           title: string
@@ -1035,15 +1300,26 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           exam_section?: string | null
           id?: string
+          level?: number
+          parent_topic_id?: string | null
           sort_order?: number
+          source_standard?: string | null
           subject_id?: string
           theme_code?: string | null
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "topics_parent_topic_id_fkey"
+            columns: ["parent_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
