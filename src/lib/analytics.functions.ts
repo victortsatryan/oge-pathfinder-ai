@@ -462,14 +462,15 @@ export const getActivityStats = createServerFn({ method: "GET" })
         .eq("student_profile_id", profile.id),
       sb
         .from("lessons")
-        .select("id, status, scheduled_at")
+        .select("id, status, lesson_date")
         .eq("student_profile_id", profile.id),
     ]);
 
-    const ls = lessons ?? [];
+    const ls = (lessons ?? []) as Array<{ status: string }>;
     const scheduled = ls.length;
     const completed = ls.filter((l) => l.status === "completed").length;
     const skipped = ls.filter((l) => l.status === "skipped").length;
+
     const regularity = scheduled > 0 ? Math.round((completed / scheduled) * 100) : 0;
 
     const its = items ?? [];
