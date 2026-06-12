@@ -81,10 +81,32 @@ export const listSubjects = createServerFn({ method: "GET" })
     const sb = context.supabase as any;
     const { data, error } = await sb
       .from("subjects")
-      .select("id, slug, name, description, category, exam_type, is_school_subject")
+      .select(
+        "id, slug, name, description, category, exam_type, is_school_subject, subject_type, language",
+      )
       .order("sort_order");
     if (error) throw error;
     return data ?? [];
+  });
+
+// ---------- Programs catalog ----------
+
+export const listSubjectPrograms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ subject_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+    const { data: rows, error } = await sb
+      .from("subject_programs")
+      .select(
+        "id, slug, title, description, program_type, exam_type, grade, language, is_public",
+      )
+      .eq("subject_id", data.subject_id)
+      .order("sort_order");
+    if (error) throw error;
+    return rows ?? [];
   });
 
 // ---------- Student subjects + topics ----------
@@ -102,7 +124,7 @@ export const listMyStudentSubjects = createServerFn({ method: "GET" })
     const { data, error } = await sb
       .from("student_subjects")
       .select(
-        "id, goal, target_level, target_score, status, started_at, subject:subjects(id, slug, name, exam_type)",
+        "id, goal, target_level, target_score, status, started_at, subject:subjects(id, slug, name, exam_type), program:subject_programs(id, slug, title, exam_type, grade)",
       )
       .eq("student_profile_id", profile.id)
       .order("created_at");
