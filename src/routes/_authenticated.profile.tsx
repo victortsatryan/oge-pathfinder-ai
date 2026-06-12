@@ -118,7 +118,7 @@ function ProfilePage() {
   });
 
   const addMut = useMutation({
-    mutationFn: (data: { subject_id: string; goal?: string; target_score?: string }) =>
+    mutationFn: (data: { subject_id: string; program_id?: string | null; goal?: string; target_score?: string }) =>
       addSubject({ data }),
     onSuccess: () => {
       toast.success("Предмет добавлен");
