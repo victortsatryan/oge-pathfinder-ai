@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { queryOptions } from "@tanstack/react-query";
-import { useSuspenseQueries } from "@tanstack/react-query";
+import { queryOptions, useQueries } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/oge/page-header";
 import {
@@ -22,26 +21,25 @@ const qos = {
 };
 
 export const Route = createFileRoute("/_authenticated/student/report")({
-  loader: ({ context }) =>
-    Promise.all(Object.values(qos).map((q) => context.queryClient.ensureQueryData(q))),
   errorComponent: ({ error }) => <div role="alert" className="pf-block">Ошибка: {error.message}</div>,
   notFoundComponent: () => <div className="pf-block">Отчёт не найден.</div>,
   component: ReportPage,
 });
 
 function ReportPage() {
-  const [
-    { data: overview },
-    { data: subjects },
-    { data: weak },
-    { data: mistakes },
-    { data: forecast },
-    { data: recs },
-  ] = useSuspenseQueries({
-    queries: [qos.overview, qos.subjects, qos.weak, qos.mistakes, qos.forecast, qos.recs],
-  });
+  const results = useQueries({ queries: Object.values(qos) });
+  if (results.some((r) => r.isLoading)) {
+    return <div className="pf-block text-[14px] text-[color:var(--pf-muted)]">Загружаем отчёт…</div>;
+  }
+  const [overviewQ, subjectsQ, weakQ, mistakesQ, forecastQ, recsQ] = results;
+  const overview = overviewQ.data as any;
+  const subjects = (subjectsQ.data ?? []) as any[];
+  const weak = (weakQ.data ?? []) as any[];
+  const mistakes = (mistakesQ.data ?? { by_type: [], by_topic: [], total: 0 }) as any;
+  const forecast = forecastQ.data as any;
+  const recs = (recsQ.data ?? []) as any[];
 
-  if (!overview.profile) {
+  if (!overview?.profile) {
     return (
       <div className="pf-block">
         <PageHeader title="Отчёт" lead="Сначала заполни профиль ученика." />
@@ -51,7 +49,7 @@ function ReportPage() {
   }
 
   const strong = subjects
-    .flatMap((s) => s.in_progress_topics.map((t) => ({ subject: s.subject_title, title: t })))
+    .flatMap((s) => (s.in_progress_topics ?? []).map((t: string) => ({ subject: s.subject_title, title: t })))
     .slice(0, 5);
 
   return (
@@ -60,9 +58,9 @@ function ReportPage() {
 
       <section className="pf-block mb-8">
         <p className="pf-eyebrow mb-3">Цель</p>
-        <div className="text-[18px] font-medium">{overview.profile.goal ?? "Цель не задана"}</div>
+        <div className="text-[18px] font-medium">{overview.profile.learning_goal ?? "Цель не задана"}</div>
         <div className="text-[13px] text-[color:var(--pf-muted)] mt-1">
-          Целевой балл: {overview.profile.target_score ?? "—"} · Уровень: {overview.profile.level ?? "—"}
+          Целевой балл: {overview.profile.target_score ?? "—"} · Класс: {overview.profile.grade ?? "—"}
         </div>
         {forecast && (
           <div className="mt-4 text-[14px]">
@@ -118,7 +116,7 @@ function ReportPage() {
         <p className="pf-eyebrow mb-3">Типичные ошибки</p>
         <div className="pf-block">
           {mistakes.by_type.length === 0 && <div className="text-[13px] text-[color:var(--pf-muted)]">Ошибок не зафиксировано.</div>}
-          {mistakes.by_type.slice(0, 6).map((m) => (
+          {mistakes.by_type.slice(0, 6).map((m: any) => (
             <div key={m.type} className="flex justify-between py-2 border-t first:border-t-0 border-[color:var(--pf-line)]">
               <span>{m.type}</span>
               <span className="font-mono">{m.count}</span>
