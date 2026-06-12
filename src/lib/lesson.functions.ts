@@ -324,7 +324,7 @@ export const completeLesson = createServerFn({ method: "POST" })
       const wrongAttempts = (attempts ?? []).filter((a: any) => a.is_correct === false);
       if (wrongAttempts.length > 0) {
         const mistakeRows = wrongAttempts.map((a: any) => ({
-          student_profile_id: lesson.student_profile_id,
+          student_profile_id: profileId,
           user_id: context.userId,
           subject_id: lesson.subject_id,
           topic_id: lesson.topic_id,
