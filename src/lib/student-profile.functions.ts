@@ -134,6 +134,7 @@ export const listMyStudentSubjects = createServerFn({ method: "GET" })
 
 const addSubjectSchema = z.object({
   subject_id: z.string().uuid(),
+  program_id: z.string().uuid().nullable().optional(),
   goal: z.string().trim().max(300).optional().nullable(),
   target_score: z.string().trim().max(40).optional().nullable(),
 });
@@ -165,6 +166,7 @@ export const addStudentSubject = createServerFn({ method: "POST" })
         {
           student_profile_id: profile.id,
           subject_id: data.subject_id,
+          program_id: data.program_id ?? null,
           goal: data.goal ?? null,
           target_score: data.target_score ?? null,
           status: "active",
@@ -172,22 +174,33 @@ export const addStudentSubject = createServerFn({ method: "POST" })
         },
         { onConflict: "student_profile_id,subject_id" },
       )
-      .select("id, subject_id")
+      .select("id, subject_id, program_id")
       .single();
     if (error) throw error;
 
-    // Создаём записи прогресса для всех корневых тем предмета
-    const { data: topics } = await sb
-      .from("topics")
-      .select("id")
-      .eq("subject_id", data.subject_id)
-      .is("parent_topic_id", null);
+    // Если выбрана программа — берём темы из program_topics, иначе все публичные темы предмета
+    let topicIds: string[] = [];
+    if (data.program_id) {
+      const { data: pt } = await sb
+        .from("program_topics")
+        .select("topic_id")
+        .eq("program_id", data.program_id);
+      topicIds = (pt ?? []).map((r: any) => r.topic_id);
+    } else {
+      const { data: topics } = await sb
+        .from("topics")
+        .select("id")
+        .eq("subject_id", data.subject_id)
+        .eq("is_public", true);
+      topicIds = (topics ?? []).map((t: any) => t.id);
+    }
 
-    if (topics && topics.length > 0) {
-      const rows = topics.map((t: { id: string }) => ({
+    if (topicIds.length > 0) {
+      const rows = topicIds.map((tid) => ({
         student_profile_id: profile!.id,
         subject_id: data.subject_id,
-        topic_id: t.id,
+        topic_id: tid,
+        program_id: data.program_id ?? null,
         mastery_score: 0,
       }));
       await sb
