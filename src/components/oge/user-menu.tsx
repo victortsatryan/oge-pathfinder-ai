@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, User as UserIcon, Repeat } from "lucide-react";
+import { User as UserIcon, Repeat } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOut, useAuth } from "@/hooks/use-auth";
-import { resetMyRole } from "@/lib/role.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 function initialsOf(input: string | null | undefined): string {
   if (!input) return "?";
@@ -31,11 +30,7 @@ export function UserMenu() {
   }
 
   if (!user) {
-    return (
-      <Button asChild variant="default" size="sm">
-        <Link to="/login">Войти</Link>
-      </Button>
-    );
+    return <Button variant="secondary" size="sm" onClick={() => navigate({ to: "/onboarding" })}>Демо</Button>;
   }
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
@@ -74,25 +69,13 @@ export function UserMenu() {
         <DropdownMenuItem
           onSelect={async (event) => {
             event.preventDefault();
-            await resetMyRole();
+            window.localStorage.removeItem("educaite-demo-role");
             navigate({ to: "/onboarding" });
           }}
           className="cursor-pointer"
         >
           <Repeat className="h-4 w-4 mr-2" />
           Сменить роль
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={async (event) => {
-            event.preventDefault();
-            await signOut();
-            navigate({ to: "/login" });
-          }}
-          className="cursor-pointer"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Выйти
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
