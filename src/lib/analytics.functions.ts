@@ -259,9 +259,9 @@ export const getProgressDynamics = createServerFn({ method: "GET" })
           .limit(100),
         sb
           .from("lessons")
-          .select("id, status, scheduled_at")
+          .select("id, status, lesson_date")
           .eq("student_profile_id", profile.id)
-          .gte("scheduled_at", since),
+          .gte("lesson_date", since.slice(0, 10)),
         sb
           .from("task_attempts")
           .select("id, is_correct, submitted_at")
@@ -278,10 +278,11 @@ export const getProgressDynamics = createServerFn({ method: "GET" })
     return {
       history: history ?? [],
       total_delta: totalDelta,
-      lessons_done: (lessons ?? []).filter((l) => l.status === "completed").length,
+      lessons_done: ((lessons ?? []) as Array<{ status: string }>).filter((l) => l.status === "completed").length,
       tasks_done: (attempts ?? []).length,
       diagnostics_done: (diags ?? []).filter((d2) => d2.status === "completed").length,
     };
+
   });
 
 /** Topics that were mastered but haven't been touched in N days. */
