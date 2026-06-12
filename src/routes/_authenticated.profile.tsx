@@ -31,6 +31,7 @@ import {
   getMyStudentProfile,
   listMyStudentSubjects,
   listSubjects,
+  listSubjectPrograms,
   addStudentSubject,
   listTopicProgressBySubject,
   listMyWeakTopics,
