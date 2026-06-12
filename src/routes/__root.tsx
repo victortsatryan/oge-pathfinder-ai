@@ -29,10 +29,10 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "educaite" },
+      { title: "PATHFINDER — навигатор по знаниям" },
       {
         name: "description",
-        content: "Персонализированная подготовка к ОГЭ с диагностикой, календарём и AI-рекомендациями.",
+        content: "Инструмент навигации по предмету: маршрут, карта тем и AI-навигатор для подготовки к ОГЭ.",
       },
       { name: "author", content: "Lovable" },
       { property: "og:type", content: "website" },
@@ -46,10 +46,13 @@ export const Route = createRootRoute({
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/77aa4795-ccaf-4737-be5c-dc0e21339643/id-preview-5f235a8b--6be1e37b-2ce0-4f75-8d64-751227ba3518.lovable.app-1777058603657.png" },
     ],
     links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
       },
+      { rel: "stylesheet", href: appCss },
     ],
   }),
   shellComponent: RootShell,
@@ -59,7 +62,7 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" data-screen-style="clean-minimal" suppressHydrationWarning>
+    <html lang="ru" data-screen-style="pathfinder" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
