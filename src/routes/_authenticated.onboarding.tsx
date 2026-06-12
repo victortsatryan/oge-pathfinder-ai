@@ -1,9 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { GraduationCap, Users } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserMenu } from "@/components/oge/user-menu";
+import { ConstructivistIllo } from "@/components/oge/constructivist-illo";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   component: OnboardingPage,
@@ -11,65 +8,57 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 
 function OnboardingPage() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-4 py-6 md:py-10">
-        <div className="flex justify-end mb-6"><UserMenu /></div>
-        <header className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-            Как вы будете использовать сервис?
-          </h1>
-          <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">
-            Выберите роль, чтобы мы настроили интерфейс и рекомендации под вашу задачу.
-          </p>
-        </header>
+    <main className="min-h-screen" style={{ background: "var(--pf-paper)" }}>
+      <div className="max-w-6xl mx-auto px-10 py-16">
+        <div className="flex items-center gap-3 mb-16">
+          <span className="pf-rail__logo-mark" aria-hidden style={{ background: "var(--pf-cinnabar)" }} />
+          <span className="pf-crumb"><b>PATHFINDER</b></span>
+        </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <Card className="flex flex-col">
-            <CardHeader>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <CardTitle>Ученик</CardTitle>
-              <CardDescription>
-                Проходи диагностику, получай индивидуальный план подготовки, занимайся по
-                календарю и отслеживай прогресс.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="mt-auto">
-              <Button
-                className="w-full"
-                asChild
-              >
-                <a href="/student" onClick={() => window.localStorage.setItem("educaite-demo-role", "student")}>
-                  Продолжить как ученик
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="grid lg:grid-cols-[1.3fr,1fr] gap-16 items-start mb-20">
+          <div>
+            <p className="pf-eyebrow mb-4">Шаг 01 · Роль</p>
+            <h1 className="pf-h1 max-w-xl">Кто открывает карту знаний?</h1>
+            <p className="pf-lead">
+              Pathfinder — не курс и не тренажёр. Это инструмент навигации по предмету.
+              Выберите режим, чтобы открыть карту с нужной точки.
+            </p>
+          </div>
+          <ConstructivistIllo variant="today" className="w-full" />
+        </div>
 
-          <Card className="flex flex-col">
-            <CardHeader>
-              <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-2">
-                <Users className="h-5 w-5" />
-              </div>
-              <CardTitle>Преподаватель</CardTitle>
-              <CardDescription>
-                Создавай профили учеников, анализируй слабые темы, подбирай материалы и
-                выстраивай индивидуальные маршруты подготовки.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="mt-auto">
-              <Button
-                className="w-full"
-                variant="secondary"
-                asChild
-              >
-                <a href="/teacher" onClick={() => window.localStorage.setItem("educaite-demo-role", "teacher")}>
-                  Продолжить как преподаватель
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="pf-role-grid">
+          <Link
+            to="/student"
+            className="pf-role-tile"
+            onClick={() => window.localStorage.setItem("educaite-demo-role", "student")}
+          >
+            <p className="pf-eyebrow">01 · ученик</p>
+            <h2 className="pf-h2">Я исследую территорию предмета</h2>
+            <p className="text-[15px] leading-relaxed text-[color:var(--pf-muted)]">
+              Диагностика, маршрут на сегодня, проблемные зоны, занятия и материалы — всё
+              как единая карта подготовки.
+            </p>
+            <span className="pf-eyebrow mt-4" style={{ color: "var(--pf-cinnabar)" }}>
+              Войти как ученик →
+            </span>
+          </Link>
+
+          <Link
+            to="/teacher"
+            className="pf-role-tile"
+            onClick={() => window.localStorage.setItem("educaite-demo-role", "teacher")}
+          >
+            <p className="pf-eyebrow">02 · преподаватель</p>
+            <h2 className="pf-h2">Я веду учеников по карте</h2>
+            <p className="text-[15px] leading-relaxed text-[color:var(--pf-muted)]">
+              Профили учеников, слабые темы, индивидуальные маршруты и рекомендации
+              AI-навигатора — в одном пространстве.
+            </p>
+            <span className="pf-eyebrow mt-4" style={{ color: "var(--pf-cinnabar)" }}>
+              Войти как преподаватель →
+            </span>
+          </Link>
         </div>
       </div>
     </main>

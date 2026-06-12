@@ -1,106 +1,120 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, Stethoscope, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { demoProgress } from "@/lib/demo-data";
+import { PageHeader } from "@/components/oge/page-header";
+import { ConstructivistIllo } from "@/components/oge/constructivist-illo";
 
 export const Route = createFileRoute("/_authenticated/student/")({
   component: StudentHome,
 });
 
+const TODAY_LESSON = {
+  time: "11:00",
+  subject: "Математика",
+  topic: "Квадратные уравнения",
+  tag: "важная тема",
+};
+
+const PROBLEM_ZONES = [
+  { subject: "Математика", topic: "Квадратные уравнения", level: "низкий", tone: "cinnabar" as const },
+  { subject: "Русский язык", topic: "Пунктуация в сложном предложении", level: "средний", tone: "mustard" as const },
+  { subject: "Биология", topic: "Клетка и её строение", level: "низкий", tone: "cinnabar" as const },
+];
+
+const NEXT_STEPS = [
+  { n: "01", title: "Завершить диагностику по биологии", meta: "≈ 15 минут" },
+  { n: "02", title: "Повторить формулы дискриминанта", meta: "Математика · 6 задач уровня 2" },
+  { n: "03", title: "Конспект: виды придаточных предложений", meta: "Русский язык" },
+];
+
 function StudentHome() {
-  const progress = demoProgress;
-  const accuracy =
-    progress.totalAttempts > 0
-      ? Math.round((progress.totalCorrect / progress.totalAttempts) * 100)
-      : 0;
-
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-6">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          Привет! Готовимся к ОГЭ
-        </h1>
-        <p className="text-muted-foreground mt-2 max-w-2xl">
-          Сегодня у тебя несколько занятий. Начнём с темы, которая сильнее всего влияет на
-          результат ОГЭ.
-        </p>
-        <div className="flex flex-wrap gap-3 mt-4">
-          <Button asChild>
-            <Link to="/student/diagnostic">
-              <Stethoscope className="h-4 w-4 mr-2" /> Пройти диагностику
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/student/calendar">
-              <CalendarDays className="h-4 w-4 mr-2" /> Открыть план на сегодня
-            </Link>
-          </Button>
+    <>
+      <div className="pf-topbar">
+        <div className="pf-crumb">
+          <b>Сегодня</b> · {new Date().toLocaleDateString("ru", { day: "numeric", month: "long", weekday: "long" })}
         </div>
-      </section>
-
-      <div className="grid gap-5 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Всего попыток</CardDescription>
-            <CardTitle className="text-3xl">{progress.totalAttempts}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Доля верных ответов</CardDescription>
-            <CardTitle className="text-3xl">{accuracy}%</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Предметов в работе</CardDescription>
-            <CardTitle className="text-3xl">{progress.bySubject.length}</CardTitle>
-          </CardHeader>
-        </Card>
+        <div className="pf-crumb">маршрут № 14 / диагностика 42%</div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Прогресс по предметам</CardTitle>
-          <CardDescription>На основе пройденных занятий и попыток</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {progress.bySubject.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Пока нет данных — пройди диагностику, чтобы построить план.
-            </p>
-          ) : (
-            <ul className="space-y-4">
-              {progress.bySubject.map((row: any) => (
-                <li key={row.subjectId} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{row.name}</span>
-                    <span className="text-sm text-muted-foreground">
-                      {row.completedLessons}/{row.totalLessons} занятий ·{" "}
-                      {row.accuracyPercent}% верных
-                    </span>
-                  </div>
-                  <Progress value={row.progressPercent} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid lg:grid-cols-[1.3fr,1fr] gap-12 items-start mb-16">
+        <div>
+          <PageHeader
+            title="Сегодня"
+            lead="Твой маршрут на сегодня построен на основе диагностики и текущего прогресса. Начни с ближайшей точки."
+          />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" /> AI-рекомендация
-          </CardTitle>
-          <CardDescription>
-            Подсказки появятся после первой диагностики и нескольких занятий.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </div>
+          <div className="pf-block mb-6">
+            <p className="pf-eyebrow mb-4">Ближайшее занятие</p>
+            <div className="grid grid-cols-[80px,1fr,auto] gap-6 items-center">
+              <div className="pf-h2" style={{ fontFamily: "var(--font-mono)" }}>{TODAY_LESSON.time}</div>
+              <div>
+                <div className="text-[13px] text-[color:var(--pf-muted)] mb-1">{TODAY_LESSON.subject}</div>
+                <div className="text-[20px] font-medium leading-tight">{TODAY_LESSON.topic}</div>
+                <div className="mt-2 text-[13px]"><span className="pf-dot pf-dot--cinnabar" />{TODAY_LESSON.tag}</div>
+              </div>
+              <Link to="/student/lessons" className="pf-btn">
+                Начать занятие <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="pf-block">
+            <div className="flex items-baseline justify-between mb-5">
+              <p className="pf-eyebrow">Проблемные зоны</p>
+              <Link to="/student/progress" className="pf-crumb hover:text-[color:var(--pf-ink)]">все темы →</Link>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-px bg-[color:var(--pf-line-strong)] border border-[color:var(--pf-line-strong)] rounded">
+              {PROBLEM_ZONES.map((z) => (
+                <div key={z.topic} className="bg-[color:var(--pf-paper)] p-5">
+                  <div className="text-[13px] text-[color:var(--pf-muted)] mb-2">{z.subject}</div>
+                  <div className="text-[15px] font-medium mb-3 leading-snug">{z.topic}</div>
+                  <div className="text-[12px]">
+                    <span className={`pf-dot pf-dot--${z.tone}`} />{z.level} уровень
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <ConstructivistIllo variant="today" className="w-full" />
+      </div>
+
+      <section className="grid lg:grid-cols-[1fr,1fr] gap-10">
+        <div>
+          <p className="pf-eyebrow mb-4">Следующие шаги</p>
+          <div className="pf-block">
+            {NEXT_STEPS.map((s, i) => (
+              <div
+                key={s.n}
+                className="grid grid-cols-[40px,1fr,auto] gap-4 items-center py-4"
+                style={{ borderTop: i === 0 ? 0 : "1px solid var(--pf-line-strong)" }}
+              >
+                <div className="font-mono text-[12px] text-[color:var(--pf-muted)]">{s.n}</div>
+                <div>
+                  <div className="text-[15px] font-medium">{s.title}</div>
+                  <div className="text-[12px] text-[color:var(--pf-muted)] mt-1">{s.meta}</div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-[color:var(--pf-muted)]" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="pf-eyebrow mb-4">AI-навигатор</p>
+          <div className="pf-ai-block">
+            В теме <b>«Квадратные уравнения»</b> обнаружены пробелы по работе с дискриминантом.
+            Рекомендуется повторить формулы и решить 6 задач уровня 2 до конца недели.
+            <div className="mt-5">
+              <Link to="/student/assistant" className="pf-btn pf-btn--ghost">
+                Открыть навигатор <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
