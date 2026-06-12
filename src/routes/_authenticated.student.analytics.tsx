@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQueries } from "@tanstack/react-query";
-import { queryOptions } from "@tanstack/react-query";
+import { useQueries, queryOptions } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/oge/page-header";
 import {
@@ -53,24 +52,13 @@ const activityQO = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/student/analytics")({
-  loader: ({ context }) =>
-    Promise.all([
-      context.queryClient.ensureQueryData(overviewQO),
-      context.queryClient.ensureQueryData(subjectsQO),
-      context.queryClient.ensureQueryData(weakQO),
-      context.queryClient.ensureQueryData(mistakesQO),
-      context.queryClient.ensureQueryData(dynamicsQO),
-      context.queryClient.ensureQueryData(reviewQO),
-      context.queryClient.ensureQueryData(recsQO),
-      context.queryClient.ensureQueryData(forecastQO),
-      context.queryClient.ensureQueryData(activityQO),
-    ]),
   errorComponent: ({ error }) => (
     <div role="alert" className="pf-block">Ошибка загрузки аналитики: {error.message}</div>
   ),
   notFoundComponent: () => <div className="pf-block">Аналитика не найдена.</div>,
   component: StudentAnalytics,
 });
+
 
 const STATUS_COLOR: Record<string, string> = {
   weak: "var(--pf-cinnabar, #c0392b)",
