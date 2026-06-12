@@ -196,8 +196,13 @@ function ProfilePage() {
                     onClick={() => setSelectedSubjectId(ss.subject?.id)}
                     className={`pf-role-tile text-left ${active ? "ring-2 ring-[color:var(--pf-ink)]" : ""}`}
                   >
-                    <p className="pf-eyebrow">{ss.subject?.exam_type ?? "предмет"}</p>
+                    <p className="pf-eyebrow">{ss.program?.title ? "программа" : (ss.subject?.exam_type ?? "предмет")}</p>
                     <h3 className="pf-h2">{ss.subject?.name}</h3>
+                    {ss.program?.title && (
+                      <p className="text-[12px] font-mono text-[color:var(--pf-muted)] uppercase tracking-wider">
+                        {ss.program.title}
+                      </p>
+                    )}
                     {ss.goal && (
                       <p className="text-[14px] text-[color:var(--pf-muted)]">
                         Цель: {ss.goal}
@@ -214,6 +219,16 @@ function ProfilePage() {
                       <span>
                         слабых: {stat?.weakCount ?? 0} · тем: {stat?.totalTopics ?? 0}
                       </span>
+                    </div>
+                    <div className="mt-3">
+                      <Link
+                        to="/student/subjects/$subjectId"
+                        params={{ subjectId: ss.subject?.id }}
+                        className="text-[12px] font-mono underline underline-offset-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        открыть карту тем →
+                      </Link>
                     </div>
                   </button>
                 );
