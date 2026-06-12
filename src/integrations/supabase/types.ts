@@ -321,61 +321,358 @@ export type Database = {
           },
         ]
       }
+      diagnostic_answers: {
+        Row: {
+          checked_by: string
+          created_at: string
+          diagnostic_session_id: string
+          id: string
+          is_correct: boolean | null
+          max_points: number
+          mistake_description: string | null
+          mistake_type: string | null
+          points_awarded: number
+          student_answer: string | null
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          checked_by?: string
+          created_at?: string
+          diagnostic_session_id: string
+          id?: string
+          is_correct?: boolean | null
+          max_points?: number
+          mistake_description?: string | null
+          mistake_type?: string | null
+          points_awarded?: number
+          student_answer?: string | null
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          checked_by?: string
+          created_at?: string
+          diagnostic_session_id?: string
+          id?: string
+          is_correct?: boolean | null
+          max_points?: number
+          mistake_description?: string | null
+          mistake_type?: string | null
+          points_awarded?: number
+          student_answer?: string | null
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_answers_diagnostic_session_id_fkey"
+            columns: ["diagnostic_session_id"]
+            isOneToOne: false
+            referencedRelation: "diagnostic_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_answers_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diagnostic_sessions: {
         Row: {
+          ai_summary: string | null
           answers: Json
           completed_at: string | null
           created_at: string
+          diagnostic_test_id: string | null
           diagnostic_type: Database["public"]["Enums"]["diagnostic_type"]
           id: string
           max_score: number | null
+          program_id: string | null
           recommendations: Json
           scheduled_for: string | null
           score: number | null
+          score_percent: number
+          started_at: string
+          status: string
           strengths: Json
+          student_profile_id: string | null
+          student_subject_id: string | null
           subject_id: string
+          summary: string | null
           updated_at: string
           user_id: string
           weaknesses: Json
         }
         Insert: {
+          ai_summary?: string | null
           answers?: Json
           completed_at?: string | null
           created_at?: string
+          diagnostic_test_id?: string | null
           diagnostic_type: Database["public"]["Enums"]["diagnostic_type"]
           id?: string
           max_score?: number | null
+          program_id?: string | null
           recommendations?: Json
           scheduled_for?: string | null
           score?: number | null
+          score_percent?: number
+          started_at?: string
+          status?: string
           strengths?: Json
+          student_profile_id?: string | null
+          student_subject_id?: string | null
           subject_id: string
+          summary?: string | null
           updated_at?: string
           user_id: string
           weaknesses?: Json
         }
         Update: {
+          ai_summary?: string | null
           answers?: Json
           completed_at?: string | null
           created_at?: string
+          diagnostic_test_id?: string | null
           diagnostic_type?: Database["public"]["Enums"]["diagnostic_type"]
           id?: string
           max_score?: number | null
+          program_id?: string | null
           recommendations?: Json
           scheduled_for?: string | null
           score?: number | null
+          score_percent?: number
+          started_at?: string
+          status?: string
           strengths?: Json
+          student_profile_id?: string | null
+          student_subject_id?: string | null
           subject_id?: string
+          summary?: string | null
           updated_at?: string
           user_id?: string
           weaknesses?: Json
         }
         Relationships: [
           {
+            foreignKeyName: "diagnostic_sessions_diagnostic_test_id_fkey"
+            columns: ["diagnostic_test_id"]
+            isOneToOne: false
+            referencedRelation: "diagnostic_tests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_sessions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_sessions_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_sessions_student_subject_id_fkey"
+            columns: ["student_subject_id"]
+            isOneToOne: false
+            referencedRelation: "student_subjects"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "diagnostic_sessions_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnostic_test_tasks: {
+        Row: {
+          created_at: string
+          diagnostic_test_id: string
+          id: string
+          order_index: number
+          points: number
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          diagnostic_test_id: string
+          id?: string
+          order_index?: number
+          points?: number
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          diagnostic_test_id?: string
+          id?: string
+          order_index?: number
+          points?: number
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_test_tasks_diagnostic_test_id_fkey"
+            columns: ["diagnostic_test_id"]
+            isOneToOne: false
+            referencedRelation: "diagnostic_tests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_test_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnostic_tests: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          diagnostic_type: string
+          duration_minutes: number | null
+          id: string
+          is_public: boolean
+          program_id: string | null
+          source_name: string | null
+          source_url: string | null
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          diagnostic_type?: string
+          duration_minutes?: number | null
+          id?: string
+          is_public?: boolean
+          program_id?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          diagnostic_type?: string
+          duration_minutes?: number | null
+          id?: string
+          is_public?: boolean
+          program_id?: string | null
+          source_name?: string | null
+          source_url?: string | null
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_tests_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_tests_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnostic_topic_results: {
+        Row: {
+          correct_count: number
+          created_at: string
+          detected_weaknesses: string | null
+          diagnostic_session_id: string
+          id: string
+          max_score: number
+          score: number
+          score_percent: number
+          student_profile_id: string
+          subject_id: string
+          topic_id: string
+          updated_at: string
+          wrong_count: number
+        }
+        Insert: {
+          correct_count?: number
+          created_at?: string
+          detected_weaknesses?: string | null
+          diagnostic_session_id: string
+          id?: string
+          max_score?: number
+          score?: number
+          score_percent?: number
+          student_profile_id: string
+          subject_id: string
+          topic_id: string
+          updated_at?: string
+          wrong_count?: number
+        }
+        Update: {
+          correct_count?: number
+          created_at?: string
+          detected_weaknesses?: string | null
+          diagnostic_session_id?: string
+          id?: string
+          max_score?: number
+          score?: number
+          score_percent?: number
+          student_profile_id?: string
+          subject_id?: string
+          topic_id?: string
+          updated_at?: string
+          wrong_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_topic_results_diagnostic_session_id_fkey"
+            columns: ["diagnostic_session_id"]
+            isOneToOne: false
+            referencedRelation: "diagnostic_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_topic_results_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_topic_results_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnostic_topic_results_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
             referencedColumns: ["id"]
           },
         ]
@@ -1390,12 +1687,14 @@ export type Database = {
           explanation: string | null
           id: string
           is_published: boolean
+          learning_objective_id: string | null
           options: Json
           prompt: string
           source_url: string | null
           subject_id: string
           tags: string[]
           task_key: string
+          task_type: string | null
           topic_id: string | null
           updated_at: string
         }
@@ -1408,12 +1707,14 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_published?: boolean
+          learning_objective_id?: string | null
           options?: Json
           prompt: string
           source_url?: string | null
           subject_id: string
           tags?: string[]
           task_key: string
+          task_type?: string | null
           topic_id?: string | null
           updated_at?: string
         }
@@ -1426,16 +1727,25 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_published?: boolean
+          learning_objective_id?: string | null
           options?: Json
           prompt?: string
           source_url?: string | null
           subject_id?: string
           tags?: string[]
           task_key?: string
+          task_type?: string | null
           topic_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_learning_objective_id_fkey"
+            columns: ["learning_objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_subject_id_fkey"
             columns: ["subject_id"]
