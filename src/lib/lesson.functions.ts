@@ -101,12 +101,14 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
 
     // Pick tasks
     const taskCount = mastery < 30 ? 4 : mastery < 70 ? 6 : 4;
-    const { data: tasks } = await sb
-      .from("tasks")
-      .select("id")
-      .eq("topic_id", item.topic_id)
-      .eq("is_published", true)
-      .limit(taskCount);
+    const { data: tasks } = item.topic_id
+      ? await sb
+          .from("tasks")
+          .select("id")
+          .eq("topic_id", item.topic_id)
+          .eq("is_published", true)
+          .limit(taskCount)
+      : { data: [] as { id: string }[] };
 
     if ((tasks ?? []).length > 0) {
       const rows = tasks!.map((t: any, i: number) => ({
