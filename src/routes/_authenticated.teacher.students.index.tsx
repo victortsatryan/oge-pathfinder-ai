@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { createStudent, deleteStudent, listMyStudents } from "@/lib/students.functions";
+import { demoStudents, type DemoStudent } from "@/lib/demo-data";
 
 const SUBJECT_OPTIONS = [
   "Математика",
@@ -34,13 +34,11 @@ const SUBJECT_OPTIONS = [
 ];
 
 export const Route = createFileRoute("/_authenticated/teacher/students/")({
-  loader: () => listMyStudents(),
   component: StudentsPage,
 });
 
 function StudentsPage() {
-  const students = Route.useLoaderData();
-  const router = useRouter();
+  const [students, setStudents] = useState<DemoStudent[]>(demoStudents);
   const [open, setOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -67,18 +65,22 @@ function StudentsPage() {
     setSaving(true);
     setError(null);
     try {
-      await createStudent({
-        data: {
+      const now = new Date().toISOString();
+      setStudents((current) => [
+        {
+          id: crypto.randomUUID(),
           first_name: firstName.trim(),
           last_name: lastName.trim() || null,
           grade: grade === "" ? null : Number(grade),
           subjects,
           notes: notes.trim() || null,
+          created_at: now,
+          updated_at: now,
         },
-      });
+        ...current,
+      ]);
       reset();
       setOpen(false);
-      router.invalidate();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось добавить ученика");
     } finally {
@@ -88,8 +90,7 @@ function StudentsPage() {
 
   const remove = async (id: string) => {
     if (!confirm("Удалить ученика?")) return;
-    await deleteStudent({ data: { id } });
-    router.invalidate();
+    setStudents((current) => current.filter((student) => student.id !== id));
   };
 
   return (
