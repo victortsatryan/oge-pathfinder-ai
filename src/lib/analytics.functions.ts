@@ -183,10 +183,19 @@ export const getMistakeAnalysis = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const sb = context.supabase;
+    const { data: profileRow } = await sb
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!profileRow) {
+      return { total: 0, by_type: [], by_topic: [] };
+    }
     const { data: mistakes } = await sb
       .from("student_mistakes")
       .select("mistake_type, topic_id, subject_id, topics(title), subjects(title)")
-      .eq("user_id", context.userId);
+      .eq("student_profile_id", profileRow.id);
+
 
     const byType = new Map<string, number>();
     const byTopic = new Map<string, { topic_id: string; topic_title: string; subject_title: string; count: number; types: Set<string> }>();
