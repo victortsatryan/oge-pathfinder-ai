@@ -296,7 +296,7 @@ export const completeLesson = createServerFn({ method: "POST" })
     if (lesson.topic_id) {
       const { data: prog } = await sb
         .from("student_topic_progress")
-        .select("id, diagnostic_score, practice_score, attempts_count, mistakes_count")
+        .select("id, diagnostic_score, practice_score, attempts_count, mistakes_count, mastery_score")
         .eq("student_profile_id", profileId)
         .eq("topic_id", lesson.topic_id)
         .maybeSingle();
@@ -304,6 +304,7 @@ export const completeLesson = createServerFn({ method: "POST" })
       const newPractice = percent;
       const diag = prog?.diagnostic_score ?? null;
       const newMastery = diag != null ? Math.round(diag * 0.5 + newPractice * 0.5) : newPractice;
+      const oldMastery = prog?.mastery_score ?? 0;
 
       await sb.from("student_topic_progress").upsert(
         {
@@ -319,6 +320,20 @@ export const completeLesson = createServerFn({ method: "POST" })
         },
         { onConflict: "student_profile_id,topic_id" },
       );
+
+      if (oldMastery !== newMastery) {
+        await sb.from("student_progress_history").insert({
+          student_profile_id: profileId,
+          user_id: context.userId,
+          subject_id: lesson.subject_id,
+          topic_id: lesson.topic_id,
+          old_score: oldMastery,
+          new_score: newMastery,
+          source: "lesson",
+          source_ref_id: lesson.id,
+        });
+      }
+
 
       // Save mistakes
       const wrongAttempts = (attempts ?? []).filter((a: any) => a.is_correct === false);

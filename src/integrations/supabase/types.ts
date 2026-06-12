@@ -1844,6 +1844,73 @@ export type Database = {
         }
         Relationships: []
       }
+      student_progress_history: {
+        Row: {
+          created_at: string
+          delta: number | null
+          id: string
+          new_score: number
+          note: string | null
+          old_score: number
+          source: string
+          source_ref_id: string | null
+          student_profile_id: string
+          subject_id: string | null
+          topic_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delta?: number | null
+          id?: string
+          new_score?: number
+          note?: string | null
+          old_score?: number
+          source: string
+          source_ref_id?: string | null
+          student_profile_id: string
+          subject_id?: string | null
+          topic_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delta?: number | null
+          id?: string
+          new_score?: number
+          note?: string | null
+          old_score?: number
+          source?: string
+          source_ref_id?: string | null
+          student_profile_id?: string
+          subject_id?: string | null
+          topic_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_progress_history_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_history_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_history_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_subjects: {
         Row: {
           created_at: string
