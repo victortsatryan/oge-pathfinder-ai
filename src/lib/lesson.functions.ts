@@ -76,15 +76,17 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
       : ["exercise_set", "test", "task_solution"];
     const maxDifficulty = mastery < 30 ? 2 : mastery < 70 ? 3 : 5;
 
-    const { data: mats } = await sb
-      .from("materials")
-      .select("id")
-      .eq("topic_id", item.topic_id)
-      .eq("is_public", true)
-      .in("material_type", preferredTypes)
-      .lte("difficulty", maxDifficulty)
-      .order("difficulty")
-      .limit(4);
+    const { data: mats } = item.topic_id
+      ? await sb
+          .from("materials")
+          .select("id")
+          .eq("topic_id", item.topic_id)
+          .eq("is_public", true)
+          .in("material_type", preferredTypes)
+          .lte("difficulty", maxDifficulty)
+          .order("difficulty")
+          .limit(4)
+      : { data: [] as { id: string }[] };
 
     if ((mats ?? []).length > 0) {
       const rows = mats!.map((m: any, i: number) => ({
