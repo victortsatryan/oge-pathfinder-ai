@@ -276,7 +276,7 @@ export const completeLesson = createServerFn({ method: "POST" })
       .maybeSingle();
     const row = {
       lesson_id: data.lesson_id,
-      student_profile_id: lesson.student_profile_id,
+      student_profile_id: profileId,
       user_id: context.userId,
       score,
       max_score: max,
