@@ -384,6 +384,30 @@ export const completeDiagnosticSession = createServerFn({ method: "POST" })
         .from("student_topic_progress")
         .upsert(upserts, { onConflict: "student_profile_id,topic_id" });
       if (pErr) throw pErr;
+
+      // Log progress history per topic where mastery changed
+      const historyRows = upserts
+        .map((u) => {
+          const ex = existingMap.get(u.topic_id);
+          const oldScore = ex?.mastery_score ?? 0;
+          if (oldScore === u.mastery_score) return null;
+          return {
+            student_profile_id: profileId,
+            user_id: context.userId,
+            subject_id: session.subject_id,
+            topic_id: u.topic_id,
+            old_score: oldScore,
+            new_score: u.mastery_score,
+            source: "diagnostic" as const,
+            source_ref_id: session.id,
+          };
+        })
+        .filter((r) => r != null);
+      if (historyRows.length > 0) {
+        await sb.from("student_progress_history").insert(historyRows as any);
+      }
+    }
+
     }
 
     // Mistakes
