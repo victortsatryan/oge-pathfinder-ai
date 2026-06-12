@@ -293,11 +293,11 @@ export const completeLesson = createServerFn({ method: "POST" })
     }
 
     // Update progress for the topic
-    if (lesson.topic_id && lesson.student_profile_id) {
+    if (lesson.topic_id) {
       const { data: prog } = await sb
         .from("student_topic_progress")
         .select("id, diagnostic_score, practice_score, attempts_count, mistakes_count")
-        .eq("student_profile_id", lesson.student_profile_id)
+        .eq("student_profile_id", profileId)
         .eq("topic_id", lesson.topic_id)
         .maybeSingle();
 
@@ -307,7 +307,7 @@ export const completeLesson = createServerFn({ method: "POST" })
 
       await sb.from("student_topic_progress").upsert(
         {
-          student_profile_id: lesson.student_profile_id,
+          student_profile_id: profileId,
           subject_id: lesson.subject_id,
           topic_id: lesson.topic_id,
           practice_score: newPractice,
