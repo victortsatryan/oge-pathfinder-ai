@@ -24,6 +24,7 @@ import { Route as AuthenticatedTeacherDiagnosticRouteImport } from './routes/_au
 import { Route as AuthenticatedTeacherAssistantRouteImport } from './routes/_authenticated.teacher.assistant'
 import { Route as AuthenticatedTeacherAnalyticsRouteImport } from './routes/_authenticated.teacher.analytics'
 import { Route as AuthenticatedStudentProgressRouteImport } from './routes/_authenticated.student.progress'
+import { Route as AuthenticatedStudentPathRouteImport } from './routes/_authenticated.student.path'
 import { Route as AuthenticatedStudentMaterialsRouteImport } from './routes/_authenticated.student.materials'
 import { Route as AuthenticatedStudentLessonsRouteImport } from './routes/_authenticated.student.lessons'
 import { Route as AuthenticatedStudentDiagnosticRouteImport } from './routes/_authenticated.student.diagnostic'
@@ -118,6 +119,12 @@ const AuthenticatedStudentProgressRoute =
     path: '/progress',
     getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
+const AuthenticatedStudentPathRoute =
+  AuthenticatedStudentPathRouteImport.update({
+    id: '/path',
+    path: '/path',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
 const AuthenticatedStudentMaterialsRoute =
   AuthenticatedStudentMaterialsRouteImport.update({
     id: '/materials',
@@ -198,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/student/diagnostic': typeof AuthenticatedStudentDiagnosticRouteWithChildren
   '/student/lessons': typeof AuthenticatedStudentLessonsRoute
   '/student/materials': typeof AuthenticatedStudentMaterialsRoute
+  '/student/path': typeof AuthenticatedStudentPathRoute
   '/student/progress': typeof AuthenticatedStudentProgressRoute
   '/teacher/analytics': typeof AuthenticatedTeacherAnalyticsRoute
   '/teacher/assistant': typeof AuthenticatedTeacherAssistantRoute
@@ -223,6 +231,7 @@ export interface FileRoutesByTo {
   '/student/diagnostic': typeof AuthenticatedStudentDiagnosticRouteWithChildren
   '/student/lessons': typeof AuthenticatedStudentLessonsRoute
   '/student/materials': typeof AuthenticatedStudentMaterialsRoute
+  '/student/path': typeof AuthenticatedStudentPathRoute
   '/student/progress': typeof AuthenticatedStudentProgressRoute
   '/teacher/analytics': typeof AuthenticatedTeacherAnalyticsRoute
   '/teacher/assistant': typeof AuthenticatedTeacherAssistantRoute
@@ -252,6 +261,7 @@ export interface FileRoutesById {
   '/_authenticated/student/diagnostic': typeof AuthenticatedStudentDiagnosticRouteWithChildren
   '/_authenticated/student/lessons': typeof AuthenticatedStudentLessonsRoute
   '/_authenticated/student/materials': typeof AuthenticatedStudentMaterialsRoute
+  '/_authenticated/student/path': typeof AuthenticatedStudentPathRoute
   '/_authenticated/student/progress': typeof AuthenticatedStudentProgressRoute
   '/_authenticated/teacher/analytics': typeof AuthenticatedTeacherAnalyticsRoute
   '/_authenticated/teacher/assistant': typeof AuthenticatedTeacherAssistantRoute
@@ -281,6 +291,7 @@ export interface FileRouteTypes {
     | '/student/diagnostic'
     | '/student/lessons'
     | '/student/materials'
+    | '/student/path'
     | '/student/progress'
     | '/teacher/analytics'
     | '/teacher/assistant'
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/student/diagnostic'
     | '/student/lessons'
     | '/student/materials'
+    | '/student/path'
     | '/student/progress'
     | '/teacher/analytics'
     | '/teacher/assistant'
@@ -334,6 +346,7 @@ export interface FileRouteTypes {
     | '/_authenticated/student/diagnostic'
     | '/_authenticated/student/lessons'
     | '/_authenticated/student/materials'
+    | '/_authenticated/student/path'
     | '/_authenticated/student/progress'
     | '/_authenticated/teacher/analytics'
     | '/_authenticated/teacher/assistant'
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentProgressRouteImport
       parentRoute: typeof AuthenticatedStudentRoute
     }
+    '/_authenticated/student/path': {
+      id: '/_authenticated/student/path'
+      path: '/path'
+      fullPath: '/student/path'
+      preLoaderRoute: typeof AuthenticatedStudentPathRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
     '/_authenticated/student/materials': {
       id: '/_authenticated/student/materials'
       path: '/materials'
@@ -562,6 +582,7 @@ interface AuthenticatedStudentRouteChildren {
   AuthenticatedStudentDiagnosticRoute: typeof AuthenticatedStudentDiagnosticRouteWithChildren
   AuthenticatedStudentLessonsRoute: typeof AuthenticatedStudentLessonsRoute
   AuthenticatedStudentMaterialsRoute: typeof AuthenticatedStudentMaterialsRoute
+  AuthenticatedStudentPathRoute: typeof AuthenticatedStudentPathRoute
   AuthenticatedStudentProgressRoute: typeof AuthenticatedStudentProgressRoute
   AuthenticatedStudentIndexRoute: typeof AuthenticatedStudentIndexRoute
   AuthenticatedStudentSubjectsSubjectIdRoute: typeof AuthenticatedStudentSubjectsSubjectIdRoute
@@ -575,6 +596,7 @@ const AuthenticatedStudentRouteChildren: AuthenticatedStudentRouteChildren = {
     AuthenticatedStudentDiagnosticRouteWithChildren,
   AuthenticatedStudentLessonsRoute: AuthenticatedStudentLessonsRoute,
   AuthenticatedStudentMaterialsRoute: AuthenticatedStudentMaterialsRoute,
+  AuthenticatedStudentPathRoute: AuthenticatedStudentPathRoute,
   AuthenticatedStudentProgressRoute: AuthenticatedStudentProgressRoute,
   AuthenticatedStudentIndexRoute: AuthenticatedStudentIndexRoute,
   AuthenticatedStudentSubjectsSubjectIdRoute:
