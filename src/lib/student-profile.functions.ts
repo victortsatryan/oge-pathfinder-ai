@@ -81,10 +81,32 @@ export const listSubjects = createServerFn({ method: "GET" })
     const sb = context.supabase as any;
     const { data, error } = await sb
       .from("subjects")
-      .select("id, slug, name, description, category, exam_type, is_school_subject")
+      .select(
+        "id, slug, name, description, category, exam_type, is_school_subject, subject_type, language",
+      )
       .order("sort_order");
     if (error) throw error;
     return data ?? [];
+  });
+
+// ---------- Programs catalog ----------
+
+export const listSubjectPrograms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ subject_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+    const { data: rows, error } = await sb
+      .from("subject_programs")
+      .select(
+        "id, slug, title, description, program_type, exam_type, grade, language, is_public",
+      )
+      .eq("subject_id", data.subject_id)
+      .order("sort_order");
+    if (error) throw error;
+    return rows ?? [];
   });
 
 // ---------- Student subjects + topics ----------
@@ -102,7 +124,7 @@ export const listMyStudentSubjects = createServerFn({ method: "GET" })
     const { data, error } = await sb
       .from("student_subjects")
       .select(
-        "id, goal, target_level, target_score, status, started_at, subject:subjects(id, slug, name, exam_type)",
+        "id, goal, target_level, target_score, status, started_at, subject:subjects(id, slug, name, exam_type), program:subject_programs(id, slug, title, exam_type, grade)",
       )
       .eq("student_profile_id", profile.id)
       .order("created_at");
@@ -112,6 +134,7 @@ export const listMyStudentSubjects = createServerFn({ method: "GET" })
 
 const addSubjectSchema = z.object({
   subject_id: z.string().uuid(),
+  program_id: z.string().uuid().nullable().optional(),
   goal: z.string().trim().max(300).optional().nullable(),
   target_score: z.string().trim().max(40).optional().nullable(),
 });
@@ -143,6 +166,7 @@ export const addStudentSubject = createServerFn({ method: "POST" })
         {
           student_profile_id: profile.id,
           subject_id: data.subject_id,
+          program_id: data.program_id ?? null,
           goal: data.goal ?? null,
           target_score: data.target_score ?? null,
           status: "active",
@@ -150,22 +174,33 @@ export const addStudentSubject = createServerFn({ method: "POST" })
         },
         { onConflict: "student_profile_id,subject_id" },
       )
-      .select("id, subject_id")
+      .select("id, subject_id, program_id")
       .single();
     if (error) throw error;
 
-    // Создаём записи прогресса для всех корневых тем предмета
-    const { data: topics } = await sb
-      .from("topics")
-      .select("id")
-      .eq("subject_id", data.subject_id)
-      .is("parent_topic_id", null);
+    // Если выбрана программа — берём темы из program_topics, иначе все публичные темы предмета
+    let topicIds: string[] = [];
+    if (data.program_id) {
+      const { data: pt } = await sb
+        .from("program_topics")
+        .select("topic_id")
+        .eq("program_id", data.program_id);
+      topicIds = (pt ?? []).map((r: any) => r.topic_id);
+    } else {
+      const { data: topics } = await sb
+        .from("topics")
+        .select("id")
+        .eq("subject_id", data.subject_id)
+        .eq("is_public", true);
+      topicIds = (topics ?? []).map((t: any) => t.id);
+    }
 
-    if (topics && topics.length > 0) {
-      const rows = topics.map((t: { id: string }) => ({
+    if (topicIds.length > 0) {
+      const rows = topicIds.map((tid) => ({
         student_profile_id: profile!.id,
         subject_id: data.subject_id,
-        topic_id: t.id,
+        topic_id: tid,
+        program_id: data.program_id ?? null,
         mastery_score: 0,
       }));
       await sb
@@ -321,4 +356,63 @@ export const getStudentProfileAnalytics = createServerFn({ method: "GET" })
       mistakesCount: mistakesCount ?? 0,
       lastActivityAt: lastActivity,
     };
+  });
+
+// ---------- Subject topic tree (with nesting + my progress) ----------
+
+export const getSubjectTopicTree = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ subject_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+
+    const { data: topics, error } = await sb
+      .from("topics")
+      .select(
+        "id, title, description, parent_topic_id, level, sort_order, topic_type",
+      )
+      .eq("subject_id", data.subject_id)
+      .eq("is_public", true)
+      .order("sort_order");
+    if (error) throw error;
+
+    const { data: profile } = await sb
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    let progressByTopic = new Map<string, any>();
+    if (profile) {
+      const { data: prog } = await sb
+        .from("student_topic_progress")
+        .select(
+          "topic_id, mastery_score, status, attempts_count, mistakes_count, last_activity_at",
+        )
+        .eq("student_profile_id", profile.id)
+        .eq("subject_id", data.subject_id);
+      for (const p of (prog ?? []) as any[])
+        progressByTopic.set(p.topic_id, p);
+    }
+
+    // Build tree
+    const byParent = new Map<string | null, any[]>();
+    for (const t of (topics ?? []) as any[]) {
+      const key = t.parent_topic_id ?? null;
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key)!.push({
+        ...t,
+        progress: progressByTopic.get(t.id) ?? null,
+        children: [] as any[],
+      });
+    }
+    const attach = (node: any) => {
+      node.children = byParent.get(node.id) ?? [];
+      for (const c of node.children) attach(c);
+    };
+    const roots = byParent.get(null) ?? [];
+    for (const r of roots) attach(r);
+    return roots;
   });

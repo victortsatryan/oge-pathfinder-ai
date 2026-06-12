@@ -443,6 +443,56 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_objectives: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty: number
+          id: string
+          is_public: boolean
+          objective_type: string
+          sort_order: number
+          title: string
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          id?: string
+          is_public?: boolean
+          objective_type?: string
+          sort_order?: number
+          title: string
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty?: number
+          id?: string
+          is_public?: boolean
+          objective_type?: string
+          sort_order?: number
+          title?: string
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_objectives_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_sources: {
         Row: {
           created_at: string
@@ -740,6 +790,54 @@ export type Database = {
         }
         Relationships: []
       }
+      program_topics: {
+        Row: {
+          created_at: string
+          id: string
+          program_id: string
+          required: boolean
+          sort_order: number
+          topic_id: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          program_id: string
+          required?: boolean
+          sort_order?: number
+          topic_id: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          program_id?: string
+          required?: boolean
+          sort_order?: number
+          topic_id?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_topics_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_mistakes: {
         Row: {
           created_at: string
@@ -854,6 +952,7 @@ export type Database = {
           created_at: string
           goal: string | null
           id: string
+          program_id: string | null
           started_at: string | null
           status: string
           student_profile_id: string
@@ -866,6 +965,7 @@ export type Database = {
           created_at?: string
           goal?: string | null
           id?: string
+          program_id?: string | null
           started_at?: string | null
           status?: string
           student_profile_id: string
@@ -878,6 +978,7 @@ export type Database = {
           created_at?: string
           goal?: string | null
           id?: string
+          program_id?: string | null
           started_at?: string | null
           status?: string
           student_profile_id?: string
@@ -887,6 +988,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "student_subjects_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "student_subjects_student_profile_id_fkey"
             columns: ["student_profile_id"]
@@ -914,6 +1022,7 @@ export type Database = {
           mastery_score: number
           mistakes_count: number
           practice_score: number | null
+          program_id: string | null
           status: string
           student_profile_id: string
           subject_id: string
@@ -930,6 +1039,7 @@ export type Database = {
           mastery_score?: number
           mistakes_count?: number
           practice_score?: number | null
+          program_id?: string | null
           status?: string
           student_profile_id: string
           subject_id: string
@@ -946,6 +1056,7 @@ export type Database = {
           mastery_score?: number
           mistakes_count?: number
           practice_score?: number | null
+          program_id?: string | null
           status?: string
           student_profile_id?: string
           subject_id?: string
@@ -953,6 +1064,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "student_topic_progress_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "subject_programs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "student_topic_progress_student_profile_id_fkey"
             columns: ["student_profile_id"]
@@ -1057,6 +1175,68 @@ export type Database = {
         }
         Relationships: []
       }
+      subject_programs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          exam_type: string | null
+          grade: string | null
+          id: string
+          is_public: boolean
+          language: string
+          program_type: string
+          slug: string | null
+          sort_order: number
+          standard: string | null
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          exam_type?: string | null
+          grade?: string | null
+          id?: string
+          is_public?: boolean
+          language?: string
+          program_type?: string
+          slug?: string | null
+          sort_order?: number
+          standard?: string | null
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          exam_type?: string | null
+          grade?: string | null
+          id?: string
+          is_public?: boolean
+          language?: string
+          program_type?: string
+          slug?: string | null
+          sort_order?: number
+          standard?: string | null
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_programs_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           category: string | null
@@ -1073,6 +1253,7 @@ export type Database = {
           name: string
           slug: string
           sort_order: number
+          subject_type: string
           updated_at: string
         }
         Insert: {
@@ -1090,6 +1271,7 @@ export type Database = {
           name: string
           slug: string
           sort_order?: number
+          subject_type?: string
           updated_at?: string
         }
         Update: {
@@ -1107,6 +1289,7 @@ export type Database = {
           name?: string
           slug?: string
           sort_order?: number
+          subject_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -1269,47 +1452,95 @@ export type Database = {
           },
         ]
       }
+      topic_prerequisites: {
+        Row: {
+          created_at: string
+          id: string
+          prerequisite_topic_id: string
+          topic_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prerequisite_topic_id: string
+          topic_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prerequisite_topic_id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_prerequisites_prerequisite_topic_id_fkey"
+            columns: ["prerequisite_topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_prerequisites_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topics: {
         Row: {
           created_at: string
+          created_by: string | null
           description: string | null
           exam_section: string | null
           id: string
+          is_public: boolean
           level: number
           parent_topic_id: string | null
+          slug: string | null
           sort_order: number
           source_standard: string | null
           subject_id: string
           theme_code: string | null
           title: string
+          topic_type: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           description?: string | null
           exam_section?: string | null
           id?: string
+          is_public?: boolean
           level?: number
           parent_topic_id?: string | null
+          slug?: string | null
           sort_order?: number
           source_standard?: string | null
           subject_id: string
           theme_code?: string | null
           title: string
+          topic_type?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           description?: string | null
           exam_section?: string | null
           id?: string
+          is_public?: boolean
           level?: number
           parent_topic_id?: string | null
+          slug?: string | null
           sort_order?: number
           source_standard?: string | null
           subject_id?: string
           theme_code?: string | null
           title?: string
+          topic_type?: string
           updated_at?: string
         }
         Relationships: [
