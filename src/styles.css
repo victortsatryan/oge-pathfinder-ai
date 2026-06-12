@@ -1253,3 +1253,309 @@
     flex-wrap: wrap;
   }
 }
+
+/* ============================================
+   PATHFINDER — навигатор по знаниям
+   Конструктивизм / Bauhaus / De Stijl
+   ============================================ */
+
+:root[data-screen-style="pathfinder"] {
+  --radius: 6px;
+  --font-sans: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* основа */
+  --pf-paper: #F7F4EE;
+  --pf-ink: #202124;
+  --pf-line: #E5E2DB;
+  --pf-line-strong: #C9C5BB;
+  --pf-muted: #6E6B63;
+
+  /* акценты — на экране только один */
+  --pf-cinnabar: #D6452F;
+  --pf-ultramarine: #3559C7;
+  --pf-mustard: #D7A52A;
+  --pf-forest: #3D6A4A;
+
+  --background: var(--pf-paper);
+  --foreground: var(--pf-ink);
+  --card: var(--pf-paper);
+  --card-foreground: var(--pf-ink);
+  --popover: var(--pf-paper);
+  --popover-foreground: var(--pf-ink);
+  --primary: var(--pf-ink);
+  --primary-foreground: var(--pf-paper);
+  --secondary: var(--pf-line);
+  --secondary-foreground: var(--pf-ink);
+  --muted: var(--pf-line);
+  --muted-foreground: var(--pf-muted);
+  --accent: var(--pf-line);
+  --accent-foreground: var(--pf-ink);
+  --destructive: var(--pf-cinnabar);
+  --destructive-foreground: var(--pf-paper);
+  --border: var(--pf-line-strong);
+  --input: var(--pf-line-strong);
+  --ring: var(--pf-ink);
+}
+
+:root[data-screen-style="pathfinder"] body {
+  background: var(--pf-paper);
+  color: var(--pf-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* === Layout: сайдбар + контент === */
+.pf-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--pf-paper);
+}
+@media (max-width: 900px) {
+  .pf-shell { grid-template-columns: 64px minmax(0, 1fr); }
+}
+
+.pf-rail {
+  background: var(--pf-ink);
+  color: var(--pf-paper);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 18px;
+  gap: 32px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.pf-rail__logo {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 14px; letter-spacing: 0.14em;
+}
+.pf-rail__logo-mark {
+  width: 22px; height: 22px; background: var(--pf-cinnabar);
+  position: relative;
+}
+.pf-rail__logo-mark::after {
+  content: ""; position: absolute; inset: 4px 4px auto auto;
+  width: 6px; height: 6px; background: var(--pf-paper);
+}
+.pf-rail__nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.pf-rail__item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 10px; border-radius: 4px;
+  color: color-mix(in oklab, var(--pf-paper) 70%, transparent);
+  font-size: 14px; font-weight: 400;
+  text-decoration: none;
+  transition: color 200ms ease, background 200ms ease;
+  position: relative;
+}
+.pf-rail__item:hover { color: var(--pf-paper); }
+.pf-rail__item.is-active {
+  color: var(--pf-paper);
+  background: color-mix(in oklab, var(--pf-paper) 8%, transparent);
+}
+.pf-rail__item.is-active::before {
+  content: ""; position: absolute; left: -18px; top: 8px; bottom: 8px;
+  width: 3px; background: var(--pf-cinnabar);
+}
+.pf-rail__icon {
+  width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+  opacity: 0.9;
+}
+.pf-rail__user {
+  display: flex; align-items: center; gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in oklab, var(--pf-paper) 14%, transparent);
+}
+.pf-rail__user-avatar {
+  width: 34px; height: 34px; border-radius: 4px;
+  background: color-mix(in oklab, var(--pf-paper) 14%, transparent);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; color: var(--pf-paper);
+}
+.pf-rail__user-meta { font-size: 12px; line-height: 1.25; }
+.pf-rail__user-meta b { display: block; font-weight: 500; }
+.pf-rail__user-meta span { color: color-mix(in oklab, var(--pf-paper) 55%, transparent); }
+@media (max-width: 900px) {
+  .pf-rail__logo span, .pf-rail__item span:not(.pf-rail__icon),
+  .pf-rail__user-meta { display: none; }
+  .pf-rail { padding: 24px 12px; align-items: center; }
+  .pf-rail__item { justify-content: center; padding: 9px; }
+  .pf-rail__item.is-active::before { left: -12px; }
+}
+
+/* === Main === */
+.pf-main { padding: 40px 56px 80px; max-width: 1280px; }
+@media (max-width: 900px) { .pf-main { padding: 24px 20px 60px; } }
+
+.pf-topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 32px; gap: 16px;
+}
+.pf-crumb {
+  font-family: var(--font-mono); font-size: 12px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--pf-muted);
+}
+.pf-crumb b { color: var(--pf-ink); font-weight: 500; }
+
+.pf-h1 {
+  font-size: clamp(32px, 4.2vw, 44px);
+  font-weight: 500; line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.pf-h2 {
+  font-size: 22px; font-weight: 500; line-height: 1.2;
+  margin: 0;
+}
+.pf-lead {
+  font-size: 16px; line-height: 1.55;
+  color: var(--pf-muted); max-width: 56ch;
+  margin-top: 12px;
+}
+.pf-eyebrow {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--pf-muted);
+}
+
+/* === Blocks (rectangles, thin lines, no rounded cards) === */
+.pf-block {
+  background: var(--pf-paper);
+  border: 1px solid var(--pf-line-strong);
+  border-radius: 4px;
+  padding: 24px;
+}
+.pf-block--inset { background: color-mix(in oklab, var(--pf-line) 50%, var(--pf-paper)); }
+.pf-block--ink   { background: var(--pf-ink); color: var(--pf-paper); border-color: var(--pf-ink); }
+
+.pf-rule { height: 1px; background: var(--pf-line-strong); border: 0; }
+
+.pf-meta-row { display: flex; gap: 24px; align-items: baseline; flex-wrap: wrap; }
+.pf-meta-row dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--pf-muted); }
+.pf-meta-row dd { margin: 0 24px 0 6px; font-size: 14px; }
+
+/* Severity dot */
+.pf-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; margin-right: 8px; }
+.pf-dot--cinnabar { background: var(--pf-cinnabar); }
+.pf-dot--mustard  { background: var(--pf-mustard); }
+.pf-dot--forest   { background: var(--pf-forest); }
+.pf-dot--ultra    { background: var(--pf-ultramarine); }
+.pf-dot--ink      { background: var(--pf-ink); }
+
+/* Buttons in pathfinder */
+.pf-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--pf-ink); color: var(--pf-paper);
+  border: 1px solid var(--pf-ink);
+  padding: 12px 18px; border-radius: 4px;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background 200ms ease, color 200ms ease;
+}
+.pf-btn:hover { background: color-mix(in oklab, var(--pf-ink) 88%, var(--pf-cinnabar)); }
+.pf-btn--ghost {
+  background: transparent; color: var(--pf-ink);
+  border: 1px solid var(--pf-line-strong);
+}
+.pf-btn--ghost:hover { border-color: var(--pf-ink); background: transparent; }
+
+/* Route timeline (calendar / today) */
+.pf-route { display: grid; gap: 0; }
+.pf-route__row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 24px;
+  padding: 20px 0;
+  border-top: 1px solid var(--pf-line-strong);
+  align-items: center;
+}
+.pf-route__row:first-child { border-top: 0; }
+.pf-route__time { font-family: var(--font-mono); font-size: 13px; color: var(--pf-muted); }
+.pf-route__subject { font-size: 13px; color: var(--pf-muted); margin-bottom: 4px; }
+.pf-route__title { font-size: 18px; font-weight: 500; }
+.pf-route__line { position: relative; }
+
+/* progress thin bar */
+.pf-bar {
+  position: relative; height: 6px; background: var(--pf-line);
+  border-radius: 0; overflow: hidden;
+}
+.pf-bar__fill { position: absolute; inset: 0 auto 0 0; background: var(--pf-ink); }
+.pf-bar__fill--cinnabar { background: var(--pf-cinnabar); }
+.pf-bar__fill--mustard  { background: var(--pf-mustard); }
+.pf-bar__fill--forest   { background: var(--pf-forest); }
+.pf-bar__fill--ultra    { background: var(--pf-ultramarine); }
+
+/* AI navigator message */
+.pf-ai-block {
+  border: 1px solid var(--pf-ink);
+  border-radius: 4px;
+  padding: 24px;
+  font-family: var(--font-mono);
+  font-size: 14px; line-height: 1.65;
+  background: var(--pf-paper);
+}
+.pf-ai-block::before {
+  content: "AI · NAVIGATOR";
+  display: block;
+  font-size: 11px; letter-spacing: 0.16em;
+  color: var(--pf-cinnabar);
+  margin-bottom: 14px;
+}
+
+/* Library tile */
+.pf-library {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--pf-line-strong);
+  border-left: 1px solid var(--pf-line-strong);
+}
+.pf-library__item {
+  border-right: 1px solid var(--pf-line-strong);
+  border-bottom: 1px solid var(--pf-line-strong);
+  padding: 24px;
+  background: var(--pf-paper);
+  transition: background 200ms ease;
+  cursor: pointer;
+  display: grid; gap: 12px; align-content: start;
+}
+.pf-library__item:hover { background: color-mix(in oklab, var(--pf-line) 40%, var(--pf-paper)); }
+.pf-library__kind {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--pf-muted);
+}
+.pf-library__title { font-size: 17px; font-weight: 500; line-height: 1.3; }
+
+/* Tag chip */
+.pf-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border: 1px solid var(--pf-line-strong);
+  border-radius: 4px; font-size: 12px; color: var(--pf-muted);
+  background: var(--pf-paper);
+}
+
+/* student list (teacher) */
+.pf-student-row {
+  display: grid; grid-template-columns: 44px 1fr auto auto;
+  gap: 16px; align-items: center;
+  padding: 16px 0;
+  border-top: 1px solid var(--pf-line-strong);
+  text-decoration: none; color: inherit;
+}
+.pf-student-row:first-child { border-top: 0; }
+.pf-student-row__avatar {
+  width: 36px; height: 36px; border-radius: 4px;
+  background: var(--pf-line); display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+}
+.pf-student-row__name { font-size: 15px; font-weight: 500; }
+.pf-student-row__sub { font-size: 12px; color: var(--pf-muted); }
+
+/* Onboarding role tiles */
+.pf-role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--pf-line-strong); border: 1px solid var(--pf-line-strong); border-radius: 4px; }
+.pf-role-tile { background: var(--pf-paper); padding: 40px; display: grid; gap: 16px; }
+.pf-role-tile:hover { background: color-mix(in oklab, var(--pf-line) 30%, var(--pf-paper)); }
+@media (max-width: 800px) { .pf-role-grid { grid-template-columns: 1fr; } }
+
