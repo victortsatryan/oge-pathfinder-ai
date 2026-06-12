@@ -360,21 +360,51 @@ function AddSubjectDialog({
   loading,
 }: {
   available: any[];
-  onAdd: (data: { subject_id: string; goal?: string; target_score?: string }) => Promise<unknown>;
+  onAdd: (data: { subject_id: string; program_id?: string | null; goal?: string; target_score?: string }) => Promise<unknown>;
   loading: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [subjectId, setSubjectId] = useState<string>("");
+  const [programId, setProgramId] = useState<string>("none");
   const [goal, setGoal] = useState("");
   const [targetScore, setTargetScore] = useState("");
+  const [filter, setFilter] = useState("");
+
+  const getPrograms = useServerFn(listSubjectPrograms);
+  const programs = useQuery({
+    queryKey: ["subject-programs", subjectId],
+    queryFn: () =>
+      subjectId
+        ? getPrograms({ data: { subject_id: subjectId } })
+        : Promise.resolve([]),
+    enabled: !!subjectId,
+  });
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return available;
+    return available.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(q) ||
+        s.category?.toLowerCase().includes(q) ||
+        s.exam_type?.toLowerCase().includes(q),
+    );
+  }, [available, filter]);
 
   const handle = async () => {
     if (!subjectId) return;
-    await onAdd({ subject_id: subjectId, goal: goal || undefined, target_score: targetScore || undefined });
+    await onAdd({
+      subject_id: subjectId,
+      program_id: programId !== "none" ? programId : null,
+      goal: goal || undefined,
+      target_score: targetScore || undefined,
+    });
     setOpen(false);
     setSubjectId("");
+    setProgramId("none");
     setGoal("");
     setTargetScore("");
+    setFilter("");
   };
 
   return (
@@ -388,29 +418,55 @@ function AddSubjectDialog({
         <DialogHeader>
           <DialogTitle>Добавить предмет</DialogTitle>
           <DialogDescription>
-            Выберите предмет из каталога. Базовые темы будут добавлены автоматически.
+            Выберите предмет и, при желании, программу подготовки. Карта прогресса по темам будет создана автоматически.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
+            <Label>Поиск по предметам</Label>
+            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="математика, english, OGE…" />
+          </div>
+          <div className="grid gap-2">
             <Label>Предмет</Label>
-            <Select value={subjectId} onValueChange={setSubjectId}>
+            <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setProgramId("none"); }}>
               <SelectTrigger><SelectValue placeholder="Выберите предмет…" /></SelectTrigger>
               <SelectContent>
-                {available.length === 0 ? (
+                {filtered.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">
-                    Все доступные предметы уже добавлены.
+                    Ничего не найдено.
                   </div>
                 ) : (
-                  available.map((s) => (
+                  filtered.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name}{s.exam_type ? ` · ${s.exam_type}` : ""}
+                      {s.name}
+                      {s.category ? ` · ${s.category}` : ""}
+                      {s.exam_type ? ` · ${s.exam_type}` : ""}
                     </SelectItem>
                   ))
                 )}
               </SelectContent>
             </Select>
           </div>
+          {subjectId && (
+            <div className="grid gap-2">
+              <Label>Программа</Label>
+              <Select value={programId} onValueChange={setProgramId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Без программы — свободное изучение" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Без программы — свободное изучение</SelectItem>
+                  {(programs.data ?? []).map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.title}
+                      {p.exam_type ? ` · ${p.exam_type}` : ""}
+                      {p.grade ? ` · ${p.grade} кл.` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid gap-2">
             <Label>Цель</Label>
             <Input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="например: уверенная четвёрка" />
