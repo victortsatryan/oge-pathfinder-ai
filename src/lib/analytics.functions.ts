@@ -399,12 +399,13 @@ export const getGoalForecast = createServerFn({ method: "GET" })
     const sb = context.supabase;
     const { data: profile } = await sb
       .from("student_profiles")
-      .select("id, target_score, goal")
+      .select("id, target_score, learning_goal")
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!profile) return null;
 
-    const target = profile.target_score ?? 70;
+    const targetNum = Number.parseInt(String(profile.target_score ?? ""), 10);
+    const target = Number.isFinite(targetNum) && targetNum > 0 ? targetNum : 70;
 
     const { data: prog } = await sb
       .from("student_topic_progress")
@@ -429,9 +430,10 @@ export const getGoalForecast = createServerFn({ method: "GET" })
       gap,
       active_topics_last_14d: activeCount,
       likelihood,
-      goal: profile.goal,
+      goal: profile.learning_goal,
     };
   });
+
 
 /** Learning path & calendar regularity stats. */
 export const getActivityStats = createServerFn({ method: "GET" })
