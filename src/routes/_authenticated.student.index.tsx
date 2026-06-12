@@ -4,18 +4,14 @@ import { CalendarDays, Stethoscope, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { getMyProgress } from "@/lib/profile.functions";
+import { demoProgress } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/student/")({
-  loader: async () => {
-    const progress = await getMyProgress();
-    return { progress };
-  },
   component: StudentHome,
 });
 
 function StudentHome() {
-  const { progress } = Route.useLoaderData();
+  const progress = demoProgress;
   const accuracy =
     progress.totalAttempts > 0
       ? Math.round((progress.totalCorrect / progress.totalAttempts) * 100)
