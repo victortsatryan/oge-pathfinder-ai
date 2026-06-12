@@ -26,7 +26,7 @@ export const getMyStudentProfile = createServerFn({ method: "GET" })
       .maybeSingle();
 
     const display =
-      base?.display_name ??
+      base?.display_name ||
       [base?.first_name, base?.last_name].filter(Boolean).join(" ") ||
       null;
 
