@@ -246,6 +246,8 @@ export const completeLesson = createServerFn({ method: "POST" })
       .single();
     if (lErr) throw new Error(lErr.message);
     if (lesson.user_id !== context.userId) throw new Error("Forbidden");
+    if (!lesson.student_profile_id) throw new Error("Lesson missing student_profile_id");
+    const profileId = lesson.student_profile_id as string;
 
     const { data: attempts } = await sb
       .from("task_attempts")
