@@ -1,7 +1,6 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 import { RoleShell, type NavItem } from "@/components/oge/role-shell";
-import { getMyRole } from "@/lib/role.functions";
 
 const NAV: NavItem[] = [
   { label: "Главная", to: "/student" },
@@ -14,10 +13,5 @@ const NAV: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/_authenticated/student")({
-  beforeLoad: async () => {
-    const { role, onboarding_completed } = await getMyRole();
-    if (!role || !onboarding_completed) throw redirect({ to: "/onboarding" });
-    if (role !== "student") throw redirect({ to: "/teacher" });
-  },
   component: () => <RoleShell title="Ученик" items={NAV} accent="Ученик" />,
 });
