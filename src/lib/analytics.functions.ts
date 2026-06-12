@@ -24,7 +24,7 @@ export const getStudentOverview = createServerFn({ method: "GET" })
 
     const { data: profile } = await sb
       .from("student_profiles")
-      .select("id, goal, target_score, level")
+      .select("id, learning_goal, target_score, grade")
       .eq("user_id", context.userId)
       .maybeSingle();
 
@@ -52,7 +52,7 @@ export const getStudentOverview = createServerFn({ method: "GET" })
           .eq("student_profile_id", profile.id),
         sb
           .from("lessons")
-          .select("id, status, scheduled_at")
+          .select("id, status, lesson_date")
           .eq("student_profile_id", profile.id),
         sb
           .from("diagnostic_sessions")
@@ -67,9 +67,9 @@ export const getStudentOverview = createServerFn({ method: "GET" })
 
     // Streak: consecutive days with completed lessons (going back from today)
     const completedDates = new Set(
-      (lessons ?? [])
-        .filter((l) => l.status === "completed" && l.scheduled_at)
-        .map((l) => new Date(l.scheduled_at as string).toISOString().slice(0, 10)),
+      ((lessons ?? []) as Array<{ status: string; lesson_date: string | null }>)
+        .filter((l) => l.status === "completed" && l.lesson_date)
+        .map((l) => l.lesson_date as string),
     );
     let streak = 0;
     const d = new Date();
@@ -77,6 +77,7 @@ export const getStudentOverview = createServerFn({ method: "GET" })
       streak += 1;
       d.setDate(d.getDate() - 1);
     }
+
 
     return {
       profile,
