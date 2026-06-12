@@ -79,21 +79,26 @@ function Bar({ value, max = 100 }: { value: number; max?: number }) {
 }
 
 function StudentAnalytics() {
-  const [
-    { data: overview },
-    { data: subjects },
-    { data: weak },
-    { data: mistakes },
-    { data: dynamics },
-    { data: review },
-    { data: recs },
-    { data: forecast },
-    { data: activity },
-  ] = useSuspenseQueries({
+  const results = useQueries({
     queries: [overviewQO, subjectsQO, weakQO, mistakesQO, dynamicsQO, reviewQO, recsQO, forecastQO, activityQO],
   });
+  const [overviewQ, subjectsQ, weakQ, mistakesQ, dynamicsQ, reviewQ, recsQ, forecastQ, activityQ] = results;
 
-  if (!overview.profile) {
+  if (results.some((r) => r.isLoading)) {
+    return <div className="pf-block text-[14px] text-[color:var(--pf-muted)]">Загружаем аналитику…</div>;
+  }
+
+  const overview = overviewQ.data!;
+  const subjects = subjectsQ.data ?? [];
+  const weak = weakQ.data ?? [];
+  const mistakes = mistakesQ.data ?? { total: 0, by_type: [], by_topic: [] };
+  const dynamics = dynamicsQ.data ?? { history: [], total_delta: 0, lessons_done: 0, tasks_done: 0, diagnostics_done: 0 };
+  const review = reviewQ.data ?? [];
+  const recs = recsQ.data ?? [];
+  const forecast = forecastQ.data;
+  const activity = activityQ.data ?? { path: null, path_total: 0, path_done: 0, path_remaining: 0, path_progress: 0, scheduled: 0, completed: 0, skipped: 0, regularity: 0 };
+
+  if (!overview?.profile) {
     return (
       <div className="pf-block">
         <PageHeader title="Аналитика" lead="Чтобы увидеть аналитику, заполни профиль ученика и выбери предметы." />
@@ -101,6 +106,7 @@ function StudentAnalytics() {
       </div>
     );
   }
+
 
   return (
     <>
