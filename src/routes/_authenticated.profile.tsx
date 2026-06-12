@@ -105,16 +105,7 @@ function ProfilePage() {
   const firstSubjectId =
     selectedSubjectId ?? (mySubjects.data?.[0] as any)?.subject?.id ?? null;
 
-  const topicMap = useQuery({
-    queryKey: ["topic-progress", firstSubjectId],
-    queryFn: () =>
-      firstSubjectId
-        ? (useServerFn as any), null
-        : null,
-    enabled: false,
-  });
-
-  // Use a separate effect-style fetch
+  // Прогресс по темам выбранного предмета
   const getProgress = useServerFn(listTopicProgressBySubject);
   const topicProgress = useQuery({
     queryKey: ["topic-progress-real", firstSubjectId],
