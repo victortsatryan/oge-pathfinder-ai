@@ -325,9 +325,8 @@ export const completeLesson = createServerFn({ method: "POST" })
       if (wrongAttempts.length > 0) {
         const mistakeRows = wrongAttempts.map((a: any) => ({
           student_profile_id: profileId,
-          user_id: context.userId,
           subject_id: lesson.subject_id,
-          topic_id: lesson.topic_id,
+          topic_id: lesson.topic_id ?? undefined,
           task_id: a.task_id,
           mistake_type: a.mistake_type ?? "wrong_answer",
         }));
