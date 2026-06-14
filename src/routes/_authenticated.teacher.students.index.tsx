@@ -1,117 +1,124 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus } from "lucide-react";
 
+import { listMyTeacherStudents, linkStudent, updateLinkStatus } from "@/lib/teacher.functions";
 import { PageHeader } from "@/components/oge/page-header";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { demoStudents, type DemoStudent } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/")({
   component: StudentsPage,
 });
 
 function StudentsPage() {
-  const [students, setStudents] = useState<DemoStudent[]>(demoStudents);
-  const [open, setOpen] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [grade, setGrade] = useState<number | "">(9);
-  const [notes, setNotes] = useState("");
+  const qc = useQueryClient();
+  const listFn = useServerFn(listMyTeacherStudents);
+  const linkFn = useServerFn(linkStudent);
+  const statusFn = useServerFn(updateLinkStatus);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const now = new Date().toISOString();
-    setStudents((cur) => [
-      {
-        id: crypto.randomUUID(),
-        first_name: firstName.trim(),
-        last_name: lastName.trim() || null,
-        grade: grade === "" ? null : Number(grade),
-        subjects: [],
-        notes: notes.trim() || null,
-        created_at: now,
-        updated_at: now,
-      },
-      ...cur,
-    ]);
-    setFirstName(""); setLastName(""); setNotes(""); setOpen(false);
-  };
+  const { data } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn() });
+  const [filter, setFilter] = useState<"all" | "active" | "attention">("all");
+  const [studentId, setStudentId] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const linkMut = useMutation({
+    mutationFn: (id: string) => linkFn({ data: { student_profile_id: id } }),
+    onSuccess: () => {
+      setStudentId("");
+      setErr(null);
+      qc.invalidateQueries({ queryKey: ["teacher", "students"] });
+    },
+    onError: (e: any) => setErr(e?.message ?? "Не удалось привязать ученика"),
+  });
+
+  const statusMut = useMutation({
+    mutationFn: (vars: { link_id: string; status: "active" | "paused" | "archived" }) => statusFn({ data: vars }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher", "students"] }),
+  });
+
+  const students = (data?.students ?? []) as any[];
+  const filtered = students.filter((s) => {
+    if (filter === "active") return s.status === "active";
+    if (filter === "attention") return s.needs_attention;
+    return true;
+  });
 
   return (
     <>
       <div className="pf-topbar">
         <div className="pf-crumb"><b>Ученики</b> · {students.length}</div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <button className="pf-btn"><Plus className="h-4 w-4" /> Добавить ученика</button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Новый ученик</DialogTitle>
-              <DialogDescription>Заполните карточку — её можно изменить позже.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={submit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="fn">Имя</Label>
-                  <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="ln">Фамилия</Label>
-                  <Input id="ln" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="gr">Класс</Label>
-                <Input id="gr" type="number" min={1} max={11} value={grade}
-                  onChange={(e) => setGrade(e.target.value === "" ? "" : Number(e.target.value))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="nt">Заметки</Label>
-                <Textarea id="nt" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-              </div>
-              <button type="submit" className="pf-btn">Сохранить</button>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
-      <PageHeader
-        title="Мои ученики"
-        lead="Реестр исследователей: общий прогресс и быстрые переходы к индивидуальным маршрутам."
-      />
+      <PageHeader title="Мои ученики" lead="Привяжите ученика по ID его профиля и отслеживайте прогресс." />
+
+      <div className="pf-block p-5 mb-6 space-y-3">
+        <div className="text-sm font-medium">Привязать ученика</div>
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="sid">ID профиля ученика (student_profile_id)</Label>
+            <Input id="sid" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="uuid…" />
+          </div>
+          <button
+            className="pf-btn"
+            disabled={!studentId || linkMut.isPending}
+            onClick={() => linkMut.mutate(studentId.trim())}
+          >
+            Привязать
+          </button>
+        </div>
+        {err && <div className="text-sm text-red-600">{err}</div>}
+        <div className="text-xs text-muted-foreground">
+          Ученик может найти ID в своём профиле и передать преподавателю.
+        </div>
+      </div>
+
+      <div className="flex gap-2 mb-4 text-sm">
+        {(["all", "active", "attention"] as const).map((k) => (
+          <button
+            key={k}
+            onClick={() => setFilter(k)}
+            className={`pf-chip ${filter === k ? "is-active" : ""}`}
+          >
+            {k === "all" ? "Все" : k === "active" ? "Активные" : "Требуют внимания"}
+          </button>
+        ))}
+      </div>
 
       <div className="pf-block">
-        {students.map((s) => (
-          <Link
-            key={s.id}
-            to="/teacher/students/$studentId"
-            params={{ studentId: s.id }}
-            className="pf-student-row"
-          >
-            <span className="pf-student-row__avatar">
-              {s.first_name[0]}{s.last_name?.[0] ?? ""}
-            </span>
-            <div>
-              <div className="pf-student-row__name">{s.first_name} {s.last_name ?? ""}</div>
-              <div className="pf-student-row__sub">
-                {s.grade ? `${s.grade} класс` : "Класс не указан"}
-                {s.subjects.length ? ` · ${s.subjects.join(", ")}` : ""}
+        {filtered.length === 0 && (
+          <div className="p-6 text-sm text-muted-foreground">Никого по этому фильтру.</div>
+        )}
+        {filtered.map((s: any) => (
+          <div key={s.link_id} className="pf-student-row">
+            <Link
+              to="/teacher/students/$studentId"
+              params={{ studentId: s.student?.id ?? "" }}
+              className="contents"
+            >
+              <span className="pf-student-row__avatar">{(s.student?.display_name ?? "У")[0]}</span>
+              <div>
+                <div className="pf-student-row__name">{s.student?.display_name ?? "Без имени"}</div>
+                <div className="pf-student-row__sub">
+                  прогресс {s.avg_mastery}% · слабых тем {s.weak_count}
+                  {s.last_active && ` · посл. активность ${new Date(s.last_active).toLocaleDateString()}`}
+                </div>
               </div>
-            </div>
-            <div className="pf-chip">маршрут активен</div>
-            <span className="pf-crumb">→</span>
-          </Link>
+            </Link>
+            <div className="pf-chip">{s.needs_attention ? "внимание" : s.status}</div>
+            <select
+              className="text-xs border rounded px-2 py-1"
+              value={s.status}
+              onChange={(e) =>
+                statusMut.mutate({ link_id: s.link_id, status: e.target.value as any })
+              }
+            >
+              <option value="active">active</option>
+              <option value="paused">paused</option>
+              <option value="archived">archived</option>
+            </select>
+          </div>
         ))}
       </div>
     </>
