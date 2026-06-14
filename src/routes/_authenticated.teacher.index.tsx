@@ -16,9 +16,9 @@ function TeacherDashboard() {
     queryFn: () => fn(),
   });
 
-  const students = data?.students ?? [];
-  const active = students.filter((s) => s.status === "active");
-  const attention = students.filter((s) => s.needs_attention);
+  const students = (data?.students ?? []) as any[];
+  const active = students.filter((s: any) => s.status === "active");
+  const attention = students.filter((s: any) => s.needs_attention);
 
   return (
     <>
