@@ -2534,6 +2534,335 @@ export type Database = {
           },
         ]
       }
+      teacher_activity_log: {
+        Row: {
+          action_type: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json
+          student_profile_id: string | null
+          teacher_profile_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          student_profile_id?: string | null
+          teacher_profile_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json
+          student_profile_id?: string | null
+          teacher_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_activity_log_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_activity_log_teacher_profile_id_fkey"
+            columns: ["teacher_profile_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_ai_suggestions: {
+        Row: {
+          created_at: string
+          id: string
+          input: Json
+          output: Json
+          scenario: string
+          status: string
+          student_profile_id: string | null
+          teacher_profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input?: Json
+          output?: Json
+          scenario: string
+          status?: string
+          student_profile_id?: string | null
+          teacher_profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input?: Json
+          output?: Json
+          scenario?: string
+          status?: string
+          student_profile_id?: string | null
+          teacher_profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_ai_suggestions_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_ai_suggestions_teacher_profile_id_fkey"
+            columns: ["teacher_profile_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_assignments: {
+        Row: {
+          comment: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          lesson_id: string | null
+          material_id: string | null
+          status: string
+          student_profile_id: string
+          task_id: string | null
+          teacher_profile_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          lesson_id?: string | null
+          material_id?: string | null
+          status?: string
+          student_profile_id: string
+          task_id?: string | null
+          teacher_profile_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          lesson_id?: string | null
+          material_id?: string | null
+          status?: string
+          student_profile_id?: string
+          task_id?: string | null
+          teacher_profile_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_assignments_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_teacher_profile_id_fkey"
+            columns: ["teacher_profile_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          note_type: string
+          student_profile_id: string
+          subject_id: string | null
+          teacher_profile_id: string
+          topic_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          student_profile_id: string
+          subject_id?: string | null
+          teacher_profile_id: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          student_profile_id?: string
+          subject_id?: string | null
+          teacher_profile_id?: string
+          topic_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_notes_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_teacher_profile_id_fkey"
+            columns: ["teacher_profile_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          language: string
+          specialization: string | null
+          timezone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          language?: string
+          specialization?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          language?: string
+          specialization?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      teacher_student_links: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          started_at: string | null
+          status: string
+          student_profile_id: string
+          teacher_profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          student_profile_id: string
+          teacher_profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: string
+          student_profile_id?: string
+          teacher_profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_student_links_student_profile_id_fkey"
+            columns: ["student_profile_id"]
+            isOneToOne: false
+            referencedRelation: "student_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_student_links_teacher_profile_id_fkey"
+            columns: ["teacher_profile_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_tasks: {
         Row: {
           created_at: string
@@ -2819,6 +3148,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_teacher_of_student: {
+        Args: { _student_profile_id: string; _user_id: string }
         Returns: boolean
       }
     }
