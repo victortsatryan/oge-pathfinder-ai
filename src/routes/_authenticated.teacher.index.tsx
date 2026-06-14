@@ -51,7 +51,7 @@ function TeacherDashboard() {
                 <Link to="/teacher/students" className="underline">Привязать ученика</Link>.
               </div>
             )}
-            {students.slice(0, 6).map((s) => (
+            {students.slice(0, 6).map((s: any) => (
               <Link
                 key={s.link_id}
                 to="/teacher/students/$studentId"
