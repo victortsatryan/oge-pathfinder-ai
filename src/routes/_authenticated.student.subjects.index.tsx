@@ -78,12 +78,12 @@ function SubjectsList() {
                 </div>
                 <div className="text-right">
                   <div className="pf-eyebrow">тем</div>
-                  <div className="text-[20px] font-medium">{stat?.total_topics ?? 0}</div>
+                  <div className="text-[20px] font-medium">{stat?.topics_total ?? 0}</div>
                 </div>
                 <div className="text-right">
                   <div className="pf-eyebrow">слабых</div>
                   <div className="text-[20px] font-medium text-[color:var(--pf-accent,#e11d48)]">
-                    {stat?.weak_topics ?? 0}
+                    {stat?.weak_topics?.length ?? 0}
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-[color:var(--pf-muted)] col-start-5" />
