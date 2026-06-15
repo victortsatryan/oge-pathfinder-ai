@@ -424,7 +424,7 @@ function AddSubjectDialog({
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
             <Label>Поиск по предметам</Label>
-            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="математика, english, OGE…" />
+            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="математика, english, история…" />
           </div>
           <div className="grid gap-2">
             <Label>Предмет</Label>

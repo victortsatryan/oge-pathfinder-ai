@@ -148,7 +148,7 @@ function LessonPage() {
             <Card className="panel content-panel">
               <CardHeader>
                 <CardTitle>2. Практика</CardTitle>
-                <CardDescription>Решаем задания формата ОГЭ по шагам, без перегруза интерфейса.</CardDescription>
+                <CardDescription>Решаем задания по шагам, без перегруза интерфейса.</CardDescription>
               </CardHeader>
               <CardContent className="content-stack">
                 {detail.practiceTasks.map((task: LessonPracticeTask, index: number) => (
