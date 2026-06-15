@@ -2,14 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { RoleShell, type NavItem } from "@/components/oge/role-shell";
 
+// Унифицированная навигация преподавателя (Шаг 9):
+// Главная → Ученики → Занятия → Аналитика → AI → Профиль.
+// Диагностика и материалы доступны изнутри карточки ученика.
 const NAV: NavItem[] = [
-  { label: "Кабинет", to: "/teacher" },
+  { label: "Главная", to: "/teacher" },
   { label: "Ученики", to: "/teacher/students" },
-  { label: "Диагностика", to: "/teacher/diagnostic" },
-  { label: "Планы", to: "/teacher/plans" },
-  { label: "Материалы", to: "/teacher/materials" },
+  { label: "Занятия", to: "/teacher/plans" },
   { label: "Аналитика", to: "/teacher/analytics" },
-  { label: "AI-навигатор", to: "/teacher/assistant" },
+  { label: "AI", to: "/teacher/assistant" },
+  { label: "Профиль", to: "/profile" },
 ];
 
 export const Route = createFileRoute("/_authenticated/teacher")({
