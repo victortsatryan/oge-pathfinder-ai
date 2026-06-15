@@ -2,16 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { RoleShell, type NavItem } from "@/components/oge/role-shell";
 
+// Унифицированная навигация ученика (Шаг 9):
+// Главная → Предметы → Маршрут → Календарь → Аналитика → Ассистент → Профиль.
+// Остальные экраны (материалы, диагностика, отчёт, прогресс, занятия)
+// доступны как вложенные сценарии из главной/предметов/тем.
 const NAV: NavItem[] = [
-  { label: "Сегодня", to: "/student" },
-  { label: "Мои темы", to: "/student/lessons" },
+  { label: "Главная", to: "/student" },
+  { label: "Предметы", to: "/student/subjects" },
+  { label: "Маршрут", to: "/student/path" },
   { label: "Календарь", to: "/student/calendar" },
-  { label: "Материалы", to: "/student/materials" },
-  { label: "Прогресс", to: "/student/progress" },
   { label: "Аналитика", to: "/student/analytics" },
-  { label: "Отчёт", to: "/student/report" },
-  { label: "AI-навигатор", to: "/student/assistant" },
-
+  { label: "Ассистент", to: "/student/assistant" },
+  { label: "Профиль", to: "/profile" },
 ];
 
 export const Route = createFileRoute("/_authenticated/student")({
