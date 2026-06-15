@@ -75,7 +75,7 @@ export const demoProfile = {
   first_name: "Анна",
   last_name: "Петрова",
   grade: 9,
-  program: "ОГЭ 2026: математика, русский язык, биология",
+  program: "Индивидуальный маршрут: математика, русский язык, биология",
   subjects: ["Математика", "Русский язык", "Биология"],
   avatar_url: null,
   target_grade: null,

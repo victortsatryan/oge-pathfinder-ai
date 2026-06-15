@@ -1,6 +1,7 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { APP_NAME, APP_TAGLINE, APP_DESCRIPTION } from "@/lib/brand";
 
 function NotFoundComponent() {
   return (
@@ -29,19 +30,16 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PATHFINDER — навигатор по знаниям" },
-      {
-        name: "description",
-        content: "Инструмент навигации по предмету: маршрут, карта тем и AI-навигатор для подготовки к ОГЭ.",
-      },
-      { name: "author", content: "Lovable" },
+      { title: `${APP_NAME} — ${APP_TAGLINE}` },
+      { name: "description", content: APP_DESCRIPTION },
+      { name: "author", content: APP_NAME },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: APP_NAME },
+      { property: "og:title", content: `${APP_NAME} — ${APP_TAGLINE}` },
+      { property: "og:description", content: APP_DESCRIPTION },
       { name: "twitter:card", content: "summary" },
-      { property: "og:title", content: "PATHFINDER" },
-      { name: "twitter:title", content: "PATHFINDER" },
-      { name: "description", content: "educaite is an AI-powered web app for personalized OGE exam preparation for 9th graders." },
-      { property: "og:description", content: "educaite is an AI-powered web app for personalized OGE exam preparation for 9th graders." },
-      { name: "twitter:description", content: "educaite is an AI-powered web app for personalized OGE exam preparation for 9th graders." },
+      { name: "twitter:title", content: `${APP_NAME} — ${APP_TAGLINE}` },
+      { name: "twitter:description", content: APP_DESCRIPTION },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/77aa4795-ccaf-4737-be5c-dc0e21339643/id-preview-5f235a8b--6be1e37b-2ce0-4f75-8d64-751227ba3518.lovable.app-1777058603657.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/77aa4795-ccaf-4737-be5c-dc0e21339643/id-preview-5f235a8b--6be1e37b-2ce0-4f75-8d64-751227ba3518.lovable.app-1777058603657.png" },
     ],
