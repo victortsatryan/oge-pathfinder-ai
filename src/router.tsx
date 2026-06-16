@@ -1,12 +1,21 @@
 import { createRouter, useRouter } from "@tanstack/react-router";
+import { QueryClient } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 
 function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
 
+  if (typeof console !== "undefined") {
+    console.error("Route error:", error);
+  }
+
+  const showDetails =
+    import.meta.env.DEV ||
+    (typeof window !== "undefined" && /lovable\.app$/i.test(window.location.hostname));
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <div className="max-w-2xl w-full text-center">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -27,10 +36,27 @@ function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => vo
         <p className="mt-2 text-sm text-muted-foreground">
           An unexpected error occurred. Please try again.
         </p>
-        {import.meta.env.DEV && error.message && (
-          <pre className="mt-4 max-h-40 overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
-            {error.message}
-          </pre>
+        {showDetails && (
+          <div className="mt-4 space-y-3 text-left">
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                Error message
+              </div>
+              <pre className="max-h-32 overflow-auto rounded-md bg-muted p-3 font-mono text-xs text-destructive whitespace-pre-wrap">
+                {error?.message || String(error)}
+              </pre>
+            </div>
+            {error?.stack && (
+              <div>
+                <div className="text-xs font-semibold uppercase text-muted-foreground mb-1">
+                  Stack
+                </div>
+                <pre className="max-h-60 overflow-auto rounded-md bg-muted p-3 font-mono text-[11px] text-foreground whitespace-pre-wrap">
+                  {error.stack}
+                </pre>
+              </div>
+            )}
+          </div>
         )}
         <div className="mt-6 flex items-center justify-center gap-3">
           <button
@@ -55,9 +81,18 @@ function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => vo
 }
 
 export const getRouter = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        staleTime: 30_000,
+      },
+    },
+  });
+
   const router = createRouter({
     routeTree,
-    context: {},
+    context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
     defaultErrorComponent: DefaultErrorComponent,
