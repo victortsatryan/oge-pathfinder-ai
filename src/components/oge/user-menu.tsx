@@ -77,6 +77,19 @@ export function UserMenu() {
           <Repeat className="h-4 w-4 mr-2" />
           Сменить роль
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={async (event) => {
+            event.preventDefault();
+            window.localStorage.removeItem("educaite-demo-role");
+            await signOut();
+            window.location.href = "/auth";
+          }}
+          className="cursor-pointer"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Выйти
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
