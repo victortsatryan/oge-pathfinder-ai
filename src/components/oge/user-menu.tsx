@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { User as UserIcon, Repeat } from "lucide-react";
+import { User as UserIcon, Repeat, LogOut } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, signOut } from "@/hooks/use-auth";
 
 function initialsOf(input: string | null | undefined): string {
   if (!input) return "?";
@@ -30,7 +30,7 @@ export function UserMenu() {
   }
 
   if (!user) {
-    return <Button variant="secondary" size="sm" onClick={() => { window.location.href = "/onboarding"; }}>Демо</Button>;
+    return <Button variant="secondary" size="sm" onClick={() => { window.location.href = "/auth"; }}>Войти</Button>;
   }
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
@@ -76,6 +76,19 @@ export function UserMenu() {
         >
           <Repeat className="h-4 w-4 mr-2" />
           Сменить роль
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={async (event) => {
+            event.preventDefault();
+            window.localStorage.removeItem("educaite-demo-role");
+            await signOut();
+            window.location.href = "/auth";
+          }}
+          className="cursor-pointer"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Выйти
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
