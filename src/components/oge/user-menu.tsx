@@ -30,7 +30,7 @@ export function UserMenu() {
   }
 
   if (!user) {
-    return <Button variant="secondary" size="sm" onClick={() => { window.location.href = "/onboarding"; }}>Демо</Button>;
+    return <Button variant="secondary" size="sm" onClick={() => { window.location.href = "/auth"; }}>Войти</Button>;
   }
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
