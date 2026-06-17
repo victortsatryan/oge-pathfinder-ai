@@ -1,64 +1,73 @@
-## Роли пользователей: Ученик и Преподаватель
+# Plan: Admin Materials Upload System for Pathy.ai
 
-Большая фича — разделение MVP на два режима. Предлагаю поэтапный план; начнём с фундамента (БД + выбор роли + роутинг), затем кабинет ученика, затем кабинет преподавателя.
+## Scope
+Build an admin-only system to upload and structure school materials (CSV/JSON import + manual form), wired into the existing `materials` / `subjects` / `topics` / `learning_objectives` schema. No user-facing upload or sharing.
 
-### Этап 1. Фундамент (этот заход)
+## 1. Database migration
 
-**База данных (миграция)**
-- В `profiles` добавить:
-  - `role` — `'student' | 'teacher' | null` (enum `user_role`)
-  - `onboarding_completed boolean default false`
-- Новая таблица `students` (ученики преподавателя):
-  - `id`, `teacher_id` (→ auth.users), `first_name`, `last_name`, `grade int`, `subjects text[]`, `notes text`, `created_at`, `updated_at`
-  - RLS: преподаватель видит/правит только своих учеников (`teacher_id = auth.uid()` + проверка роли через `has_role`-стиль или прямой select из `profiles`).
-  - GRANT `authenticated`, `service_role`.
-- Триггер `set_updated_at` на обе таблицы.
+Single migration covering:
 
-**Серверные функции** (`src/lib/role.functions.ts`)
-- `getMyRole()` → `{ role, onboarding_completed }`
-- `setMyRole({ role })` → сохраняет роль + `onboarding_completed = true`
+### `materials` — verify/extend
+Existing table has 20 cols. Add any missing fields from spec:
+- `grade text`, `language text default 'ru'`, `license_type text`, `license_note text`, `image_url text`, `source_name text`, `estimated_time_minutes int`, `status text default 'draft'` (constrained to `draft|reviewed|published|archived`).
+- Ensure FKs: `subject_id`, `program_id → subject_programs`, `topic_id`, `learning_objective_id`.
+- Unique-ish dedup index: `(subject_id, topic_id, lower(title), coalesce(source_url,''))`.
 
-**Маршрутизация**
-- Новый экран `src/routes/_authenticated/onboarding.tsx` — выбор роли (две карточки: Ученик / Преподаватель).
-- В `_authenticated/route.tsx` (или в `_authenticated.index`) — если `role` пустая → редирект на `/onboarding`.
-- `_authenticated.index.tsx` становится «диспетчером»: если `student` → редирект на `/student`, если `teacher` → на `/teacher`.
-- Календарь (текущая главная) переезжает на `/student/calendar`, чтобы не ломать ученический сценарий.
+### `content_sources` — new
+Fields per spec. GRANTs + RLS:
+- `SELECT` to `authenticated` (read approved sources).
+- `ALL` to admins via `has_role(auth.uid(),'admin')`.
 
-**Навигация / UserMenu**
-- Добавить в `UserMenu` пункт «Сменить роль» (сбрасывает `onboarding_completed`).
+### `content_import_logs` — new
+Fields per spec. RLS: only admins read/write.
 
-### Этап 2. Кабинет ученика (`/student/*`)
+### App role
+Confirm `app_role` enum has `admin`. If not present, add. (Existing `has_role` function already exists.)
 
-Маршруты под layout `_authenticated/student`:
-- `/student` — главная: приветствие, сегодняшние занятия, прогресс по предметам, слабые темы, CTA «Пройти диагностику» / «План на сегодня».
-- `/student/calendar` — текущий календарь (`OgeMvpApp`).
-- `/student/diagnostic`, `/student/lessons`, `/student/materials`, `/student/progress`, `/student/assistant` — переиспользовать существующие компоненты (diagnostic-panel, assistant-panel, profile-прогресс).
+## 2. Server functions (`src/lib/admin-materials.functions.ts`)
 
-Боковая/верхняя навигация ученика с 7 разделами.
+All gated by `requireSupabaseAuth` + admin role check via `has_role` RPC.
 
-### Этап 3. Кабинет преподавателя (`/teacher/*`)
+- `previewImport({ rows })` — parse rows, resolve subject/program/topic/subtopic/LO (create-if-missing in dry-run = false; in preview mode just count). Returns `{ toCreate, toUpdate, toSkip, errors, sample }`.
+- `runImport({ rows, fileName, format })` — for each row:
+  1. upsert subject by title
+  2. upsert program by (subject, title)
+  3. upsert topic by (subject, title); subtopic as child topic with `parent_topic_id` (use existing topics table — check if parent col exists, else store subtopic as topic with note)
+  4. upsert learning_objective by (topic, title)
+  5. dedup material by `(subject_id, topic_id, lower(title), source_url)` → insert or update
+  6. accumulate counts, errors
+  7. write `content_import_logs` row
+- `listImportLogs()` — admin list.
+- `createMaterialManual(input)` — single insert with the same resolution logic.
+- `listContentSources()` / `upsertContentSource()`.
 
-Маршруты под layout `_authenticated/teacher`:
-- `/teacher` — главная: список учеников, ближайшие занятия (mock), рекомендации, кнопки «Добавить ученика» / «Составить план».
-- `/teacher/students` — список + диалог «Добавить ученика» (создаёт строку в `students`).
-- `/teacher/students/$studentId` — профиль ученика: общая инфа, карта слабых тем (mock), план занятий (mock), AI-рекомендации (mock), история (mock).
-- `/teacher/diagnostic`, `/teacher/plans`, `/teacher/materials`, `/teacher/analytics`, `/teacher/assistant` — заглушки с описанием и mock-карточками; реальная логика — в следующих заходах.
+## 3. Admin UI
 
-Серверные функции для `students`: `listMyStudents`, `getStudent`, `createStudent`, `updateStudent`, `deleteStudent` — все через `requireSupabaseAuth` + проверка `role = 'teacher'`.
+New route group `src/routes/_authenticated/admin/...`:
+- `admin.tsx` — layout, checks `has_role('admin')` client-side; redirects non-admins.
+- `admin.materials.import.tsx` — file picker (CSV/JSON), preview table (first 10 rows), summary card (create/update/skip/errors), "Import" button, import history table below.
+- `admin.materials.new.tsx` — manual form (all spec fields, cascading selects for subject→program→topic→LO).
+- `admin.sources.tsx` — list/create content sources.
 
-### Этап 4 и далее (не входит в этот заход)
+Add admin entry in the user menu (visible only if admin).
 
-Карта слабых тем на реальных данных, индивидуальные планы, AI-рекомендации преподавателю, аналитика, привязка `student` к `auth.users` (приглашения учеников).
+CSV parsing: use `papaparse` (add via `bun add papaparse @types/papaparse`).
 
----
+## 4. Lessons / AI integration (light wiring)
 
-### Технические детали
+- Existing `src/lib/materials.functions.ts`: ensure `listMaterialsForTopic` filters `status = 'published'`. Add empty-state hint in student materials route.
+- AI prompt builders (`oge-ai.functions.ts` / `oge-assistant.functions.ts`): when fetching context for a topic, pull `published` materials first; if none, instruct AI to say "в базе нет подходящих материалов".
 
-- `role` храним в `profiles`, не в `auth.users` (правило безопасности проекта). Отдельная таблица `user_roles` для админских ролей здесь не нужна — это бизнес-роль, не привилегия.
-- Все защищённые роуты остаются под `_authenticated/`. SSR — как настроено интеграцией.
-- Существующие маршруты (`/`, `/profile`, `/lesson/$id`) — `/` редиректит по роли; `/profile` остаётся общим; `/lesson/$id` доступен ученику.
-- В MVP студенты у преподавателя — самостоятельные записи (mock-данные ввода руками), не привязаны к реальным `auth.users`. Это разблокирует UI без сложной системы приглашений.
+(Deep AI/lesson refactor out of scope — minimal hooks only.)
 
-### Вопрос перед стартом
+## 5. Out of scope (this step)
+- MVP content seeding (section 15) — provide CSV template + docs; bulk content load is a follow-up.
+- Public sharing, user uploads.
+- File storage uploads (PDF/image upload UI) — only URL references for now; storage bucket can come later.
 
-Подтверждаете план поэтапно (сначала Этап 1: миграция + выбор роли + роутинг, потом отдельными заходами кабинеты)? Или сделать всё одним большим заходом (дольше, выше риск регрессий)?
+## Technical notes
+- Subtopics: existing `topics` table is flat. Use `parent_topic_id` if column exists; otherwise add it in this migration (`topics.parent_topic_id uuid references topics(id)`).
+- Admin check pattern: server-side `has_role(userId,'admin')` RPC inside every admin server fn; client-side hide UI via a `useIsAdmin()` hook calling a small `amIAdmin` server fn.
+- Import runs synchronously per request; large files chunked client-side into batches of 200 rows before calling `runImport`.
+
+Proceed?
