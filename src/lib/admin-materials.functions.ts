@@ -243,7 +243,12 @@ export const previewImport = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context.supabase, context.userId);
     const outcome = await processRows(context.supabase, context.userId, data.rows, true);
-    return { ...outcome, sample: data.rows.slice(0, 10) };
+    const sample = data.rows.slice(0, 10).map((r) => {
+      const obj: Record<string, string> = {};
+      for (const [k, v] of Object.entries(r)) obj[k] = v == null ? "" : String(v);
+      return obj;
+    });
+    return { ...outcome, sample };
   });
 
 export const runImport = createServerFn({ method: "POST" })
@@ -252,7 +257,7 @@ export const runImport = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context.supabase, context.userId);
 
-    const { data: logRow } = await context.supabase
+    const { data: logRow, error: logErr } = await context.supabase
       .from("content_import_logs")
       .insert({
         import_type: data.format ?? "csv",
@@ -263,6 +268,8 @@ export const runImport = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
+    if (logErr || !logRow) throw new Error(logErr?.message ?? "Failed to create import log");
+    const logId = logRow.id as string;
 
     let outcome: ImportOutcome;
     try {
@@ -271,7 +278,7 @@ export const runImport = createServerFn({ method: "POST" })
       await context.supabase
         .from("content_import_logs")
         .update({ status: "failed", errors: [{ row: 0, message: e?.message ?? String(e) }] })
-        .eq("id", logRow?.id);
+        .eq("id", logId);
       throw e;
     }
 
@@ -292,9 +299,9 @@ export const runImport = createServerFn({ method: "POST" })
         error_count: outcome.errors.length,
         errors: outcome.errors.length ? outcome.errors : null,
       })
-      .eq("id", logRow?.id);
+      .eq("id", logId);
 
-    return { ...outcome, logId: logRow?.id };
+    return { ...outcome, logId };
   });
 
 export const listImportLogs = createServerFn({ method: "GET" })
