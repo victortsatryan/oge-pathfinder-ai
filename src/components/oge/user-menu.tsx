@@ -1,5 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { User as UserIcon, Repeat, LogOut } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { User as UserIcon, Repeat, LogOut, Shield } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth, signOut } from "@/hooks/use-auth";
+import { amIAdmin } from "@/lib/admin-materials.functions";
+
 
 function initialsOf(input: string | null | undefined): string {
   if (!input) return "?";
@@ -24,6 +28,13 @@ function initialsOf(input: string | null | undefined): string {
 export function UserMenu() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const adminCheck = useServerFn(amIAdmin);
+  const adminQ = useQuery({
+    queryKey: ["am-i-admin"],
+    queryFn: () => adminCheck(),
+    enabled: Boolean(user),
+  });
+
 
   if (loading) {
     return <div className="h-9 w-9 rounded-full bg-muted animate-pulse" aria-hidden />;
@@ -66,7 +77,16 @@ export function UserMenu() {
             Мой профиль
           </Link>
         </DropdownMenuItem>
+        {adminQ.data?.isAdmin ? (
+          <DropdownMenuItem asChild>
+            <Link to="/admin" className="flex items-center gap-2 cursor-pointer">
+              <Shield className="h-4 w-4" />
+              Админ-панель
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
+
           onSelect={async (event) => {
             event.preventDefault();
             window.localStorage.removeItem("educaite-demo-role");

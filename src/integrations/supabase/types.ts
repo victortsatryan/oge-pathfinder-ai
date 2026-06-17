@@ -348,6 +348,51 @@ export type Database = {
           },
         ]
       }
+      content_import_logs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_count: number
+          error_count: number
+          errors: Json | null
+          file_name: string | null
+          id: string
+          import_type: string
+          skipped_count: number
+          status: string
+          total_rows: number
+          updated_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          error_count?: number
+          errors?: Json | null
+          file_name?: string | null
+          id?: string
+          import_type: string
+          skipped_count?: number
+          status?: string
+          total_rows?: number
+          updated_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          error_count?: number
+          errors?: Json | null
+          file_name?: string | null
+          id?: string
+          import_type?: string
+          skipped_count?: number
+          status?: string
+          total_rows?: number
+          updated_count?: number
+        }
+        Relationships: []
+      }
       content_resources: {
         Row: {
           content_markdown: string | null
@@ -413,6 +458,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      content_sources: {
+        Row: {
+          base_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_approved: boolean
+          license_note: string | null
+          source_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          base_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_approved?: boolean
+          license_note?: string | null
+          source_type?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          base_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_approved?: boolean
+          license_note?: string | null
+          source_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       diagnostic_answers: {
         Row: {
@@ -1540,15 +1624,20 @@ export type Database = {
           description: string | null
           difficulty: number
           estimated_time_minutes: number | null
+          file_url: string | null
+          grade: string | null
           id: string
           image_url: string | null
           is_public: boolean
           language: string
           learning_objective_id: string | null
+          license_note: string | null
+          license_type: string | null
           material_type: string
           program_id: string | null
           source_name: string | null
           source_url: string | null
+          status: string
           subject_id: string
           title: string
           topic_id: string | null
@@ -1562,15 +1651,20 @@ export type Database = {
           description?: string | null
           difficulty?: number
           estimated_time_minutes?: number | null
+          file_url?: string | null
+          grade?: string | null
           id?: string
           image_url?: string | null
           is_public?: boolean
           language?: string
           learning_objective_id?: string | null
+          license_note?: string | null
+          license_type?: string | null
           material_type: string
           program_id?: string | null
           source_name?: string | null
           source_url?: string | null
+          status?: string
           subject_id: string
           title: string
           topic_id?: string | null
@@ -1584,15 +1678,20 @@ export type Database = {
           description?: string | null
           difficulty?: number
           estimated_time_minutes?: number | null
+          file_url?: string | null
+          grade?: string | null
           id?: string
           image_url?: string | null
           is_public?: boolean
           language?: string
           learning_objective_id?: string | null
+          license_note?: string | null
+          license_type?: string | null
           material_type?: string
           program_id?: string | null
           source_name?: string | null
           source_url?: string | null
+          status?: string
           subject_id?: string
           title?: string
           topic_id?: string | null
