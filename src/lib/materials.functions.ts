@@ -19,7 +19,7 @@ export const listMaterials = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("materials")
       .select("id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes, topic_id, subject_id, subjects(name), topics(title)")
-      .eq("is_public", true)
+      .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(data.limit);
     if (data.subject_id) q = q.eq("subject_id", data.subject_id);
@@ -40,7 +40,7 @@ export const getTopicOverview = createServerFn({ method: "POST" })
     const [topicRes, matsRes, tasksRes, testsRes] = await Promise.all([
       sb.from("topics").select("id, title, description, subject_id, subjects(name)").eq("id", data.topic_id).single(),
       sb.from("materials").select("id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes")
-        .eq("topic_id", data.topic_id).eq("is_public", true).order("difficulty"),
+        .eq("topic_id", data.topic_id).eq("status", "published").order("difficulty"),
       sb.from("tasks").select("id, title, prompt, task_type, difficulty, source_name")
         .eq("topic_id", data.topic_id).eq("is_published", true).limit(20),
       sb.from("tests").select("id, title, description, test_type, duration_minutes, difficulty")
@@ -105,7 +105,7 @@ export const getRecommendedMaterials = createServerFn({ method: "POST" })
       .from("materials")
       .select("id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes")
       .eq("topic_id", data.topic_id)
-      .eq("is_public", true)
+      .eq("status", "published")
       .in("material_type", preferredTypes)
       .lte("difficulty", maxDifficulty)
       .order("difficulty")
