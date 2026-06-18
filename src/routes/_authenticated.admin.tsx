@@ -32,7 +32,7 @@ function AdminLayout() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Админ-панель</h1>
-          <p className="text-sm text-muted-foreground">Управление контентом Pathy.ai</p>
+          <p className="text-sm text-muted-foreground">Управление контентом Pathy</p>
         </div>
         <nav className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link to="/admin/import">Импорт материалов</Link></Button>

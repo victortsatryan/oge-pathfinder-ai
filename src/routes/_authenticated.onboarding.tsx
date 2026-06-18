@@ -12,15 +12,15 @@ function OnboardingPage() {
       <div className="max-w-6xl mx-auto px-10 py-16">
         <div className="flex items-center gap-3 mb-16">
           <span className="pf-rail__logo-mark" aria-hidden style={{ background: "var(--pf-cinnabar)" }} />
-          <span className="pf-crumb"><b>Pathy.ai</b></span>
+          <span className="pf-crumb"><b>Pathy</b></span>
         </div>
 
         <div className="grid lg:grid-cols-[1.3fr,1fr] gap-16 items-start mb-20">
           <div>
             <p className="pf-eyebrow mb-4">Шаг 01 · Роль</p>
-            <h1 className="pf-h1 max-w-xl">Добро пожаловать в Pathy.ai</h1>
+            <h1 className="pf-h1 max-w-xl">Добро пожаловать в Pathy</h1>
             <p className="pf-lead">
-              Pathy.ai — персональная образовательная платформа. Она строит индивидуальный
+              Pathy — персональная образовательная платформа. Она строит индивидуальный
               маршрут по любому предмету, отслеживает прогресс и помогает AI-ассистентом.
               Выберите режим, чтобы продолжить.
             </p>
