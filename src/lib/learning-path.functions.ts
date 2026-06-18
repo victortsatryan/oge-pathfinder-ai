@@ -89,7 +89,11 @@ export const generateLearningPath = createServerFn({ method: "POST" })
       .sort((a, b) => b.sortKey - a.sortKey);
 
     if (weak.length === 0) {
-      throw new Error("Нет тем для маршрута. Добавьте предмет и пройдите диагностику.");
+      return {
+        ok: false as const,
+        reason: "no_topics" as const,
+        message: "Нет тем для маршрута. Добавьте предмет и пройдите диагностику.",
+      };
     }
 
     const startDate = new Date();
@@ -141,7 +145,7 @@ export const generateLearningPath = createServerFn({ method: "POST" })
     const ins = await sb.from("learning_path_items").insert(itemsToInsert);
     if (ins.error) throw new Error(ins.error.message);
 
-    return { path_id: pathId, items_count: itemsToInsert.length };
+    return { ok: true as const, path_id: pathId, items_count: itemsToInsert.length };
   });
 
 export const generateCalendarFromLearningPath = createServerFn({ method: "POST" })

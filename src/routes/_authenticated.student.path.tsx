@@ -41,7 +41,9 @@ function PathPage() {
 
   const generate = useMutation({
     mutationFn: () => genPath({ data: { weeks: 4 } }),
-    onSuccess: () => router.invalidate(),
+    onSuccess: (res: any) => {
+      if (res?.ok) router.invalidate();
+    },
   });
 
   const buildCalendar = useMutation({
@@ -55,6 +57,13 @@ function PathPage() {
       if (res?.lesson_id) router.navigate({ to: "/student/lesson/$lessonId", params: { lessonId: res.lesson_id } });
     },
   });
+
+  const generateNotice =
+    generate.data && !(generate.data as any).ok
+      ? (generate.data as any).message
+      : generate.error
+        ? (generate.error as Error).message
+        : null;
 
   return (
     <>
@@ -87,9 +96,9 @@ function PathPage() {
         )}
       </div>
 
-      {generate.error && (
+      {generateNotice && (
         <p className="text-sm text-[color:var(--pf-cinnabar)] mt-3">
-          {(generate.error as Error).message}
+          {generateNotice}
         </p>
       )}
 
