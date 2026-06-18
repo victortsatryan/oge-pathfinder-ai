@@ -89,7 +89,11 @@ export const generateLearningPath = createServerFn({ method: "POST" })
       .sort((a, b) => b.sortKey - a.sortKey);
 
     if (weak.length === 0) {
-      throw new Error("Нет тем для маршрута. Добавьте предмет и пройдите диагностику.");
+      return {
+        ok: false as const,
+        reason: "no_topics" as const,
+        message: "Нет тем для маршрута. Добавьте предмет и пройдите диагностику.",
+      };
     }
 
     const startDate = new Date();
