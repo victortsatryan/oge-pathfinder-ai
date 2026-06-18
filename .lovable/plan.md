@@ -1,4 +1,4 @@
-# Plan: Admin Materials Upload System for Pathy.ai
+# Plan: Admin Materials Upload System for Pathy
 
 ## Scope
 Build an admin-only system to upload and structure school materials (CSV/JSON import + manual form), wired into the existing `materials` / `subjects` / `topics` / `learning_objectives` schema. No user-facing upload or sharing.

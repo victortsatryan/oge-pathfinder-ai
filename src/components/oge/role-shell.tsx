@@ -54,7 +54,7 @@ export function RoleShell({
       <aside className="pf-rail">
         <Link to="/" className="pf-rail__logo">
           <span className="pf-rail__logo-mark" aria-hidden />
-          <span>Pathy.ai</span>
+          <span>Pathy</span>
         </Link>
 
         <nav className="pf-rail__nav" aria-label="Основная навигация">
