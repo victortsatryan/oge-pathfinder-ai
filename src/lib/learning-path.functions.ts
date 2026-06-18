@@ -145,7 +145,7 @@ export const generateLearningPath = createServerFn({ method: "POST" })
     const ins = await sb.from("learning_path_items").insert(itemsToInsert);
     if (ins.error) throw new Error(ins.error.message);
 
-    return { path_id: pathId, items_count: itemsToInsert.length };
+    return { ok: true as const, path_id: pathId, items_count: itemsToInsert.length };
   });
 
 export const generateCalendarFromLearningPath = createServerFn({ method: "POST" })
