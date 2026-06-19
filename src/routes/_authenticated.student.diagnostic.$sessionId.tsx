@@ -18,6 +18,7 @@ import {
   completeDiagnosticSession,
   getDiagnosticResults,
 } from "@/lib/diagnostic.functions";
+import { generateLearningPath } from "@/lib/learning-path.functions";
 
 export const Route = createFileRoute("/_authenticated/student/diagnostic/$sessionId")({
   component: DiagnosticSessionPage,
