@@ -3,6 +3,111 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// ---------- Complete onboarding (atomic) ----------
+
+const onboardingSchema = z.object({
+  subjects: z
+    .array(
+      z.object({
+        subject_id: z.string().uuid(),
+        program_id: z.string().uuid().nullable().optional(),
+      }),
+    )
+    .min(1),
+  target_exam: z.string().trim().max(40).nullable().optional(),
+  target_score: z.string().trim().max(40).nullable().optional(),
+  target_date: z.string().nullable().optional(),
+  learning_goal: z.string().trim().max(500).nullable().optional(),
+});
+
+export const completeStudentOnboarding = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => onboardingSchema.parse(input))
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+    const userId = context.userId;
+
+    // 1) Role: student
+    const { error: roleErr } = await sb.rpc("assign_self_role", { _role: "student" });
+    if (roleErr) throw roleErr;
+    await sb
+      .from("profiles")
+      .update({ role: "student", onboarding_completed: true })
+      .eq("user_id", userId);
+
+    // 2) Ensure student_profile + update target fields
+    let { data: profile } = await sb
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!profile) {
+      const r = await sb
+        .from("student_profiles")
+        .insert({ user_id: userId })
+        .select("id")
+        .single();
+      if (r.error) throw r.error;
+      profile = r.data;
+    }
+    const profilePatch: Record<string, unknown> = {};
+    if (data.target_exam !== undefined) profilePatch.target_exam = data.target_exam;
+    if (data.target_score !== undefined) profilePatch.target_score = data.target_score;
+    if (data.target_date !== undefined) profilePatch.target_date = data.target_date;
+    if (data.learning_goal !== undefined) profilePatch.learning_goal = data.learning_goal;
+    if (Object.keys(profilePatch).length > 0) {
+      await sb.from("student_profiles").update(profilePatch).eq("id", profile.id);
+    }
+
+    // 3) Subjects + seed topic progress
+    for (const s of data.subjects) {
+      await sb
+        .from("student_subjects")
+        .upsert(
+          {
+            student_profile_id: profile.id,
+            subject_id: s.subject_id,
+            program_id: s.program_id ?? null,
+            status: "active",
+            started_at: new Date().toISOString().slice(0, 10),
+          },
+          { onConflict: "student_profile_id,subject_id" },
+        );
+
+      let topicIds: string[] = [];
+      if (s.program_id) {
+        const { data: pt } = await sb
+          .from("program_topics")
+          .select("topic_id")
+          .eq("program_id", s.program_id);
+        topicIds = (pt ?? []).map((r: any) => r.topic_id);
+      } else {
+        const { data: topics } = await sb
+          .from("topics")
+          .select("id")
+          .eq("subject_id", s.subject_id)
+          .eq("is_public", true);
+        topicIds = (topics ?? []).map((t: any) => t.id);
+      }
+      if (topicIds.length > 0) {
+        const rows = topicIds.map((tid) => ({
+          student_profile_id: profile!.id,
+          subject_id: s.subject_id,
+          topic_id: tid,
+          program_id: s.program_id ?? null,
+          mastery_score: 0,
+        }));
+        await sb
+          .from("student_topic_progress")
+          .upsert(rows, { onConflict: "student_profile_id,topic_id" });
+      }
+    }
+
+    return { ok: true };
+  });
+
+
+
 // ---------- Profile ----------
 
 export const getMyStudentProfile = createServerFn({ method: "GET" })

@@ -18,6 +18,7 @@ import {
   completeDiagnosticSession,
   getDiagnosticResults,
 } from "@/lib/diagnostic.functions";
+import { generateLearningPath } from "@/lib/learning-path.functions";
 
 export const Route = createFileRoute("/_authenticated/student/diagnostic/$sessionId")({
   component: DiagnosticSessionPage,
@@ -35,6 +36,7 @@ function DiagnosticSessionPage() {
   const getSession = useServerFn(getDiagnosticSession);
   const completeFn = useServerFn(completeDiagnosticSession);
   const getResults = useServerFn(getDiagnosticResults);
+  const generatePathFn = useServerFn(generateLearningPath);
 
   const sessionQ = useQuery({
     queryKey: ["diagnostic-session", sessionId],
@@ -79,7 +81,7 @@ function DiagnosticSessionPage() {
           })),
         },
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Диагностика завершена");
       qc.invalidateQueries({ queryKey: ["diagnostic-session", sessionId] });
       qc.invalidateQueries({ queryKey: ["diagnostic-results", sessionId] });
@@ -88,6 +90,16 @@ function DiagnosticSessionPage() {
       qc.invalidateQueries({ queryKey: ["student-weak"] });
       qc.invalidateQueries({ queryKey: ["student-mistakes"] });
       qc.invalidateQueries({ queryKey: ["topic-progress-real"] });
+      // Auto-generate learning path from fresh progress, then take user to it
+      try {
+        await generatePathFn({ data: { weeks: 4 } });
+        qc.invalidateQueries({ queryKey: ["learning-paths"] });
+        toast.success("Учебный маршрут сформирован");
+        navigate({ to: "/student/path" });
+      } catch (e: any) {
+        // Non-blocking — result screen still renders
+        toast.error(e?.message ?? "Не удалось сформировать маршрут");
+      }
     },
     onError: (e: any) => toast.error(e?.message ?? "Не удалось завершить"),
   });

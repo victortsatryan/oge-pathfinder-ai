@@ -3235,6 +3235,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_self_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"] }
+        Returns: undefined
+      }
       count_ai_requests_today: {
         Args: { _ip: string; _user_id: string }
         Returns: {

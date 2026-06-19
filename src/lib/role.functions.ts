@@ -28,11 +28,14 @@ export const setMyRole = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => roleSchema.parse(input))
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    const { error } = await (supabase as any)
+    const sb = supabase as any;
+    const { error } = await sb
       .from("profiles")
       .update({ role: data.role, onboarding_completed: true })
       .eq("user_id", userId);
     if (error) throw error;
+    const { error: rpcErr } = await sb.rpc("assign_self_role", { _role: data.role });
+    if (rpcErr) throw rpcErr;
     return { ok: true, role: data.role };
   });
 
