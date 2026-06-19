@@ -36,6 +36,7 @@ function DiagnosticSessionPage() {
   const getSession = useServerFn(getDiagnosticSession);
   const completeFn = useServerFn(completeDiagnosticSession);
   const getResults = useServerFn(getDiagnosticResults);
+  const generatePathFn = useServerFn(generateLearningPath);
 
   const sessionQ = useQuery({
     queryKey: ["diagnostic-session", sessionId],
