@@ -103,7 +103,14 @@ function LessonPage() {
         </section>
       )}
 
-      {tasks.length > 0 && (
+      {tasks.length === 0 ? (
+        <section className="pf-block mt-6">
+          <h2 className="pf-h2">Практика</h2>
+          <p className="text-sm text-[color:var(--pf-muted)] mt-2">
+            Задания будут доступны после наполнения базы. Занятие можно завершить как «изучено».
+          </p>
+        </section>
+      ) : (
         <section className="pf-block mt-6">
           <h2 className="pf-h2">Практика</h2>
           <ol className="grid gap-4 mt-3">
