@@ -142,10 +142,97 @@ export const generateLearningPath = createServerFn({ method: "POST" })
       planDate.setDate(planDate.getDate() + 1);
     });
 
-    const ins = await sb.from("learning_path_items").insert(itemsToInsert);
+    const ins = await sb
+      .from("learning_path_items")
+      .insert(itemsToInsert)
+      .select("id, subject_id, topic_id, program_id, title, planned_date, duration_minutes, student_profile_id, learning_path_id");
     if (ins.error) throw new Error(ins.error.message);
+    const insertedItems = ins.data ?? [];
 
-    return { ok: true as const, path_id: pathId, items_count: itemsToInsert.length };
+    // Auto-generate lessons + calendar_events for every path item
+    let firstLessonId: string | null = null;
+    if (insertedItems.length > 0) {
+      const lessonRows = insertedItems.map((it: any) => ({
+        user_id: context.userId,
+        student_profile_id: profileId,
+        learning_path_id: pathId,
+        learning_path_item_id: it.id,
+        subject_id: it.subject_id,
+        topic_id: it.topic_id,
+        program_id: it.program_id,
+        lesson_date: it.planned_date,
+        title: it.title,
+        goal: `Закрыть слабую тему: ${it.title}`,
+        duration_minutes: it.duration_minutes ?? 60,
+        status: "planned" as const,
+      }));
+      const lessonsIns = await sb
+        .from("lessons")
+        .insert(lessonRows)
+        .select("id, lesson_date, title, subject_id, topic_id, student_profile_id, learning_path_item_id");
+      if (lessonsIns.error) throw new Error(lessonsIns.error.message);
+      const lessons = lessonsIns.data ?? [];
+
+      const eventRows = lessons.map((l: any) => ({
+        user_id: context.userId,
+        student_profile_id: profileId,
+        event_type: "lesson",
+        lesson_id: l.id,
+        subject_id: l.subject_id,
+        topic_id: l.topic_id,
+        title: l.title,
+        event_date: l.lesson_date,
+        duration_minutes: 60,
+        status: "planned",
+      }));
+      if (eventRows.length > 0) {
+        await sb.from("calendar_events").insert(eventRows);
+      }
+
+      // Auto-build first lesson: attach materials + tasks (best-effort, empty state ok)
+      const first = lessons[0];
+      if (first) {
+        firstLessonId = first.id;
+        if (first.topic_id) {
+          const [matsRes, tasksRes] = await Promise.all([
+            sb.from("materials").select("id").eq("topic_id", first.topic_id).eq("is_public", true).order("difficulty").limit(4),
+            sb.from("tasks").select("id").eq("topic_id", first.topic_id).eq("is_published", true).limit(5),
+          ]);
+          const mats = matsRes.data ?? [];
+          if (mats.length > 0) {
+            await sb.from("lesson_materials").insert(
+              mats.map((m: any, i: number) => ({
+                lesson_id: first.id,
+                material_id: m.id,
+                order_index: i,
+                is_required: i === 0,
+                user_id: context.userId,
+              })),
+            );
+          }
+          const tks = tasksRes.data ?? [];
+          if (tks.length > 0) {
+            await sb.from("lesson_tasks").insert(
+              tks.map((t: any, i: number) => ({
+                lesson_id: first.id,
+                task_id: t.id,
+                order_index: i,
+                points: 1,
+                is_required: true,
+                user_id: context.userId,
+              })),
+            );
+          }
+        }
+      }
+    }
+
+    return {
+      ok: true as const,
+      path_id: pathId,
+      items_count: itemsToInsert.length,
+      first_lesson_id: firstLessonId,
+    };
   });
 
 export const generateCalendarFromLearningPath = createServerFn({ method: "POST" })
