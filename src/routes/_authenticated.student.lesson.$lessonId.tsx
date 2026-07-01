@@ -71,7 +71,14 @@ function LessonPage() {
         </p>
       </section>
 
-      {materials.length > 0 && (
+      {materials.length === 0 ? (
+        <section className="pf-block mt-6">
+          <h2 className="pf-h2">Материалы</h2>
+          <p className="text-sm text-[color:var(--pf-muted)] mt-2">
+            Материалы пока не загружены. Мы добавим их по мере наполнения базы.
+          </p>
+        </section>
+      ) : (
         <section className="pf-block mt-6">
           <h2 className="pf-h2">Материалы</h2>
           <ul className="grid gap-2 mt-3">
