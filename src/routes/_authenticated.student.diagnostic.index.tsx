@@ -22,7 +22,7 @@ import {
 } from "@/lib/diagnostic.functions";
 import { listSubjects } from "@/lib/student-profile.functions";
 
-export const Route = createFileRoute("/_authenticated/student/diagnostic")({
+export const Route = createFileRoute("/_authenticated/student/diagnostic/")({
   component: DiagnosticHub,
 });
 

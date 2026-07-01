@@ -32,7 +32,6 @@ import { Route as AuthenticatedStudentProgressRouteImport } from './routes/_auth
 import { Route as AuthenticatedStudentPathRouteImport } from './routes/_authenticated.student.path'
 import { Route as AuthenticatedStudentMaterialsRouteImport } from './routes/_authenticated.student.materials'
 import { Route as AuthenticatedStudentLessonsRouteImport } from './routes/_authenticated.student.lessons'
-import { Route as AuthenticatedStudentDiagnosticRouteImport } from './routes/_authenticated.student.diagnostic'
 import { Route as AuthenticatedStudentCalendarRouteImport } from './routes/_authenticated.student.calendar'
 import { Route as AuthenticatedStudentAssistantRouteImport } from './routes/_authenticated.student.assistant'
 import { Route as AuthenticatedStudentAnalyticsRouteImport } from './routes/_authenticated.student.analytics'
@@ -42,6 +41,7 @@ import { Route as AuthenticatedAdminNewRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminImportRouteImport } from './routes/_authenticated.admin.import'
 import { Route as AuthenticatedTeacherStudentsIndexRouteImport } from './routes/_authenticated.teacher.students.index'
 import { Route as AuthenticatedStudentSubjectsIndexRouteImport } from './routes/_authenticated.student.subjects.index'
+import { Route as AuthenticatedStudentDiagnosticIndexRouteImport } from './routes/_authenticated.student.diagnostic.index'
 import { Route as AuthenticatedTeacherStudentsStudentIdRouteImport } from './routes/_authenticated.teacher.students.$studentId'
 import { Route as AuthenticatedStudentTopicsTopicIdRouteImport } from './routes/_authenticated.student.topics.$topicId'
 import { Route as AuthenticatedStudentSubjectsSubjectIdRouteImport } from './routes/_authenticated.student.subjects.$subjectId'
@@ -174,12 +174,6 @@ const AuthenticatedStudentLessonsRoute =
     path: '/lessons',
     getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
-const AuthenticatedStudentDiagnosticRoute =
-  AuthenticatedStudentDiagnosticRouteImport.update({
-    id: '/diagnostic',
-    path: '/diagnostic',
-    getParentRoute: () => AuthenticatedStudentRoute,
-  } as any)
 const AuthenticatedStudentCalendarRoute =
   AuthenticatedStudentCalendarRouteImport.update({
     id: '/calendar',
@@ -233,6 +227,12 @@ const AuthenticatedStudentSubjectsIndexRoute =
     path: '/subjects/',
     getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
+const AuthenticatedStudentDiagnosticIndexRoute =
+  AuthenticatedStudentDiagnosticIndexRouteImport.update({
+    id: '/diagnostic/',
+    path: '/diagnostic/',
+    getParentRoute: () => AuthenticatedStudentRoute,
+  } as any)
 const AuthenticatedTeacherStudentsStudentIdRoute =
   AuthenticatedTeacherStudentsStudentIdRouteImport.update({
     id: '/students/$studentId',
@@ -259,9 +259,9 @@ const AuthenticatedStudentLessonLessonIdRoute =
   } as any)
 const AuthenticatedStudentDiagnosticSessionIdRoute =
   AuthenticatedStudentDiagnosticSessionIdRouteImport.update({
-    id: '/$sessionId',
-    path: '/$sessionId',
-    getParentRoute: () => AuthenticatedStudentDiagnosticRoute,
+    id: '/diagnostic/$sessionId',
+    path: '/diagnostic/$sessionId',
+    getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -281,7 +281,6 @@ export interface FileRoutesByFullPath {
   '/student/analytics': typeof AuthenticatedStudentAnalyticsRoute
   '/student/assistant': typeof AuthenticatedStudentAssistantRoute
   '/student/calendar': typeof AuthenticatedStudentCalendarRoute
-  '/student/diagnostic': typeof AuthenticatedStudentDiagnosticRouteWithChildren
   '/student/lessons': typeof AuthenticatedStudentLessonsRoute
   '/student/materials': typeof AuthenticatedStudentMaterialsRoute
   '/student/path': typeof AuthenticatedStudentPathRoute
@@ -300,6 +299,7 @@ export interface FileRoutesByFullPath {
   '/student/subjects/$subjectId': typeof AuthenticatedStudentSubjectsSubjectIdRoute
   '/student/topics/$topicId': typeof AuthenticatedStudentTopicsTopicIdRoute
   '/teacher/students/$studentId': typeof AuthenticatedTeacherStudentsStudentIdRoute
+  '/student/diagnostic/': typeof AuthenticatedStudentDiagnosticIndexRoute
   '/student/subjects/': typeof AuthenticatedStudentSubjectsIndexRoute
   '/teacher/students/': typeof AuthenticatedTeacherStudentsIndexRoute
 }
@@ -317,7 +317,6 @@ export interface FileRoutesByTo {
   '/student/analytics': typeof AuthenticatedStudentAnalyticsRoute
   '/student/assistant': typeof AuthenticatedStudentAssistantRoute
   '/student/calendar': typeof AuthenticatedStudentCalendarRoute
-  '/student/diagnostic': typeof AuthenticatedStudentDiagnosticRouteWithChildren
   '/student/lessons': typeof AuthenticatedStudentLessonsRoute
   '/student/materials': typeof AuthenticatedStudentMaterialsRoute
   '/student/path': typeof AuthenticatedStudentPathRoute
@@ -336,6 +335,7 @@ export interface FileRoutesByTo {
   '/student/subjects/$subjectId': typeof AuthenticatedStudentSubjectsSubjectIdRoute
   '/student/topics/$topicId': typeof AuthenticatedStudentTopicsTopicIdRoute
   '/teacher/students/$studentId': typeof AuthenticatedTeacherStudentsStudentIdRoute
+  '/student/diagnostic': typeof AuthenticatedStudentDiagnosticIndexRoute
   '/student/subjects': typeof AuthenticatedStudentSubjectsIndexRoute
   '/teacher/students': typeof AuthenticatedTeacherStudentsIndexRoute
 }
@@ -358,7 +358,6 @@ export interface FileRoutesById {
   '/_authenticated/student/analytics': typeof AuthenticatedStudentAnalyticsRoute
   '/_authenticated/student/assistant': typeof AuthenticatedStudentAssistantRoute
   '/_authenticated/student/calendar': typeof AuthenticatedStudentCalendarRoute
-  '/_authenticated/student/diagnostic': typeof AuthenticatedStudentDiagnosticRouteWithChildren
   '/_authenticated/student/lessons': typeof AuthenticatedStudentLessonsRoute
   '/_authenticated/student/materials': typeof AuthenticatedStudentMaterialsRoute
   '/_authenticated/student/path': typeof AuthenticatedStudentPathRoute
@@ -377,6 +376,7 @@ export interface FileRoutesById {
   '/_authenticated/student/subjects/$subjectId': typeof AuthenticatedStudentSubjectsSubjectIdRoute
   '/_authenticated/student/topics/$topicId': typeof AuthenticatedStudentTopicsTopicIdRoute
   '/_authenticated/teacher/students/$studentId': typeof AuthenticatedTeacherStudentsStudentIdRoute
+  '/_authenticated/student/diagnostic/': typeof AuthenticatedStudentDiagnosticIndexRoute
   '/_authenticated/student/subjects/': typeof AuthenticatedStudentSubjectsIndexRoute
   '/_authenticated/teacher/students/': typeof AuthenticatedTeacherStudentsIndexRoute
 }
@@ -399,7 +399,6 @@ export interface FileRouteTypes {
     | '/student/analytics'
     | '/student/assistant'
     | '/student/calendar'
-    | '/student/diagnostic'
     | '/student/lessons'
     | '/student/materials'
     | '/student/path'
@@ -418,6 +417,7 @@ export interface FileRouteTypes {
     | '/student/subjects/$subjectId'
     | '/student/topics/$topicId'
     | '/teacher/students/$studentId'
+    | '/student/diagnostic/'
     | '/student/subjects/'
     | '/teacher/students/'
   fileRoutesByTo: FileRoutesByTo
@@ -435,7 +435,6 @@ export interface FileRouteTypes {
     | '/student/analytics'
     | '/student/assistant'
     | '/student/calendar'
-    | '/student/diagnostic'
     | '/student/lessons'
     | '/student/materials'
     | '/student/path'
@@ -454,6 +453,7 @@ export interface FileRouteTypes {
     | '/student/subjects/$subjectId'
     | '/student/topics/$topicId'
     | '/teacher/students/$studentId'
+    | '/student/diagnostic'
     | '/student/subjects'
     | '/teacher/students'
   id:
@@ -475,7 +475,6 @@ export interface FileRouteTypes {
     | '/_authenticated/student/analytics'
     | '/_authenticated/student/assistant'
     | '/_authenticated/student/calendar'
-    | '/_authenticated/student/diagnostic'
     | '/_authenticated/student/lessons'
     | '/_authenticated/student/materials'
     | '/_authenticated/student/path'
@@ -494,6 +493,7 @@ export interface FileRouteTypes {
     | '/_authenticated/student/subjects/$subjectId'
     | '/_authenticated/student/topics/$topicId'
     | '/_authenticated/teacher/students/$studentId'
+    | '/_authenticated/student/diagnostic/'
     | '/_authenticated/student/subjects/'
     | '/_authenticated/teacher/students/'
   fileRoutesById: FileRoutesById
@@ -667,13 +667,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentLessonsRouteImport
       parentRoute: typeof AuthenticatedStudentRoute
     }
-    '/_authenticated/student/diagnostic': {
-      id: '/_authenticated/student/diagnostic'
-      path: '/diagnostic'
-      fullPath: '/student/diagnostic'
-      preLoaderRoute: typeof AuthenticatedStudentDiagnosticRouteImport
-      parentRoute: typeof AuthenticatedStudentRoute
-    }
     '/_authenticated/student/calendar': {
       id: '/_authenticated/student/calendar'
       path: '/calendar'
@@ -737,6 +730,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentSubjectsIndexRouteImport
       parentRoute: typeof AuthenticatedStudentRoute
     }
+    '/_authenticated/student/diagnostic/': {
+      id: '/_authenticated/student/diagnostic/'
+      path: '/diagnostic'
+      fullPath: '/student/diagnostic/'
+      preLoaderRoute: typeof AuthenticatedStudentDiagnosticIndexRouteImport
+      parentRoute: typeof AuthenticatedStudentRoute
+    }
     '/_authenticated/teacher/students/$studentId': {
       id: '/_authenticated/teacher/students/$studentId'
       path: '/students/$studentId'
@@ -767,10 +767,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/student/diagnostic/$sessionId': {
       id: '/_authenticated/student/diagnostic/$sessionId'
-      path: '/$sessionId'
+      path: '/diagnostic/$sessionId'
       fullPath: '/student/diagnostic/$sessionId'
       preLoaderRoute: typeof AuthenticatedStudentDiagnosticSessionIdRouteImport
-      parentRoute: typeof AuthenticatedStudentDiagnosticRoute
+      parentRoute: typeof AuthenticatedStudentRoute
     }
   }
 }
@@ -792,35 +792,21 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
-interface AuthenticatedStudentDiagnosticRouteChildren {
-  AuthenticatedStudentDiagnosticSessionIdRoute: typeof AuthenticatedStudentDiagnosticSessionIdRoute
-}
-
-const AuthenticatedStudentDiagnosticRouteChildren: AuthenticatedStudentDiagnosticRouteChildren =
-  {
-    AuthenticatedStudentDiagnosticSessionIdRoute:
-      AuthenticatedStudentDiagnosticSessionIdRoute,
-  }
-
-const AuthenticatedStudentDiagnosticRouteWithChildren =
-  AuthenticatedStudentDiagnosticRoute._addFileChildren(
-    AuthenticatedStudentDiagnosticRouteChildren,
-  )
-
 interface AuthenticatedStudentRouteChildren {
   AuthenticatedStudentAnalyticsRoute: typeof AuthenticatedStudentAnalyticsRoute
   AuthenticatedStudentAssistantRoute: typeof AuthenticatedStudentAssistantRoute
   AuthenticatedStudentCalendarRoute: typeof AuthenticatedStudentCalendarRoute
-  AuthenticatedStudentDiagnosticRoute: typeof AuthenticatedStudentDiagnosticRouteWithChildren
   AuthenticatedStudentLessonsRoute: typeof AuthenticatedStudentLessonsRoute
   AuthenticatedStudentMaterialsRoute: typeof AuthenticatedStudentMaterialsRoute
   AuthenticatedStudentPathRoute: typeof AuthenticatedStudentPathRoute
   AuthenticatedStudentProgressRoute: typeof AuthenticatedStudentProgressRoute
   AuthenticatedStudentReportRoute: typeof AuthenticatedStudentReportRoute
   AuthenticatedStudentIndexRoute: typeof AuthenticatedStudentIndexRoute
+  AuthenticatedStudentDiagnosticSessionIdRoute: typeof AuthenticatedStudentDiagnosticSessionIdRoute
   AuthenticatedStudentLessonLessonIdRoute: typeof AuthenticatedStudentLessonLessonIdRoute
   AuthenticatedStudentSubjectsSubjectIdRoute: typeof AuthenticatedStudentSubjectsSubjectIdRoute
   AuthenticatedStudentTopicsTopicIdRoute: typeof AuthenticatedStudentTopicsTopicIdRoute
+  AuthenticatedStudentDiagnosticIndexRoute: typeof AuthenticatedStudentDiagnosticIndexRoute
   AuthenticatedStudentSubjectsIndexRoute: typeof AuthenticatedStudentSubjectsIndexRoute
 }
 
@@ -828,20 +814,22 @@ const AuthenticatedStudentRouteChildren: AuthenticatedStudentRouteChildren = {
   AuthenticatedStudentAnalyticsRoute: AuthenticatedStudentAnalyticsRoute,
   AuthenticatedStudentAssistantRoute: AuthenticatedStudentAssistantRoute,
   AuthenticatedStudentCalendarRoute: AuthenticatedStudentCalendarRoute,
-  AuthenticatedStudentDiagnosticRoute:
-    AuthenticatedStudentDiagnosticRouteWithChildren,
   AuthenticatedStudentLessonsRoute: AuthenticatedStudentLessonsRoute,
   AuthenticatedStudentMaterialsRoute: AuthenticatedStudentMaterialsRoute,
   AuthenticatedStudentPathRoute: AuthenticatedStudentPathRoute,
   AuthenticatedStudentProgressRoute: AuthenticatedStudentProgressRoute,
   AuthenticatedStudentReportRoute: AuthenticatedStudentReportRoute,
   AuthenticatedStudentIndexRoute: AuthenticatedStudentIndexRoute,
+  AuthenticatedStudentDiagnosticSessionIdRoute:
+    AuthenticatedStudentDiagnosticSessionIdRoute,
   AuthenticatedStudentLessonLessonIdRoute:
     AuthenticatedStudentLessonLessonIdRoute,
   AuthenticatedStudentSubjectsSubjectIdRoute:
     AuthenticatedStudentSubjectsSubjectIdRoute,
   AuthenticatedStudentTopicsTopicIdRoute:
     AuthenticatedStudentTopicsTopicIdRoute,
+  AuthenticatedStudentDiagnosticIndexRoute:
+    AuthenticatedStudentDiagnosticIndexRoute,
   AuthenticatedStudentSubjectsIndexRoute:
     AuthenticatedStudentSubjectsIndexRoute,
 }
