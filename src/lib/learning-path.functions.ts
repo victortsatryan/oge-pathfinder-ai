@@ -48,7 +48,7 @@ export const getLearningPath = createServerFn({ method: "POST" })
     const [pathRes, itemsRes] = await Promise.all([
       sb.from("learning_paths").select("*").eq("id", data.path_id).single(),
       sb.from("learning_path_items")
-        .select("*, subjects(name), topics(title)")
+        .select("*, subjects(name), topics(title), lessons(id, status)")
         .eq("learning_path_id", data.path_id)
         .order("priority", { ascending: false })
         .order("order_index", { ascending: true }),
