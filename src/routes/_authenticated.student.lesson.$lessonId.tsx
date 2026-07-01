@@ -164,7 +164,7 @@ function LessonPage() {
         ) : (
           <button
             onClick={() => completeMut.mutate()}
-            disabled={completeMut.isPending || attempts.length === 0}
+            disabled={completeMut.isPending || (tasks.length > 0 && attempts.length === 0)}
             className="pf-chip hover:bg-[color:var(--pf-ink)] hover:text-[color:var(--pf-paper)]"
           >
             {completeMut.isPending ? "Завершаю…" : "Завершить занятие"}
