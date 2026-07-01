@@ -65,6 +65,15 @@ function PathPage() {
         ? (generate.error as Error).message
         : null;
 
+  const items = (detail.data?.items ?? []) as any[];
+  const nextItem = items.find((it) => {
+    const lesson = Array.isArray(it.lessons) ? it.lessons[0] : it.lessons;
+    return !lesson || lesson.status !== "completed";
+  });
+  const nextLessonId = nextItem
+    ? (Array.isArray(nextItem.lessons) ? nextItem.lessons[0]?.id : nextItem.lessons?.id)
+    : null;
+
   return (
     <>
       <div className="pf-topbar">
@@ -85,7 +94,16 @@ function PathPage() {
         >
           {generate.isPending ? "Собираю…" : activeId ? "Пересобрать маршрут" : "Сформировать маршрут"}
         </button>
-        {activeId && (
+        {activeId && nextLessonId && (
+          <Link
+            to="/student/lesson/$lessonId"
+            params={{ lessonId: nextLessonId }}
+            className="pf-chip hover:bg-[color:var(--pf-ink)] hover:text-[color:var(--pf-paper)]"
+          >
+            → Начать ближайшее занятие
+          </Link>
+        )}
+        {activeId && !nextLessonId && (
           <button
             onClick={() => buildCalendar.mutate()}
             disabled={buildCalendar.isPending}
