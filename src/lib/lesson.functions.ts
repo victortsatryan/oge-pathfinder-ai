@@ -219,7 +219,7 @@ export const submitLessonTaskAttempt = createServerFn({ method: "POST" })
       points_awarded: isCorrect ? 1 : 0,
       max_points: 1,
       checked_by: "auto",
-      mistake_type: isCorrect ? null : "wrong_answer",
+      mistake_type: isCorrect ? null : "careless_error",
     };
 
     if (existing?.id) {
