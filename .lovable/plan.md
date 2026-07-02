@@ -1,73 +1,100 @@
-# Plan: Admin Materials Upload System for Pathy
+# Pathy Studio v1 — план
 
-## Scope
-Build an admin-only system to upload and structure school materials (CSV/JSON import + manual form), wired into the existing `materials` / `subjects` / `topics` / `learning_objectives` schema. No user-facing upload or sharing.
+Внутренний админ-модуль для загрузки образовательного контента в формате **PCS (Pathy Content Schema)** через JSON-файлы. Доступ только для роли `admin`.
 
-## 1. Database migration
+## 1. Область работ
 
-Single migration covering:
+Новый раздел `/admin/content` с подстраницами:
+- **Dashboard** — счётчики + последние импорты
+- **Import** — загрузка PCS JSON, preview, валидация, коммит
+- **Programs** — дерево программы (класс → предмет → раздел → тема → подтема → LO)
+- **Learning Objectives** — плоский список с фильтрами
+- **История импортов** — таблица `content_imports`
 
-### `materials` — verify/extend
-Existing table has 20 cols. Add any missing fields from spec:
-- `grade text`, `language text default 'ru'`, `license_type text`, `license_note text`, `image_url text`, `source_name text`, `estimated_time_minutes int`, `status text default 'draft'` (constrained to `draft|reviewed|published|archived`).
-- Ensure FKs: `subject_id`, `program_id → subject_programs`, `topic_id`, `learning_objective_id`.
-- Unique-ish dedup index: `(subject_id, topic_id, lower(title), coalesce(source_url,''))`.
+Существующая `/admin` (импорт материалов CSV) остаётся — Studio живёт рядом как отдельный модуль.
 
-### `content_sources` — new
-Fields per spec. GRANTs + RLS:
-- `SELECT` to `authenticated` (read approved sources).
-- `ALL` to admins via `has_role(auth.uid(),'admin')`.
+## 2. Схема БД (миграция)
 
-### `content_import_logs` — new
-Fields per spec. RLS: only admins read/write.
+Проверю фактическую схему `topics`, `learning_objectives`, `materials` (`supabase--read_query`), но по плану ожидается:
 
-### App role
-Confirm `app_role` enum has `admin`. If not present, add. (Existing `has_role` function already exists.)
+**Новые/расширенные таблицы:**
+- `subject_sections` — раздел предмета (subject_id, program_id, title, order_index)
+- `topics` — уже есть, добавить `parent_topic_id`, `section_id`, `pcs_key` если нет
+- `learning_objectives` — есть; добавить `pcs_key`, `pcs_version`, `theory`, `algorithm`, `status` (draft/reviewed/published/archived), `version`
+- `lo_examples` — примеры (learning_objective_id, title, statement, solution, order_index)
+- `task_patterns` — шаблоны заданий (learning_objective_id, pattern_key, statement_template, answer_schema jsonb, difficulty, hints jsonb, order_index)
+- `lo_sources` — источники (learning_objective_id, source_name, url, license, citation)
+- `lo_diagnostic_settings` — диагностика (learning_objective_id, min_tasks, mastery_threshold, difficulty_curve jsonb)
+- `content_imports` — id, filename, imported_by, imported_at, pcs_version, status, rows_created/updated/failed, error_log jsonb
 
-## 2. Server functions (`src/lib/admin-materials.functions.ts`)
+Для каждой таблицы: GRANT authenticated+service_role, RLS enabled, policy `has_role(auth.uid(),'admin')` для write; для read — либо authenticated (публичное дерево программ), либо admin-only.
 
-All gated by `requireSupabaseAuth` + admin role check via `has_role` RPC.
+## 3. PCS JSON — контракт
 
-- `previewImport({ rows })` — parse rows, resolve subject/program/topic/subtopic/LO (create-if-missing in dry-run = false; in preview mode just count). Returns `{ toCreate, toUpdate, toSkip, errors, sample }`.
-- `runImport({ rows, fileName, format })` — for each row:
-  1. upsert subject by title
-  2. upsert program by (subject, title)
-  3. upsert topic by (subject, title); subtopic as child topic with `parent_topic_id` (use existing topics table — check if parent col exists, else store subtopic as topic with note)
-  4. upsert learning_objective by (topic, title)
-  5. dedup material by `(subject_id, topic_id, lower(title), source_url)` → insert or update
-  6. accumulate counts, errors
-  7. write `content_import_logs` row
-- `listImportLogs()` — admin list.
-- `createMaterialManual(input)` — single insert with the same resolution logic.
-- `listContentSources()` / `upsertContentSource()`.
+Zod-схема в `src/lib/pcs/schema.ts`:
 
-## 3. Admin UI
+```ts
+{
+  schema_version: "1.0",
+  pcs_version: string,
+  education_system: string,       // напр. "RU"
+  grade: number,                  // 11
+  program: { key, title },
+  subject: { key, title },
+  section: { key, title, order? },
+  topic: { key, title, order? },
+  subtopic: { key, title, order? },
+  learning_objective: {
+    key, title, version?, status?,
+    theory: string,               // markdown
+    algorithm?: string,
+  },
+  examples?: [{ title?, statement, solution, order? }],
+  task_patterns: [{ key, statement_template, answer_schema, difficulty?, hints? }],
+  materials?: [{ type, title, url?, content_text?, source_name?, license_note? }],
+  sources?: [{ name, url?, citation?, license? }],
+  diagnostic?: { min_tasks?, mastery_threshold?, difficulty_curve? },
+}
+```
 
-New route group `src/routes/_authenticated/admin/...`:
-- `admin.tsx` — layout, checks `has_role('admin')` client-side; redirects non-admins.
-- `admin.materials.import.tsx` — file picker (CSV/JSON), preview table (first 10 rows), summary card (create/update/skip/errors), "Import" button, import history table below.
-- `admin.materials.new.tsx` — manual form (all spec fields, cascading selects for subject→program→topic→LO).
-- `admin.sources.tsx` — list/create content sources.
+## 4. Server functions (`src/lib/pcs/pcs.functions.ts`)
 
-Add admin entry in the user menu (visible only if admin).
+Все с `requireSupabaseAuth` + admin-check через `has_role` RPC.
 
-CSV parsing: use `papaparse` (add via `bun add papaparse @types/papaparse`).
+- `pcsDashboardCounts()` — счётчики.
+- `pcsPreviewImport({ json })` — парсит через Zod, резолвит существующие сущности по `pcs_key`, возвращает `{ ok, summary, willCreate, willUpdate, conflicts, errors }`. Ничего не пишет.
+- `pcsRunImport({ json, mode: 'update'|'new_version'|'skip' })` — в одной транзакции (через RPC `pcs_import`, plpgsql-функция) upsert-ит program → subject → section → topic → subtopic → LO, затем перезаписывает examples/task_patterns/sources/diagnostic (delete+insert внутри той же транзакции), пишет `content_imports`. Ошибка → rollback (RAISE EXCEPTION).
+- `pcsListImports({ limit=20 })`.
+- `pcsProgramTree()` — иерархия для дерева.
+- `pcsGetLearningObjective({ id })` — карточка LO с examples/patterns/sources/diagnostic.
+- `pcsListLearningObjectives({ filters })`.
 
-## 4. Lessons / AI integration (light wiring)
+Транзакцию делаю через RPC (`create function pcs_import(payload jsonb) returns jsonb language plpgsql security definer` с проверкой `has_role(auth.uid(),'admin')` внутри). Server fn просто вызывает RPC и логирует в `content_imports`.
 
-- Existing `src/lib/materials.functions.ts`: ensure `listMaterialsForTopic` filters `status = 'published'`. Add empty-state hint in student materials route.
-- AI prompt builders (`oge-ai.functions.ts` / `oge-assistant.functions.ts`): when fetching context for a topic, pull `published` materials first; if none, instruct AI to say "в базе нет подходящих материалов".
+## 5. UI
 
-(Deep AI/lesson refactor out of scope — minimal hooks only.)
+Роуты:
+- `src/routes/_authenticated.admin.content.tsx` — layout с admin-check + sidebar (Dashboard / Импорт / Программы / LO / История)
+- `_authenticated.admin.content.index.tsx` — Dashboard
+- `_authenticated.admin.content.import.tsx` — drag-drop + preview + commit
+- `_authenticated.admin.content.programs.tsx` — дерево (`Collapsible` из shadcn)
+- `_authenticated.admin.content.objectives.tsx` — список LO
+- `_authenticated.admin.content.objectives.$loId.tsx` — карточка (read-only)
+- `_authenticated.admin.content.history.tsx` — таблица импортов
 
-## 5. Out of scope (this step)
-- MVP content seeding (section 15) — provide CSV template + docs; bulk content load is a follow-up.
-- Public sharing, user uploads.
-- File storage uploads (PDF/image upload UI) — only URL references for now; storage bucket can come later.
+Пункт «Content Studio» появится в текущем `/admin` dashboard.
 
-## Technical notes
-- Subtopics: existing `topics` table is flat. Use `parent_topic_id` if column exists; otherwise add it in this migration (`topics.parent_topic_id uuid references topics(id)`).
-- Admin check pattern: server-side `has_role(userId,'admin')` RPC inside every admin server fn; client-side hide UI via a `useIsAdmin()` hook calling a small `amIAdmin` server fn.
-- Import runs synchronously per request; large files chunked client-side into batches of 200 rows before calling `runImport`.
+## 6. Что НЕ делаю (по ТЗ)
 
-Proceed?
+Ручной JSON-редактор, PDF/DOCX/URL импорт, Content Extractor, AI-генерация, редакторы теории/заданий.
+
+## 7. Порядок выполнения
+
+1. Прочитать актуальную схему `topics`/`learning_objectives`/`materials`/`subjects`/`subject_programs` в БД.
+2. Создать миграцию (новые таблицы + расширения + RPC `pcs_import` + `content_imports` + GRANT/RLS).
+3. Zod-схема PCS + server functions.
+4. Роуты и UI.
+5. Пример PCS JSON в `docs/pcs-example.json` для быстрого теста.
+6. Smoke-тест через Playwright: залогиниться под admin, залить пример, проверить дерево и карточку LO.
+
+Продолжать?
