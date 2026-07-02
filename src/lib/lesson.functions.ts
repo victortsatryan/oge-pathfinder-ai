@@ -219,7 +219,7 @@ export const submitLessonTaskAttempt = createServerFn({ method: "POST" })
       points_awarded: isCorrect ? 1 : 0,
       max_points: 1,
       checked_by: "auto",
-      mistake_type: isCorrect ? null : "wrong_answer",
+      mistake_type: isCorrect ? null : "careless_error",
     };
 
     if (existing?.id) {
@@ -287,9 +287,11 @@ export const completeLesson = createServerFn({ method: "POST" })
       summary,
     };
     if (existing?.id) {
-      await sb.from("lesson_results").update(row).eq("id", existing.id);
+      const upd = await sb.from("lesson_results").update(row).eq("id", existing.id);
+      if (upd.error) throw new Error(`lesson_results update: ${upd.error.message}`);
     } else {
-      await sb.from("lesson_results").insert(row);
+      const ins = await sb.from("lesson_results").insert(row);
+      if (ins.error) throw new Error(`lesson_results insert: ${ins.error.message}`);
     }
 
     // Update progress for the topic
@@ -306,7 +308,7 @@ export const completeLesson = createServerFn({ method: "POST" })
       const newMastery = diag != null ? Math.round(diag * 0.5 + newPractice * 0.5) : newPractice;
       const oldMastery = prog?.mastery_score ?? 0;
 
-      await sb.from("student_topic_progress").upsert(
+      const upsertProg = await sb.from("student_topic_progress").upsert(
         {
           student_profile_id: profileId,
           subject_id: lesson.subject_id,
@@ -320,6 +322,7 @@ export const completeLesson = createServerFn({ method: "POST" })
         },
         { onConflict: "student_profile_id,topic_id" },
       );
+      if (upsertProg.error) throw new Error(`student_topic_progress upsert: ${upsertProg.error.message}`);
 
       if (oldMastery !== newMastery) {
         await sb.from("student_progress_history").insert({
@@ -334,18 +337,23 @@ export const completeLesson = createServerFn({ method: "POST" })
         });
       }
 
-
-      // Save mistakes
+      // Save mistakes (mistake_type must match CHECK constraint)
+      const allowedMistakes = new Set([
+        "concept_gap", "careless_error", "calculation_error", "grammar_error",
+        "misread_task", "no_strategy", "vocabulary_gap", "memory_gap", "other",
+      ]);
       const wrongAttempts = (attempts ?? []).filter((a: any) => a.is_correct === false);
       if (wrongAttempts.length > 0) {
         const mistakeRows = wrongAttempts.map((a: any) => ({
           student_profile_id: profileId,
-          subject_id: lesson.subject_id,
-          topic_id: lesson.topic_id ?? undefined,
+          subject_id: lesson.subject_id ?? null,
+          topic_id: lesson.topic_id ?? null,
           task_id: a.task_id,
-          mistake_type: a.mistake_type ?? "wrong_answer",
+          mistake_type: allowedMistakes.has(a.mistake_type) ? a.mistake_type : "careless_error",
+          source: "lesson",
         }));
-        await sb.from("student_mistakes").insert(mistakeRows);
+        const mErr = await sb.from("student_mistakes").insert(mistakeRows);
+        if (mErr.error) console.error("student_mistakes insert failed:", mErr.error.message);
       }
     }
 
