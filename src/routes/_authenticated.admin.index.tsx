@@ -9,6 +9,13 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 function AdminHome() {
   return (
     <div className="grid gap-4 md:grid-cols-3">
+      <Link to="/admin/content">
+        <Card className="hover:border-primary transition">
+          <CardHeader><CardTitle>Pathy Studio</CardTitle><CardDescription>PCS JSON и программа</CardDescription></CardHeader>
+          <CardContent className="text-sm text-muted-foreground">Импорт образовательного контента, дерево программы, карточки Learning Objectives.</CardContent>
+        </Card>
+      </Link>
+
       <Link to="/admin/import">
         <Card className="hover:border-primary transition">
           <CardHeader><CardTitle>Импорт</CardTitle><CardDescription>Загрузить CSV / JSON</CardDescription></CardHeader>

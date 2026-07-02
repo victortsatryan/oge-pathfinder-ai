@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "pcs_version": "1.0.0",
+  "education_system": "RU",
+  "grade": 11,
+  "program": { "key": "rus-11-standard", "title": "Русский язык, 11 класс" },
+  "subject": { "key": "russian", "title": "Русский язык" },
+  "section": { "key": "orthography", "title": "Орфография", "order": 1 },
+  "topic": { "key": "unstressed-vowels", "title": "Безударные гласные в корне", "order": 1 },
+  "subtopic": { "key": "checkable-unstressed", "title": "Проверяемые безударные" },
+  "learning_objective": {
+    "key": "lo-check-unstressed-vowel",
+    "title": "Проверять безударную гласную подбором проверочного слова",
+    "description": "Ученик выбирает проверочное слово, где сомнительная гласная стоит под ударением.",
+    "theory": "Безударные гласные в корне, которые можно проверить, проверяются изменением формы слова или подбором однокоренного, где эта гласная под ударением. Например: лесной — лес.",
+    "algorithm": "1. Найти безударную гласную. 2. Подобрать проверочное слово. 3. Записать нужную букву.",
+    "status": "draft"
+  },
+  "examples": [
+    { "title": "Слово «зелёный»", "statement": "Какую букву выбрать: з_лёный?", "solution": "Проверочное — зелень. Пишем «е»." }
+  ],
+  "task_patterns": [
+    {
+      "key": "fill-vowel",
+      "statement_template": "Вставьте пропущенную безударную гласную: {word}",
+      "answer_schema": { "type": "text", "case_insensitive": true },
+      "difficulty": 1,
+      "hints": ["Подберите однокоренное слово с ударением на сомнительной гласной"]
+    }
+  ],
+  "materials": [
+    { "type": "article", "title": "Правило: безударные гласные", "content_text": "Краткая справка по правилу.", "status": "published" }
+  ],
+  "sources": [
+    { "name": "Розенталь Д.Э. Справочник по правописанию", "citation": "§1" }
+  ],
+  "diagnostic": { "min_tasks": 3, "mastery_threshold": 70 }
+}

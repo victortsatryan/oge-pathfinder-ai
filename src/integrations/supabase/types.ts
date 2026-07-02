@@ -393,6 +393,48 @@ export type Database = {
         }
         Relationships: []
       }
+      content_imports: {
+        Row: {
+          error_log: Json | null
+          filename: string | null
+          id: string
+          imported_at: string
+          imported_by: string | null
+          pcs_version: string | null
+          rows_created: number
+          rows_failed: number
+          rows_updated: number
+          status: string
+          summary: Json | null
+        }
+        Insert: {
+          error_log?: Json | null
+          filename?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          pcs_version?: string | null
+          rows_created?: number
+          rows_failed?: number
+          rows_updated?: number
+          status?: string
+          summary?: Json | null
+        }
+        Update: {
+          error_log?: Json | null
+          filename?: string | null
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          pcs_version?: string | null
+          rows_created?: number
+          rows_failed?: number
+          rows_updated?: number
+          status?: string
+          summary?: Json | null
+        }
+        Relationships: []
+      }
       content_resources: {
         Row: {
           content_markdown: string | null
@@ -919,6 +961,7 @@ export type Database = {
       }
       learning_objectives: {
         Row: {
+          algorithm: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -926,12 +969,19 @@ export type Database = {
           id: string
           is_public: boolean
           objective_type: string
+          pcs_key: string | null
+          pcs_version: string | null
           sort_order: number
+          source_json: Json | null
+          status: string
+          theory: string | null
           title: string
           topic_id: string
           updated_at: string
+          version: number
         }
         Insert: {
+          algorithm?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -939,12 +989,19 @@ export type Database = {
           id?: string
           is_public?: boolean
           objective_type?: string
+          pcs_key?: string | null
+          pcs_version?: string | null
           sort_order?: number
+          source_json?: Json | null
+          status?: string
+          theory?: string | null
           title: string
           topic_id: string
           updated_at?: string
+          version?: number
         }
         Update: {
+          algorithm?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -952,10 +1009,16 @@ export type Database = {
           id?: string
           is_public?: boolean
           objective_type?: string
+          pcs_key?: string | null
+          pcs_version?: string | null
           sort_order?: number
+          source_json?: Json | null
+          status?: string
+          theory?: string | null
           title?: string
           topic_id?: string
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -1583,6 +1646,129 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lo_diagnostic_settings: {
+        Row: {
+          created_at: string
+          difficulty_curve: Json | null
+          id: string
+          learning_objective_id: string
+          mastery_threshold: number
+          min_tasks: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty_curve?: Json | null
+          id?: string
+          learning_objective_id: string
+          mastery_threshold?: number
+          min_tasks?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          difficulty_curve?: Json | null
+          id?: string
+          learning_objective_id?: string
+          mastery_threshold?: number
+          min_tasks?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lo_diagnostic_settings_learning_objective_id_fkey"
+            columns: ["learning_objective_id"]
+            isOneToOne: true
+            referencedRelation: "learning_objectives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lo_examples: {
+        Row: {
+          created_at: string
+          id: string
+          learning_objective_id: string
+          order_index: number
+          solution: string | null
+          statement: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          learning_objective_id: string
+          order_index?: number
+          solution?: string | null
+          statement: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          learning_objective_id?: string
+          order_index?: number
+          solution?: string | null
+          statement?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lo_examples_learning_objective_id_fkey"
+            columns: ["learning_objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lo_sources: {
+        Row: {
+          citation: string | null
+          created_at: string
+          id: string
+          learning_objective_id: string
+          license: string | null
+          name: string
+          order_index: number
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          citation?: string | null
+          created_at?: string
+          id?: string
+          learning_objective_id: string
+          license?: string | null
+          name: string
+          order_index?: number
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          citation?: string | null
+          created_at?: string
+          id?: string
+          learning_objective_id?: string
+          license?: string | null
+          name?: string
+          order_index?: number
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lo_sources_learning_objective_id_fkey"
+            columns: ["learning_objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
             referencedColumns: ["id"]
           },
         ]
@@ -2248,6 +2434,7 @@ export type Database = {
           id: string
           is_public: boolean
           language: string
+          pcs_key: string | null
           program_type: string
           slug: string | null
           sort_order: number
@@ -2265,6 +2452,7 @@ export type Database = {
           id?: string
           is_public?: boolean
           language?: string
+          pcs_key?: string | null
           program_type?: string
           slug?: string | null
           sort_order?: number
@@ -2282,6 +2470,7 @@ export type Database = {
           id?: string
           is_public?: boolean
           language?: string
+          pcs_key?: string | null
           program_type?: string
           slug?: string | null
           sort_order?: number
@@ -2314,6 +2503,7 @@ export type Database = {
           is_school_subject: boolean
           language: string
           name: string
+          pcs_key: string | null
           slug: string
           sort_order: number
           subject_type: string
@@ -2332,6 +2522,7 @@ export type Database = {
           is_school_subject?: boolean
           language?: string
           name: string
+          pcs_key?: string | null
           slug: string
           sort_order?: number
           subject_type?: string
@@ -2350,6 +2541,7 @@ export type Database = {
           is_school_subject?: boolean
           language?: string
           name?: string
+          pcs_key?: string | null
           slug?: string
           sort_order?: number
           subject_type?: string
@@ -2484,6 +2676,53 @@ export type Database = {
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_patterns: {
+        Row: {
+          answer_schema: Json | null
+          created_at: string
+          difficulty: number
+          hints: Json | null
+          id: string
+          learning_objective_id: string
+          order_index: number
+          pattern_key: string | null
+          statement_template: string
+          updated_at: string
+        }
+        Insert: {
+          answer_schema?: Json | null
+          created_at?: string
+          difficulty?: number
+          hints?: Json | null
+          id?: string
+          learning_objective_id: string
+          order_index?: number
+          pattern_key?: string | null
+          statement_template: string
+          updated_at?: string
+        }
+        Update: {
+          answer_schema?: Json | null
+          created_at?: string
+          difficulty?: number
+          hints?: Json | null
+          id?: string
+          learning_objective_id?: string
+          order_index?: number
+          pattern_key?: string | null
+          statement_template?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_patterns_learning_objective_id_fkey"
+            columns: ["learning_objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
             referencedColumns: ["id"]
           },
         ]
@@ -3120,6 +3359,7 @@ export type Database = {
           is_public: boolean
           level: number
           parent_topic_id: string | null
+          pcs_key: string | null
           slug: string | null
           sort_order: number
           source_standard: string | null
@@ -3138,6 +3378,7 @@ export type Database = {
           is_public?: boolean
           level?: number
           parent_topic_id?: string | null
+          pcs_key?: string | null
           slug?: string | null
           sort_order?: number
           source_standard?: string | null
@@ -3156,6 +3397,7 @@ export type Database = {
           is_public?: boolean
           level?: number
           parent_topic_id?: string | null
+          pcs_key?: string | null
           slug?: string | null
           sort_order?: number
           source_standard?: string | null
@@ -3257,6 +3499,7 @@ export type Database = {
         Args: { _student_profile_id: string; _user_id: string }
         Returns: boolean
       }
+      pcs_import: { Args: { mode?: string; payload: Json }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "teacher" | "student"
