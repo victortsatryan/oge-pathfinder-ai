@@ -35,9 +35,11 @@ function AdminLayout() {
           <p className="text-sm text-muted-foreground">Управление контентом Pathy</p>
         </div>
         <nav className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content">Pathy Studio</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/import">Импорт материалов</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/new">Новый материал</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/sources">Источники</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/routes">Diagnostics</Link></Button>
         </nav>
       </div>
       <Outlet />
