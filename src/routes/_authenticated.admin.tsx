@@ -16,14 +16,16 @@ function AdminLayout() {
     queryFn: () => check(),
   });
 
-  useEffect(() => {
-    if (!isLoading && data && !data.isAdmin) {
-      navigate({ to: "/" });
-    }
-  }, [data, isLoading, navigate]);
-
   if (isLoading) return <div className="p-8 text-sm text-muted-foreground">Загрузка…</div>;
-  if (!data?.isAdmin) return <div className="p-8 text-sm">Доступ только для администраторов.</div>;
+  if (!data?.isAdmin) {
+    return (
+      <div className="container max-w-2xl py-16 text-center space-y-3">
+        <h1 className="text-3xl font-semibold">403 · Доступ запрещён</h1>
+        <p className="text-sm text-muted-foreground">Раздел доступен только пользователям с ролью <code>admin</code>.</p>
+        <Button asChild variant="outline" size="sm"><Link to="/">На главную</Link></Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-6xl py-8 space-y-6">
