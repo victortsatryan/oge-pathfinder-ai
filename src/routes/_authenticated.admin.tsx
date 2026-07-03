@@ -4,6 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 
 import { amIAdmin } from "@/lib/admin-materials.functions";
 import { Button } from "@/components/ui/button";
+import { isDevOpenAccess, getAccessMode } from "@/lib/admin-access";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
@@ -15,9 +17,14 @@ function AdminLayout() {
     queryKey: ["am-i-admin"],
     queryFn: () => check(),
   });
+  const { user } = useAuth();
+  const devOpen = isDevOpenAccess();
+  const mode = getAccessMode();
 
   if (isLoading) return <div className="p-8 text-sm text-muted-foreground">Загрузка…</div>;
-  if (!data?.isAdmin) {
+
+  const isAdmin = Boolean(data?.isAdmin);
+  if (!devOpen && !isAdmin) {
     return (
       <div className="container max-w-2xl py-16 text-center space-y-3">
         <h1 className="text-3xl font-semibold">403 · Доступ запрещён</h1>
@@ -42,6 +49,23 @@ function AdminLayout() {
           <Button asChild variant="outline" size="sm"><Link to="/admin/routes">Diagnostics</Link></Button>
         </nav>
       </div>
+
+      <div
+        className={`rounded-lg border px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3 ${
+          mode === "dev-open"
+            ? "border-amber-500/40 bg-amber-500/10"
+            : "border-emerald-500/40 bg-emerald-500/10"
+        }`}
+      >
+        <div>
+          <b>Текущий режим доступа:</b>{" "}
+          {mode === "dev-open" ? "🟡 dev / preview — открытый доступ" : "🟢 production — защищено ролью admin"}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          user: {user?.email ?? "—"} · role: {isAdmin ? "admin" : "не admin"}
+        </div>
+      </div>
+
       <Outlet />
     </div>
   );
