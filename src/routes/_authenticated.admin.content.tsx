@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 
 import { amIContentAdmin } from "@/lib/pcs/pcs.functions";
 import { Button } from "@/components/ui/button";
+import { isDevOpenAccess } from "@/lib/admin-access";
 
 export const Route = createFileRoute("/_authenticated/admin/content")({
   component: ContentLayout,
@@ -12,9 +13,10 @@ export const Route = createFileRoute("/_authenticated/admin/content")({
 function ContentLayout() {
   const check = useServerFn(amIContentAdmin);
   const { data, isLoading } = useQuery({ queryKey: ["pcs-admin"], queryFn: () => check() });
+  const devOpen = isDevOpenAccess();
 
   if (isLoading) return <div className="p-8 text-sm text-muted-foreground">Загрузка…</div>;
-  if (!data?.isAdmin) {
+  if (!devOpen && !data?.isAdmin) {
     return (
       <div className="container max-w-2xl py-16 text-center space-y-3">
         <h1 className="text-3xl font-semibold">403 · Доступ запрещён</h1>
