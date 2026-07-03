@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -11,7 +10,6 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 function AdminLayout() {
-  const navigate = useNavigate();
   const check = useServerFn(amIAdmin);
   const { data, isLoading } = useQuery({
     queryKey: ["am-i-admin"],
