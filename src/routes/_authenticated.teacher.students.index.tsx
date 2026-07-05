@@ -89,6 +89,31 @@ function StudentsPage() {
         </div>
       </div>
 
+      {devMode && (avail?.students?.length ?? 0) > 0 && (
+        <div className="pf-block p-5 mb-6 space-y-2">
+          <div className="text-sm font-medium">Доступные тестовые ученики (dev)</div>
+          <div className="space-y-1.5">
+            {(avail?.students ?? []).map((s: any) => (
+              <div key={s.id} className="flex items-center justify-between text-sm border-b pb-1.5">
+                <div>
+                  <div className="font-medium">{s.display_name ?? "Без имени"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.grade ?? "—"} · {s.learning_goal ?? "—"} · {s.target_exam ?? "—"}
+                  </div>
+                </div>
+                {s.linked ? (
+                  <span className="text-xs text-muted-foreground">уже привязан</span>
+                ) : (
+                  <button className="pf-chip" disabled={linkMut.isPending} onClick={() => linkMut.mutate(s.id)}>
+                    Привязать
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4 text-sm">
         {(["all", "active", "attention"] as const).map((k) => (
           <button
