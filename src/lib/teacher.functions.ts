@@ -67,6 +67,8 @@ export const updateMyTeacherProfile = createServerFn({ method: "POST" })
       bio: z.string().max(2000).nullable().optional(),
       timezone: z.string().max(80).nullable().optional(),
       language: z.string().max(10).optional(),
+      subjects: z.array(z.string().max(80)).max(20).optional(),
+      experience_years: z.number().int().min(0).max(80).nullable().optional(),
     }).parse(i),
   )
   .handler(async ({ context, data }) => {
@@ -80,6 +82,113 @@ export const updateMyTeacherProfile = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
     return row;
+  });
+
+// ---------- Dev helpers ----------
+export const listAvailableStudents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase as any;
+    const tp = await ensureTeacherProfile(sb, context.userId);
+    const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
+    const [{ data: all }, { data: links }] = await Promise.all([
+      a.from("student_profiles").select("id, display_name, grade, learning_goal, target_exam").order("created_at", { ascending: false }).limit(50),
+      sb.from("teacher_student_links").select("student_profile_id").eq("teacher_profile_id", tp.id),
+    ]);
+    const linked = new Set((links ?? []).map((l: any) => l.student_profile_id));
+    return { students: (all ?? []).map((s: any) => ({ ...s, linked: linked.has(s.id) })) };
+  });
+
+// ---------- Lessons (all linked students) ----------
+export const listTeacherLessons = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase as any;
+    const tp = await ensureTeacherProfile(sb, context.userId);
+    const { data: links } = await sb
+      .from("teacher_student_links")
+      .select("student_profile_id, student_profiles:student_profile_id(id, display_name)")
+      .eq("teacher_profile_id", tp.id);
+    const ids = (links ?? []).map((l: any) => l.student_profile_id);
+    if (ids.length === 0) return { lessons: [] };
+    const nameMap = new Map((links ?? []).map((l: any) => [l.student_profile_id, l.student_profiles?.display_name ?? "—"]));
+    const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
+    const { data: lessons } = await a
+      .from("lessons")
+      .select("id, title, lesson_date, status, subject_id, topic_id, student_profile_id, subject:subjects(name), topic:topics(title), lesson_results(score_percent)")
+      .in("student_profile_id", ids)
+      .order("lesson_date", { ascending: false })
+      .limit(100);
+    return {
+      lessons: (lessons ?? []).map((l: any) => ({
+        ...l,
+        student_name: nameMap.get(l.student_profile_id) ?? "—",
+        score_percent: l.lesson_results?.[0]?.score_percent ?? null,
+      })),
+    };
+  });
+
+// ---------- Analytics ----------
+export const getTeacherAnalytics = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase as any;
+    const tp = await ensureTeacherProfile(sb, context.userId);
+    const { data: links } = await sb
+      .from("teacher_student_links")
+      .select("student_profile_id, student_profiles:student_profile_id(id, display_name)")
+      .eq("teacher_profile_id", tp.id);
+    const ids = (links ?? []).map((l: any) => l.student_profile_id);
+    const nameMap = new Map((links ?? []).map((l: any) => [l.student_profile_id, l.student_profiles?.display_name ?? "—"]));
+    if (ids.length === 0) return { total_students: 0, avg_mastery: 0, weak_topics_total: 0, mistakes_total: 0, lessons_completed: 0, needs_attention: [], top_weak: [] };
+    const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
+    const [{ data: prog }, { data: mistakes }, { data: lessons }] = await Promise.all([
+      a.from("student_topic_progress").select("student_profile_id, mastery_score, status, updated_at, topic:topics(id, title, subject_id, subject:subjects(name))").in("student_profile_id", ids),
+      a.from("student_mistakes").select("id").in("student_profile_id", ids),
+      a.from("lessons").select("id, status").in("student_profile_id", ids),
+    ]);
+    const perStudent = new Map<string, { sum: number; n: number; weak: number; last: string | null }>();
+    for (const p of prog ?? []) {
+      const cur = perStudent.get(p.student_profile_id) ?? { sum: 0, n: 0, weak: 0, last: null };
+      cur.sum += p.mastery_score ?? 0;
+      cur.n += 1;
+      if ((p.mastery_score ?? 0) < 40 || p.status === "weak" || p.status === "needs_review") cur.weak += 1;
+      if (!cur.last || (p.updated_at && p.updated_at > cur.last)) cur.last = p.updated_at;
+      perStudent.set(p.student_profile_id, cur);
+    }
+    const totals = { sum: 0, n: 0 };
+    const needs: any[] = [];
+    for (const [sid, s] of perStudent) {
+      const avg = s.n ? s.sum / s.n : 0;
+      totals.sum += avg; totals.n += 1;
+      const stale = !s.last || new Date(s.last).getTime() < Date.now() - 7 * 86400_000;
+      if (avg < 40 || s.weak >= 3 || stale) {
+        needs.push({ student_profile_id: sid, name: nameMap.get(sid), avg: Math.round(avg), weak: s.weak, last: s.last, reasons: [avg < 40 && "низкий прогресс", s.weak >= 3 && "много слабых тем", stale && "нет активности >7 дней"].filter(Boolean) });
+      }
+    }
+    const perTopic = new Map<string, { title: string; subject: string; scores: number[]; students: Set<string> }>();
+    for (const p of prog ?? []) {
+      if ((p.mastery_score ?? 100) >= 60) continue;
+      const t: any = p.topic;
+      if (!t) continue;
+      const cur = perTopic.get(t.id) ?? { title: t.title, subject: t.subject?.name ?? "—", scores: [], students: new Set() };
+      cur.scores.push(p.mastery_score ?? 0);
+      cur.students.add(p.student_profile_id);
+      perTopic.set(t.id, cur);
+    }
+    const top_weak = Array.from(perTopic.entries())
+      .map(([id, v]) => ({ id, title: v.title, subject: v.subject, students: v.students.size, avg: Math.round(v.scores.reduce((a, b) => a + b, 0) / v.scores.length) }))
+      .sort((a, b) => b.students - a.students || a.avg - b.avg)
+      .slice(0, 10);
+    return {
+      total_students: ids.length,
+      avg_mastery: totals.n ? Math.round(totals.sum / totals.n) : 0,
+      weak_topics_total: Array.from(perStudent.values()).reduce((s, x) => s + x.weak, 0),
+      mistakes_total: (mistakes ?? []).length,
+      lessons_completed: (lessons ?? []).filter((l: any) => l.status === "completed").length,
+      needs_attention: needs.sort((a, b) => a.avg - b.avg).slice(0, 10),
+      top_weak,
+    };
   });
 
 // ---------- Students ----------
