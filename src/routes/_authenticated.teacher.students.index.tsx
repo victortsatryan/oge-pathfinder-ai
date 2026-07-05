@@ -19,8 +19,15 @@ function StudentsPage() {
   const listFn = useServerFn(listMyTeacherStudents);
   const linkFn = useServerFn(linkStudent);
   const statusFn = useServerFn(updateLinkStatus);
+  const availFn = useServerFn(listAvailableStudents);
 
+  const devMode = typeof window !== "undefined" && isDevOpenAccess();
   const { data } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn() });
+  const { data: avail } = useQuery({
+    queryKey: ["teacher", "available-students"],
+    queryFn: () => availFn(),
+    enabled: devMode,
+  });
   const [filter, setFilter] = useState<"all" | "active" | "attention">("all");
   const [studentId, setStudentId] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -30,9 +37,15 @@ function StudentsPage() {
     onSuccess: () => {
       setStudentId("");
       setErr(null);
+      toast.success("Ученик привязан");
       qc.invalidateQueries({ queryKey: ["teacher", "students"] });
+      qc.invalidateQueries({ queryKey: ["teacher", "available-students"] });
     },
-    onError: (e: any) => setErr(e?.message ?? "Не удалось привязать ученика"),
+    onError: (e: any) => {
+      const msg = e?.message ?? "Не удалось привязать ученика. Проверьте ID профиля.";
+      setErr(msg);
+      toast.error(msg);
+    },
   });
 
   const statusMut = useMutation({
