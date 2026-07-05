@@ -3122,9 +3122,11 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string | null
+          experience_years: number | null
           id: string
           language: string
           specialization: string | null
+          subjects: string[] | null
           timezone: string | null
           updated_at: string
           user_id: string
@@ -3133,9 +3135,11 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          experience_years?: number | null
           id?: string
           language?: string
           specialization?: string | null
+          subjects?: string[] | null
           timezone?: string | null
           updated_at?: string
           user_id: string
@@ -3144,9 +3148,11 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          experience_years?: number | null
           id?: string
           language?: string
           specialization?: string | null
+          subjects?: string[] | null
           timezone?: string | null
           updated_at?: string
           user_id?: string
