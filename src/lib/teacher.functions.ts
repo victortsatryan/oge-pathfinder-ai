@@ -171,7 +171,7 @@ export const getTeacherAnalytics = createServerFn({ method: "GET" })
       if ((p.mastery_score ?? 100) >= 60) continue;
       const t: any = p.topic;
       if (!t) continue;
-      const cur = perTopic.get(t.id) ?? { title: t.title, subject: t.subject?.name ?? "—", scores: [], students: new Set() };
+      const cur = perTopic.get(t.id) ?? { title: t.title, subject: t.subject?.name ?? "—", scores: [] as number[], students: new Set<string>() };
       cur.scores.push(p.mastery_score ?? 0);
       cur.students.add(p.student_profile_id);
       perTopic.set(t.id, cur);
