@@ -2,19 +2,19 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, Sparkles, StickyNote, ListChecks } from "lucide-react";
+import { ArrowLeft, Sparkles, StickyNote } from "lucide-react";
 
 import {
   getTeacherStudentDetail,
   createTeacherNote,
-  createAssignment,
   analyseStudent,
 } from "@/lib/teacher.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/$studentId")({
   component: StudentDetail,
@@ -25,7 +25,6 @@ function StudentDetail() {
   const qc = useQueryClient();
   const detailFn = useServerFn(getTeacherStudentDetail);
   const noteFn = useServerFn(createTeacherNote);
-  const assignFn = useServerFn(createAssignment);
   const aiFn = useServerFn(analyseStudent);
 
   const { data, isLoading, error } = useQuery({
@@ -40,29 +39,23 @@ function StudentDetail() {
       noteFn({ data: { student_profile_id: studentId, ...vars } }),
     onSuccess: invalidate,
   });
-  const assignMut = useMutation({
-    mutationFn: (vars: { title: string; comment?: string }) =>
-      assignFn({ data: { student_profile_id: studentId, ...vars } }),
-    onSuccess: invalidate,
-  });
   const aiMut = useMutation({
     mutationFn: () => aiFn({ data: { student_profile_id: studentId } }),
-    onSuccess: invalidate,
   });
 
   const [noteText, setNoteText] = useState("");
-  const [assignTitle, setAssignTitle] = useState("");
-  const [assignComment, setAssignComment] = useState("");
+  const [noteType, setNoteType] = useState<string>("observation");
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Загрузка…</div>;
   if (error || !data) return <div className="p-6 text-sm text-red-600">Нет доступа или ученик не найден.</div>;
 
   const d = data as any;
-  const aiOutput = (d.notes ?? []).length ? null : null; // placeholder
-  const aiLast = aiMut.data?.output ?? null;
+  const aiLast = aiMut.data as any;
+  const upcoming = (d.lessons ?? []).filter((l: any) => l.status !== "completed");
+  const activePath = (d.paths ?? []).find((p: any) => p.status === "active") ?? d.paths?.[0];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <Button asChild variant="ghost" size="sm">
         <Link to="/teacher/students"><ArrowLeft className="h-4 w-4 mr-1" /> К списку</Link>
       </Button>
@@ -78,157 +71,207 @@ function StudentDetail() {
         </p>
       </header>
 
-      <div className="grid lg:grid-cols-2 gap-5">
-        <section className="pf-block p-5">
-          <h2 className="font-medium mb-3">Прогресс по темам</h2>
-          {d.progress.length === 0 && <div className="text-sm text-muted-foreground">Нет данных.</div>}
-          <div className="space-y-3">
-            {d.progress.slice(0, 8).map((p: any) => (
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="flex flex-wrap h-auto">
+          <TabsTrigger value="overview">Обзор</TabsTrigger>
+          <TabsTrigger value="progress">Прогресс</TabsTrigger>
+          <TabsTrigger value="mistakes">Ошибки</TabsTrigger>
+          <TabsTrigger value="path">Маршрут</TabsTrigger>
+          <TabsTrigger value="calendar">Календарь</TabsTrigger>
+          <TabsTrigger value="lessons">Занятия</TabsTrigger>
+          <TabsTrigger value="notes">Заметки</TabsTrigger>
+          <TabsTrigger value="ai">AI</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="pf-block p-5 space-y-2 text-sm">
+              <Info label="Цель" v={d.profile?.learning_goal ?? "—"} />
+              <Info label="Экзамен" v={d.profile?.target_exam ?? "—"} />
+              <Info label="Класс" v={d.profile?.grade ?? "—"} />
+              <Info label="Предметы" v={(d.subjects ?? []).map((s: any) => s.subject?.name).filter(Boolean).join(", ") || "—"} />
+              <Info label="Слабых тем" v={String((d.progress ?? []).filter((p: any) => (p.mastery_score ?? 0) < 50).length)} />
+              <Info label="Ошибок" v={String(d.mistakes.length)} />
+              <Info label="Ближайшее занятие" v={upcoming[0] ? `${upcoming[0].lesson_date} · ${upcoming[0].title}` : "—"} />
+              <Info label="Активный маршрут" v={activePath?.title ?? "—"} />
+            </div>
+            <div className="pf-block p-5 space-y-2">
+              <div className="pf-eyebrow">Свежие ошибки</div>
+              {d.mistakes.slice(0, 5).map((m: any) => (
+                <div key={m.id} className="text-sm border-b pb-1.5">
+                  <div className="font-medium">{m.mistake_type ?? "ошибка"}</div>
+                  <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleDateString()} · {m.source ?? "—"}</div>
+                </div>
+              ))}
+              {d.mistakes.length === 0 && <div className="text-sm text-muted-foreground">Ошибки пока не зафиксированы.</div>}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="progress">
+          <div className="pf-block p-5 space-y-3">
+            {d.progress.length === 0 && <div className="text-sm text-muted-foreground">Данных о прогрессе пока нет.</div>}
+            {d.progress.map((p: any) => (
               <div key={p.topic_id} className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span>{p.topic?.title ?? "—"}</span>
-                  <Badge variant="outline">{p.status}</Badge>
+                  <span className="flex gap-2 items-center">
+                    <Badge variant="outline">{p.status}</Badge>
+                    <span className="text-muted-foreground text-xs">{p.mastery_score ?? 0}%</span>
+                  </span>
                 </div>
                 <Progress value={p.mastery_score ?? 0} />
               </div>
             ))}
           </div>
-        </section>
+        </TabsContent>
 
-        <section className="pf-block p-5">
-          <h2 className="font-medium mb-3">Типичные ошибки</h2>
-          {d.mistakes.length === 0 && <div className="text-sm text-muted-foreground">Пока нет.</div>}
-          <ul className="space-y-2 text-sm">
-            {d.mistakes.slice(0, 8).map((m: any) => (
-              <li key={m.id} className="border-b pb-2">
-                <div className="font-medium">{m.mistake_type ?? "ошибка"}</div>
-                <div className="text-muted-foreground text-xs">{new Date(m.created_at).toLocaleDateString()}</div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="pf-block p-5">
-          <h2 className="font-medium mb-3">Учебные маршруты</h2>
-          {d.paths.length === 0 && <div className="text-sm text-muted-foreground">Маршрутов нет.</div>}
-          <ul className="space-y-2 text-sm">
-            {d.paths.map((p: any) => (
-              <li key={p.id} className="flex justify-between border-b pb-2">
-                <span>{p.title}</span>
-                <Badge variant="outline">{p.status} · {p.generated_by}</Badge>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="pf-block p-5">
-          <h2 className="font-medium mb-3">Ближайшие занятия</h2>
-          {d.lessons.length === 0 && <div className="text-sm text-muted-foreground">Нет.</div>}
-          <ul className="space-y-2 text-sm">
-            {d.lessons.slice(0, 8).map((l: any) => (
-              <li key={l.id} className="flex justify-between border-b pb-2">
-                <span>{l.title}</span>
-                <span className="text-muted-foreground">{l.lesson_date} · {l.status}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="pf-block p-5 lg:col-span-2">
-          <h2 className="font-medium mb-3 flex items-center gap-2"><Sparkles className="h-4 w-4" /> AI-помощник</h2>
-          <Button size="sm" onClick={() => aiMut.mutate()} disabled={aiMut.isPending}>
-            Проанализировать ученика
-          </Button>
-          {aiLast && (
-            <div className="mt-4 space-y-2 text-sm">
-              <div>Средний прогресс: <b>{(aiLast as any).avg_mastery}%</b></div>
-              <div><b>Что тормозит:</b> {(aiLast as any).blockers}</div>
-              <div>
-                <b>Слабые темы:</b>
-                <ul className="list-disc pl-5">
-                  {((aiLast as any).weak_topics ?? []).map((w: any, i: number) => (
-                    <li key={i}>{w.title} — {w.mastery}%</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <b>Что делать:</b>
-                <ul className="list-disc pl-5">
-                  {((aiLast as any).next_actions ?? []).map((a: string, i: number) => <li key={i}>{a}</li>)}
-                </ul>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <section className="pf-block p-5">
-          <h2 className="font-medium mb-3 flex items-center gap-2"><StickyNote className="h-4 w-4" /> Заметки преподавателя</h2>
-          <Textarea
-            rows={3}
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            placeholder="Наблюдение, рекомендация…"
-          />
-          <div className="mt-2 flex justify-end">
-            <Button
-              size="sm"
-              disabled={!noteText.trim() || noteMut.isPending}
-              onClick={() => {
-                noteMut.mutate({ content: noteText.trim(), note_type: "observation" });
-                setNoteText("");
-              }}
-            >
-              Сохранить
-            </Button>
+        <TabsContent value="mistakes">
+          <div className="pf-block p-5">
+            {d.mistakes.length === 0 && <div className="text-sm text-muted-foreground">Ошибки пока не зафиксированы.</div>}
+            <ul className="space-y-2 text-sm">
+              {d.mistakes.map((m: any) => (
+                <li key={m.id} className="border-b pb-2">
+                  <div className="font-medium">{m.mistake_type ?? "ошибка"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(m.created_at).toLocaleString()} · источник: {m.source ?? "—"}
+                  </div>
+                  {m.mistake_description && <div className="text-xs mt-1">{m.mistake_description}</div>}
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="mt-4 space-y-3 text-sm">
-            {d.notes.map((n: any) => (
-              <li key={n.id} className="border-b pb-2">
-                <div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString()} · {n.note_type}</div>
-                <div>{n.content}</div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        </TabsContent>
 
-        <section className="pf-block p-5">
-          <h2 className="font-medium mb-3 flex items-center gap-2"><ListChecks className="h-4 w-4" /> Назначения</h2>
-          <div className="space-y-2">
-            <Input
-              placeholder="Заголовок (например: повторить дроби)"
-              value={assignTitle}
-              onChange={(e) => setAssignTitle(e.target.value)}
-            />
+        <TabsContent value="path">
+          <div className="pf-block p-5">
+            {d.paths.length === 0 && <div className="text-sm text-muted-foreground">Маршрут ученика ещё не сформирован.</div>}
+            <ul className="space-y-2 text-sm">
+              {d.paths.map((p: any) => (
+                <li key={p.id} className="flex justify-between border-b pb-2">
+                  <div>
+                    <div className="font-medium">{p.title}</div>
+                    <div className="text-xs text-muted-foreground">{p.description ?? p.goal ?? "—"}</div>
+                  </div>
+                  <Badge variant="outline">{p.status} · {p.generated_by}</Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="calendar">
+          <div className="pf-block p-5">
+            {d.lessons.length === 0 && <div className="text-sm text-muted-foreground">Событий календаря пока нет.</div>}
+            <ul className="space-y-2 text-sm">
+              {d.lessons.map((l: any) => (
+                <li key={l.id} className="flex justify-between border-b pb-2">
+                  <span>{l.title}</span>
+                  <span className="text-muted-foreground">{l.lesson_date} · {l.status}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="lessons">
+          <div className="pf-block p-5">
+            {d.lessons.length === 0 && <div className="text-sm text-muted-foreground">Занятий пока нет.</div>}
+            <ul className="space-y-2 text-sm">
+              {d.lessons.map((l: any) => (
+                <li key={l.id} className="flex justify-between border-b pb-2">
+                  <Link to="/lesson/$lessonId" params={{ lessonId: l.id }} className="hover:underline">
+                    {l.title}
+                  </Link>
+                  <span className="text-muted-foreground">{l.lesson_date} · {l.status}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="notes">
+          <div className="pf-block p-5 space-y-3">
+            <div className="flex gap-2">
+              <Select value={noteType} onValueChange={setNoteType}>
+                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="observation">Наблюдение</SelectItem>
+                  <SelectItem value="lesson">По занятию</SelectItem>
+                  <SelectItem value="diagnostic">По диагностике</SelectItem>
+                  <SelectItem value="recommendation">Рекомендация</SelectItem>
+                  <SelectItem value="parent_note">Родителю</SelectItem>
+                  <SelectItem value="other">Другое</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Textarea
-              rows={2}
-              placeholder="Комментарий"
-              value={assignComment}
-              onChange={(e) => setAssignComment(e.target.value)}
+              rows={3}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Заметка по ученику…"
             />
             <div className="flex justify-end">
               <Button
                 size="sm"
-                disabled={!assignTitle.trim() || assignMut.isPending}
+                disabled={!noteText.trim() || noteMut.isPending}
                 onClick={() => {
-                  assignMut.mutate({ title: assignTitle.trim(), comment: assignComment.trim() || undefined });
-                  setAssignTitle(""); setAssignComment("");
+                  noteMut.mutate({ content: noteText.trim(), note_type: noteType });
+                  setNoteText("");
                 }}
               >
-                Назначить
+                <StickyNote className="h-4 w-4 mr-1" /> Сохранить
               </Button>
             </div>
+            <ul className="space-y-3 text-sm">
+              {d.notes.length === 0 && <li className="text-muted-foreground">Заметок пока нет.</li>}
+              {d.notes.map((n: any) => (
+                <li key={n.id} className="border-b pb-2">
+                  <div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString()} · {n.note_type}</div>
+                  <div>{n.content}</div>
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="mt-4 space-y-3 text-sm">
-            {d.assignments.map((a: any) => (
-              <li key={a.id} className="border-b pb-2">
-                <div className="font-medium">{a.title}</div>
-                <div className="text-xs text-muted-foreground">{a.status} · {new Date(a.created_at).toLocaleDateString()}</div>
-                {a.comment && <div className="text-xs mt-1">{a.comment}</div>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <div className="pf-block p-5 space-y-3">
+            <Button size="sm" onClick={() => aiMut.mutate()} disabled={aiMut.isPending}>
+              <Sparkles className="h-4 w-4 mr-1" /> Проанализировать ученика
+            </Button>
+            {aiLast && (
+              <div className="space-y-2 text-sm">
+                <div>Средний прогресс: <b>{aiLast.avg_mastery}%</b></div>
+                <div><b>Что тормозит:</b> {aiLast.blockers}</div>
+                <div>
+                  <b>Слабые темы:</b>
+                  <ul className="list-disc pl-5">
+                    {(aiLast.weak_topics ?? []).map((w: any, i: number) => (
+                      <li key={i}>{w.title} — {w.mastery}%</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <b>Что делать:</b>
+                  <ul className="list-disc pl-5">
+                    {(aiLast.next_actions ?? []).map((a: string, i: number) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function Info({ label, v }: { label: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b pb-1.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{v}</span>
     </div>
   );
 }

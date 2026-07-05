@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 
-import { listMyTeacherStudents, linkStudent, updateLinkStatus } from "@/lib/teacher.functions";
+import { listMyTeacherStudents, linkStudent, updateLinkStatus, listAvailableStudents } from "@/lib/teacher.functions";
+import { isDevOpenAccess } from "@/lib/admin-access";
 import { PageHeader } from "@/components/oge/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,8 +19,15 @@ function StudentsPage() {
   const listFn = useServerFn(listMyTeacherStudents);
   const linkFn = useServerFn(linkStudent);
   const statusFn = useServerFn(updateLinkStatus);
+  const availFn = useServerFn(listAvailableStudents);
 
+  const devMode = typeof window !== "undefined" && isDevOpenAccess();
   const { data } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn() });
+  const { data: avail } = useQuery({
+    queryKey: ["teacher", "available-students"],
+    queryFn: () => availFn(),
+    enabled: devMode,
+  });
   const [filter, setFilter] = useState<"all" | "active" | "attention">("all");
   const [studentId, setStudentId] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -28,9 +37,15 @@ function StudentsPage() {
     onSuccess: () => {
       setStudentId("");
       setErr(null);
+      toast.success("Ученик привязан");
       qc.invalidateQueries({ queryKey: ["teacher", "students"] });
+      qc.invalidateQueries({ queryKey: ["teacher", "available-students"] });
     },
-    onError: (e: any) => setErr(e?.message ?? "Не удалось привязать ученика"),
+    onError: (e: any) => {
+      const msg = e?.message ?? "Не удалось привязать ученика. Проверьте ID профиля.";
+      setErr(msg);
+      toast.error(msg);
+    },
   });
 
   const statusMut = useMutation({
@@ -73,6 +88,31 @@ function StudentsPage() {
           Ученик может найти ID в своём профиле и передать преподавателю.
         </div>
       </div>
+
+      {devMode && (avail?.students?.length ?? 0) > 0 && (
+        <div className="pf-block p-5 mb-6 space-y-2">
+          <div className="text-sm font-medium">Доступные тестовые ученики (dev)</div>
+          <div className="space-y-1.5">
+            {(avail?.students ?? []).map((s: any) => (
+              <div key={s.id} className="flex items-center justify-between text-sm border-b pb-1.5">
+                <div>
+                  <div className="font-medium">{s.display_name ?? "Без имени"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.grade ?? "—"} · {s.learning_goal ?? "—"} · {s.target_exam ?? "—"}
+                  </div>
+                </div>
+                {s.linked ? (
+                  <span className="text-xs text-muted-foreground">уже привязан</span>
+                ) : (
+                  <button className="pf-chip" disabled={linkMut.isPending} onClick={() => linkMut.mutate(s.id)}>
+                    Привязать
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-4 text-sm">
         {(["all", "active", "attention"] as const).map((k) => (
