@@ -47,6 +47,7 @@ function AdminLayout() {
           <Button asChild variant="outline" size="sm"><Link to="/admin/new">Новый материал</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/sources">Источники</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/routes">Diagnostics</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/dev/navigation">Dev Navigation</Link></Button>
         </nav>
       </div>
 
