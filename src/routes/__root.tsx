@@ -1,10 +1,28 @@
 import { Outlet, Link, createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { APP_NAME, APP_TAGLINE, APP_DESCRIPTION } from "@/lib/brand";
 
+// Map internal TanStack route IDs (with `_authenticated` layout segment)
+// to their real public URLs. Users sometimes copy these from Lovable's
+// route selector — redirect them instead of showing a 404.
+function mapInternalToPublic(path: string): string | null {
+  if (!path.includes("/_authenticated")) return null;
+  const stripped = path.replace(/\/_authenticated/g, "");
+  return stripped === "" ? "/" : stripped;
+}
+
 function NotFoundComponent() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const target = mapInternalToPublic(window.location.pathname);
+    if (target && target !== window.location.pathname) {
+      window.location.replace(target + window.location.search + window.location.hash);
+    }
+  }, []);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -13,12 +31,18 @@ function NotFoundComponent() {
         <p className="mt-2 text-sm text-muted-foreground">
           Возможно, ссылка устарела или страница была перемещена.
         </p>
-        <div className="mt-6">
+        <div className="mt-6 flex items-center justify-center gap-3">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             На главную
+          </Link>
+          <Link
+            to="/dev/navigation"
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Dev Navigation
           </Link>
         </div>
       </div>

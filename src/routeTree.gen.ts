@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as DevNavigationRouteImport } from './routes/dev.navigation'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthenticatedTeacherRouteImport } from './routes/_authenticated.teacher'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated.student'
@@ -77,6 +78,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
+} as any)
+const DevNavigationRoute = DevNavigationRouteImport.update({
+  id: '/dev/navigation',
+  path: '/dev/navigation',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/callback',
@@ -350,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/student': typeof AuthenticatedStudentRouteWithChildren
   '/teacher': typeof AuthenticatedTeacherRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/dev/navigation': typeof DevNavigationRoute
   '/admin/content': typeof AuthenticatedAdminContentRouteWithChildren
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
@@ -396,6 +403,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/dev/navigation': typeof DevNavigationRoute
   '/': typeof AuthenticatedIndexRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
@@ -447,6 +455,7 @@ export interface FileRoutesById {
   '/_authenticated/student': typeof AuthenticatedStudentRouteWithChildren
   '/_authenticated/teacher': typeof AuthenticatedTeacherRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/dev/navigation': typeof DevNavigationRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/content': typeof AuthenticatedAdminContentRouteWithChildren
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
@@ -500,6 +509,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teacher'
     | '/auth/callback'
+    | '/dev/navigation'
     | '/admin/content'
     | '/admin/import'
     | '/admin/new'
@@ -546,6 +556,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile'
     | '/auth/callback'
+    | '/dev/navigation'
     | '/'
     | '/admin/import'
     | '/admin/new'
@@ -596,6 +607,7 @@ export interface FileRouteTypes {
     | '/_authenticated/student'
     | '/_authenticated/teacher'
     | '/auth/callback'
+    | '/dev/navigation'
     | '/_authenticated/'
     | '/_authenticated/admin/content'
     | '/_authenticated/admin/import'
@@ -642,6 +654,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   LoginRoute: typeof LoginRoute
+  DevNavigationRoute: typeof DevNavigationRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -673,6 +686,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/dev/navigation': {
+      id: '/dev/navigation'
+      path: '/dev/navigation'
+      fullPath: '/dev/navigation'
+      preLoaderRoute: typeof DevNavigationRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
       id: '/auth/callback'
@@ -1157,6 +1177,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   LoginRoute: LoginRoute,
+  DevNavigationRoute: DevNavigationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
