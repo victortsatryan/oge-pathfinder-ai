@@ -21,8 +21,8 @@ function TeacherProfilePage() {
   const updFn = useServerFn(updateMyTeacherProfile);
   const listFn = useServerFn(listMyTeacherStudents);
 
-  const { data: profile } = useQuery({ queryKey: ["teacher", "profile"], queryFn: () => getFn() });
-  const { data: list } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn() });
+  const { data: profile, isLoading: profileLoading, isError: profileError, error: profileErr, refetch: refetchProfile } = useQuery({ queryKey: ["teacher", "profile"], queryFn: () => getFn(), retry: 1 });
+  const { data: list } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn(), retry: 1 });
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<any>({});
