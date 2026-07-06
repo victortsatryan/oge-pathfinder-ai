@@ -12,9 +12,34 @@ export const Route = createFileRoute("/_authenticated/teacher/analytics")({
 
 function AnalyticsPage() {
   const fn = useServerFn(getTeacherAnalytics);
-  const { data, isLoading } = useQuery({ queryKey: ["teacher", "analytics"], queryFn: () => fn() });
+  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ["teacher", "analytics"], queryFn: () => fn(), retry: 1 });
 
-  if (isLoading || !data) return <div className="p-6 text-sm text-muted-foreground">Загрузка…</div>;
+  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Загрузка аналитики…</div>;
+  if (isError) {
+    return (
+      <div className="p-6 space-y-3">
+        <PageHeader title="Аналитика" lead="Не удалось загрузить данные." />
+        <div className="pf-block p-5 space-y-2 text-sm">
+          <div className="font-medium text-destructive">Ошибка загрузки</div>
+          <div className="text-muted-foreground">function: getTeacherAnalytics</div>
+          <div className="whitespace-pre-wrap break-words">{(error as any)?.message ?? String(error)}</div>
+          <div className="text-xs text-muted-foreground">Действие: убедитесь, что вы авторизованы как преподаватель, и попробуйте ещё раз.</div>
+          <button onClick={() => refetch()} className="text-sm underline">Повторить</button>
+        </div>
+      </div>
+    );
+  }
+  if (!data) return null;
+  if ((data as any).total_students === 0) {
+    return (
+      <>
+        <PageHeader title="Аналитика" lead="Сводная картина по всем связанным ученикам." />
+        <div className="pf-block p-6 text-sm text-muted-foreground">
+          Пока нет связанных учеников. Привяжите ученика в разделе «Ученики», чтобы увидеть аналитику.
+        </div>
+      </>
+    );
+  }
   const a = data as any;
 
   return (
