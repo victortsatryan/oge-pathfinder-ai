@@ -21,8 +21,8 @@ function TeacherProfilePage() {
   const updFn = useServerFn(updateMyTeacherProfile);
   const listFn = useServerFn(listMyTeacherStudents);
 
-  const { data: profile } = useQuery({ queryKey: ["teacher", "profile"], queryFn: () => getFn() });
-  const { data: list } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn() });
+  const { data: profile, isLoading: profileLoading, isError: profileError, error: profileErr, refetch: refetchProfile } = useQuery({ queryKey: ["teacher", "profile"], queryFn: () => getFn(), retry: 1 });
+  const { data: list } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn(), retry: 1 });
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<any>({});
@@ -53,7 +53,25 @@ function TeacherProfilePage() {
   const active = students.filter((s) => s.status === "active").length;
   const attention = students.filter((s) => s.needs_attention).length;
 
-  if (!profile) return <div className="p-6 text-sm text-muted-foreground">Загрузка…</div>;
+  if (profileLoading) return <div className="p-6 text-sm text-muted-foreground">Загрузка профиля…</div>;
+  if (profileError || !profile) {
+    return (
+      <div className="p-6 space-y-3">
+        <PageHeader title="Профиль преподавателя" lead="Не удалось загрузить профиль." />
+        <div className="pf-block p-5 space-y-2 text-sm">
+          <div className="font-medium text-destructive">Ошибка загрузки</div>
+          <div className="text-muted-foreground">function: getMyTeacherProfile</div>
+          <div className="whitespace-pre-wrap break-words">
+            {(profileErr as any)?.message ?? "Профиль преподавателя не найден и не удалось создать автоматически."}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Действие: убедитесь, что вы авторизованы. Профиль создастся автоматически при повторной попытке.
+          </div>
+          <button onClick={() => refetchProfile()} className="text-sm underline">Повторить</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
