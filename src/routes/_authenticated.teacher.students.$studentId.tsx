@@ -2,12 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, Sparkles, StickyNote } from "lucide-react";
+import { ArrowLeft, StickyNote } from "lucide-react";
 
 import {
   getTeacherStudentDetail,
   createTeacherNote,
-  analyseStudent,
 } from "@/lib/teacher.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +25,6 @@ function StudentDetail() {
   const qc = useQueryClient();
   const detailFn = useServerFn(getTeacherStudentDetail);
   const noteFn = useServerFn(createTeacherNote);
-  const aiFn = useServerFn(analyseStudent);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["teacher", "student", studentId],
@@ -40,9 +38,6 @@ function StudentDetail() {
       noteFn({ data: { student_profile_id: studentId, ...vars } }),
     onSuccess: invalidate,
   });
-  const aiMut = useMutation({
-    mutationFn: () => aiFn({ data: { student_profile_id: studentId } }),
-  });
 
   const [noteText, setNoteText] = useState("");
   const [noteType, setNoteType] = useState<string>("observation");
@@ -51,7 +46,6 @@ function StudentDetail() {
   if (error || !data) return <div className="p-6 text-sm text-red-600">Нет доступа или ученик не найден.</div>;
 
   const d = data as any;
-  const aiLast = aiMut.data as any;
   const upcoming = (d.lessons ?? []).filter((l: any) => l.status !== "completed");
   const activePath = (d.paths ?? []).find((p: any) => p.status === "active") ?? d.paths?.[0];
 
