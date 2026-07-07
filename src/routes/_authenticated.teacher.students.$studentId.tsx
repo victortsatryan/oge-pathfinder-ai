@@ -81,7 +81,7 @@ function StudentDetail() {
           <TabsTrigger value="calendar">Календарь</TabsTrigger>
           <TabsTrigger value="lessons">Занятия</TabsTrigger>
           <TabsTrigger value="notes">Заметки</TabsTrigger>
-          <TabsTrigger value="ai">AI</TabsTrigger>
+          <TabsTrigger value="advisor">Советник</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
