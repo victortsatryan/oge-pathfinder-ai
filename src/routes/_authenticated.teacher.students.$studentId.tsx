@@ -2,12 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, Sparkles, StickyNote } from "lucide-react";
+import { ArrowLeft, StickyNote } from "lucide-react";
 
 import {
   getTeacherStudentDetail,
   createTeacherNote,
-  analyseStudent,
 } from "@/lib/teacher.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AdvisorPanel } from "@/components/oge/advisor-panel";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/$studentId")({
   component: StudentDetail,
@@ -25,7 +25,6 @@ function StudentDetail() {
   const qc = useQueryClient();
   const detailFn = useServerFn(getTeacherStudentDetail);
   const noteFn = useServerFn(createTeacherNote);
-  const aiFn = useServerFn(analyseStudent);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["teacher", "student", studentId],
@@ -39,9 +38,6 @@ function StudentDetail() {
       noteFn({ data: { student_profile_id: studentId, ...vars } }),
     onSuccess: invalidate,
   });
-  const aiMut = useMutation({
-    mutationFn: () => aiFn({ data: { student_profile_id: studentId } }),
-  });
 
   const [noteText, setNoteText] = useState("");
   const [noteType, setNoteType] = useState<string>("observation");
@@ -50,7 +46,6 @@ function StudentDetail() {
   if (error || !data) return <div className="p-6 text-sm text-red-600">Нет доступа или ученик не найден.</div>;
 
   const d = data as any;
-  const aiLast = aiMut.data as any;
   const upcoming = (d.lessons ?? []).filter((l: any) => l.status !== "completed");
   const activePath = (d.paths ?? []).find((p: any) => p.status === "active") ?? d.paths?.[0];
 
@@ -80,7 +75,7 @@ function StudentDetail() {
           <TabsTrigger value="calendar">Календарь</TabsTrigger>
           <TabsTrigger value="lessons">Занятия</TabsTrigger>
           <TabsTrigger value="notes">Заметки</TabsTrigger>
-          <TabsTrigger value="ai">AI</TabsTrigger>
+          <TabsTrigger value="advisor">Советник</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -235,32 +230,8 @@ function StudentDetail() {
           </div>
         </TabsContent>
 
-        <TabsContent value="ai">
-          <div className="pf-block p-5 space-y-3">
-            <Button size="sm" onClick={() => aiMut.mutate()} disabled={aiMut.isPending}>
-              <Sparkles className="h-4 w-4 mr-1" /> Проанализировать ученика
-            </Button>
-            {aiLast && (
-              <div className="space-y-2 text-sm">
-                <div>Средний прогресс: <b>{aiLast.avg_mastery}%</b></div>
-                <div><b>Что тормозит:</b> {aiLast.blockers}</div>
-                <div>
-                  <b>Слабые темы:</b>
-                  <ul className="list-disc pl-5">
-                    {(aiLast.weak_topics ?? []).map((w: any, i: number) => (
-                      <li key={i}>{w.title} — {w.mastery}%</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <b>Что делать:</b>
-                  <ul className="list-disc pl-5">
-                    {(aiLast.next_actions ?? []).map((a: string, i: number) => <li key={i}>{a}</li>)}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
+        <TabsContent value="advisor">
+          <AdvisorPanel studentProfileId={studentId} />
         </TabsContent>
       </Tabs>
     </div>

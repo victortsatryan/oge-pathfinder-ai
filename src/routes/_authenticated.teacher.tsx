@@ -7,7 +7,7 @@ const NAV: NavItem[] = [
   { label: "Ученики", to: "/teacher/students" },
   { label: "Занятия", to: "/teacher/lessons" },
   { label: "Аналитика", to: "/teacher/analytics" },
-  { label: "AI", to: "/teacher/ai" },
+  { label: "Советник", to: "/teacher/advisor" },
   { label: "Профиль", to: "/teacher/profile" },
 ];
 
