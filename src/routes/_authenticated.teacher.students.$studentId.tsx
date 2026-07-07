@@ -236,32 +236,8 @@ function StudentDetail() {
           </div>
         </TabsContent>
 
-        <TabsContent value="ai">
-          <div className="pf-block p-5 space-y-3">
-            <Button size="sm" onClick={() => aiMut.mutate()} disabled={aiMut.isPending}>
-              <Sparkles className="h-4 w-4 mr-1" /> Проанализировать ученика
-            </Button>
-            {aiLast && (
-              <div className="space-y-2 text-sm">
-                <div>Средний прогресс: <b>{aiLast.avg_mastery}%</b></div>
-                <div><b>Что тормозит:</b> {aiLast.blockers}</div>
-                <div>
-                  <b>Слабые темы:</b>
-                  <ul className="list-disc pl-5">
-                    {(aiLast.weak_topics ?? []).map((w: any, i: number) => (
-                      <li key={i}>{w.title} — {w.mastery}%</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <b>Что делать:</b>
-                  <ul className="list-disc pl-5">
-                    {(aiLast.next_actions ?? []).map((a: string, i: number) => <li key={i}>{a}</li>)}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
+        <TabsContent value="advisor">
+          <AdvisorPanel studentProfileId={studentId} />
         </TabsContent>
       </Tabs>
     </div>
