@@ -146,7 +146,7 @@ async function buildContext(sb: any, teacherId: string, studentProfileId: string
     const { data: items } = await a
       .from("learning_path_items")
       .select("*, topic:topics(title)")
-      .eq("path_id", activePath.id)
+      .eq("learning_path_id", activePath.id)
       .order("order_index", { ascending: true });
     nextStep = (items ?? []).find((i: any) => i.status !== "completed") ?? null;
   }
