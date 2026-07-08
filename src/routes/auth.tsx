@@ -1,11 +1,10 @@
-import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { APP_NAME } from "@/lib/brand";
 
 type AuthSearch = { redirect?: string };
@@ -17,13 +16,20 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const RESEND_COOLDOWN_SEC = 60;
+
 function AuthPage() {
   const { redirect: redirectTo } = Route.useSearch();
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [googleBusy, setGoogleBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const callbackUrl =
     typeof window !== "undefined"
@@ -32,41 +38,48 @@ function AuthPage() {
         }`
       : undefined;
 
-  async function handleEmail(event: React.FormEvent) {
-    event.preventDefault();
+  function validateEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  async function sendLink(targetEmail: string) {
     setError(null);
-    if (!email.trim()) return;
     setStatus("sending");
     const { error: signInError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
+      email: targetEmail,
       options: { emailRedirectTo: callbackUrl },
     });
     if (signInError) {
       setStatus("error");
-      setError("Не удалось отправить ссылку. Проверьте email и попробуйте снова.");
+      const msg = signInError.message?.toLowerCase() ?? "";
+      if (msg.includes("rate") || msg.includes("limit")) {
+        setError("Слишком часто. Подождите минуту и попробуйте снова.");
+      } else if (msg.includes("invalid") && msg.includes("email")) {
+        setError("Проверьте адрес — похоже, он введён с ошибкой.");
+      } else {
+        setError("Не удалось отправить письмо. Попробуйте ещё раз через минуту.");
+      }
       return;
     }
     setStatus("sent");
+    setCooldown(RESEND_COOLDOWN_SEC);
   }
 
-  async function handleGoogle() {
-    setError(null);
-    setGoogleBusy(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: callbackUrl,
-      });
-      if (result.error) {
-        setError("Не удалось войти через Google. Попробуйте ещё раз.");
-        setGoogleBusy(false);
-        return;
-      }
-      if (result.redirected) return;
-      navigate({ to: redirectTo ?? "/" });
-    } catch {
-      setError("Не удалось войти через Google. Попробуйте ещё раз.");
-      setGoogleBusy(false);
+  async function handleEmail(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    if (!validateEmail(trimmed)) {
+      setStatus("error");
+      setError("Введите корректный email.");
+      return;
     }
+    await sendLink(trimmed);
+  }
+
+  async function handleResend() {
+    if (cooldown > 0 || !email.trim()) return;
+    await sendLink(email.trim());
   }
 
   return (
@@ -87,92 +100,78 @@ function AuthPage() {
         </div>
 
         <h1 className="pf-h1 mb-3">Войти в Pathy</h1>
-        <p className="pf-lead mb-8">Продолжите с почтой или Google-аккаунтом.</p>
+        <p className="pf-lead mb-8">
+          Введите почту — мы отправим ссылку для входа.
+        </p>
 
-        <div className="space-y-5">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-11"
-            onClick={handleGoogle}
-            disabled={googleBusy}
-          >
-            <GoogleIcon />
-            <span className="ml-2">
-              {googleBusy ? "Открываем Google…" : "Продолжить с Google"}
-            </span>
-          </Button>
-
-          <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            или
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          {status === "sent" ? (
-            <div className="rounded-md border border-border bg-muted/40 p-4 text-sm">
-              Мы отправили ссылку для входа на вашу почту.
+        {status === "sent" ? (
+          <div className="space-y-4">
+            <div className="rounded-md border border-border bg-muted/40 p-4 text-sm leading-relaxed">
+              Мы отправили ссылку на <b>{email}</b>. Откройте письмо и
+              перейдите по ссылке, чтобы войти.
+              <div className="mt-1 text-xs text-muted-foreground">
+                Не забудьте проверить папку «Спам».
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-sm">
               <button
                 type="button"
-                className="block mt-2 text-xs underline text-muted-foreground"
+                className="underline disabled:opacity-40 disabled:no-underline"
+                disabled={cooldown > 0}
+                onClick={handleResend}
+              >
+                {cooldown > 0 ? `Отправить ещё раз через ${cooldown}с` : "Отправить ещё раз"}
+              </button>
+              <button
+                type="button"
+                className="text-muted-foreground underline"
                 onClick={() => {
                   setStatus("idle");
-                  setEmail("");
+                  setError(null);
                 }}
               >
-                Отправить ещё раз
+                Другой email
               </button>
             </div>
-          ) : (
-            <form onSubmit={handleEmail} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
-              <Button type="submit" className="w-full h-11" disabled={status === "sending"}>
-                {status === "sending" ? "Отправляем…" : "Получить ссылку для входа"}
-              </Button>
-            </form>
-          )}
-
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
+            {error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <form onSubmit={handleEmail} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full h-11"
+              disabled={status === "sending"}
+            >
+              {status === "sending" ? "Отправляем…" : "Получить ссылку для входа"}
+            </Button>
+            {error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Мы не используем пароли. Каждый вход — по одноразовой ссылке из
+              письма.
             </p>
-          ) : null}
-        </div>
+          </form>
+        )}
       </div>
     </main>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M17.64 9.2c0-.64-.06-1.25-.17-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
-      />
-      <path
-        fill="#34A853"
-        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.32A9 9 0 0 0 9 18z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.04l3.01-2.32z"
-      />
-      <path
-        fill="#EA4335"
-        d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3.01 2.32C4.68 5.16 6.66 3.58 9 3.58z"
-      />
-    </svg>
   );
 }
