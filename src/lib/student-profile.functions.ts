@@ -70,9 +70,14 @@ export const completeStudentOnboarding = createServerFn({ method: "POST" })
     if (data.target_date !== undefined) profilePatch.target_date = data.target_date;
     if (data.learning_goal !== undefined) profilePatch.learning_goal = data.learning_goal;
     if (data.learning_goals !== undefined) profilePatch.learning_goals = data.learning_goals;
+    if (data.custom_learning_goal !== undefined) profilePatch.custom_learning_goal = data.custom_learning_goal;
     if (data.self_assessment !== undefined) profilePatch.self_assessment = data.self_assessment;
     if (data.learning_barriers !== undefined) profilePatch.learning_barriers = data.learning_barriers;
+    if (data.custom_learning_barrier !== undefined) profilePatch.custom_learning_barrier = data.custom_learning_barrier;
     if (data.available_time !== undefined) profilePatch.available_time = data.available_time;
+    if (data.education_system !== undefined) profilePatch.education_system = data.education_system;
+    if (data.grade !== undefined) profilePatch.grade = data.grade;
+    if (data.onboarding_summary !== undefined) profilePatch.onboarding_summary = data.onboarding_summary;
     await sb.from("student_profiles").update(profilePatch).eq("id", profile.id);
 
     // 3) Subjects + seed topic progress
