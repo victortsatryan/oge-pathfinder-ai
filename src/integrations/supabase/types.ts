@@ -348,6 +348,125 @@ export type Database = {
           },
         ]
       }
+      content_candidates: {
+        Row: {
+          admin_notes: string | null
+          author_id: string
+          contains: string[]
+          content_kind: string
+          content_text: string | null
+          created_at: string
+          description: string | null
+          education_system: string | null
+          file_path: string | null
+          file_url: string | null
+          grade: string | null
+          id: string
+          learning_objective_id: string | null
+          level: string | null
+          link_url: string | null
+          material_type: string | null
+          published_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          subject_id: string | null
+          submitted_at: string | null
+          subtopic_id: string | null
+          title: string
+          topic_id: string | null
+          updated_at: string
+          usefulness: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          author_id: string
+          contains?: string[]
+          content_kind?: string
+          content_text?: string | null
+          created_at?: string
+          description?: string | null
+          education_system?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          grade?: string | null
+          id?: string
+          learning_objective_id?: string | null
+          level?: string | null
+          link_url?: string | null
+          material_type?: string | null
+          published_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          subject_id?: string | null
+          submitted_at?: string | null
+          subtopic_id?: string | null
+          title: string
+          topic_id?: string | null
+          updated_at?: string
+          usefulness?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          author_id?: string
+          contains?: string[]
+          content_kind?: string
+          content_text?: string | null
+          created_at?: string
+          description?: string | null
+          education_system?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          grade?: string | null
+          id?: string
+          learning_objective_id?: string | null
+          level?: string | null
+          link_url?: string | null
+          material_type?: string | null
+          published_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          subject_id?: string | null
+          submitted_at?: string | null
+          subtopic_id?: string | null
+          title?: string
+          topic_id?: string | null
+          updated_at?: string
+          usefulness?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_candidates_learning_objective_id_fkey"
+            columns: ["learning_objective_id"]
+            isOneToOne: false
+            referencedRelation: "learning_objectives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_candidates_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_candidates_subtopic_id_fkey"
+            columns: ["subtopic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_candidates_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_import_logs: {
         Row: {
           created_at: string

@@ -15,6 +15,7 @@ const NAV = [
   { label: "Studio", to: "/admin/content" },
   { label: "Импорт", to: "/admin/import" },
   { label: "Материал", to: "/admin/new" },
+  { label: "Community", to: "/admin/community" },
   { label: "Источники", to: "/admin/sources" },
   { label: "Diagnostics", to: "/admin/routes" },
   { label: "Dev nav", to: "/dev/navigation" },
