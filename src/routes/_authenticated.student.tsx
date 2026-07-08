@@ -10,7 +10,7 @@ const NAV: NavItem[] = [
   { label: "Календарь", to: "/student/calendar" },
   { label: "Аналитика", to: "/student/analytics" },
   { label: "Ассистент", to: "/student/assistant" },
-  { label: "Профиль", to: "/profile" },
+  { label: "Профиль", to: "/student/profile" },
 ];
 
 export const Route = createFileRoute("/_authenticated/student")({
