@@ -765,6 +765,7 @@ export type Database = {
           duration_minutes: number | null
           id: string
           is_public: boolean
+          pcs_key: string | null
           program_id: string | null
           source_name: string | null
           source_url: string | null
@@ -780,6 +781,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           is_public?: boolean
+          pcs_key?: string | null
           program_id?: string | null
           source_name?: string | null
           source_url?: string | null
@@ -795,6 +797,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           is_public?: boolean
+          pcs_key?: string | null
           program_id?: string | null
           source_name?: string | null
           source_url?: string | null
@@ -3543,6 +3546,10 @@ export type Database = {
         Returns: boolean
       }
       pcs_import: { Args: { mode?: string; payload: Json }; Returns: Json }
+      pcs_import_diagnostic: {
+        Args: { mode?: string; payload: Json }
+        Returns: Json
+      }
       student_linked_to_teacher_profile: {
         Args: { _teacher_profile_id: string }
         Returns: boolean
