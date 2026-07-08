@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { RoleShell, type NavItem } from "@/components/oge/role-shell";
+import { RoleGate } from "@/components/oge/role-gate";
 
 const NAV: NavItem[] = [
   { label: "Главная", to: "/teacher" },
@@ -12,5 +13,9 @@ const NAV: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/_authenticated/teacher")({
-  component: () => <RoleShell title="Преподаватель" items={NAV} accent="Преподаватель" />,
+  component: () => (
+    <RoleGate required="teacher">
+      <RoleShell title="Преподаватель" items={NAV} accent="Преподаватель" />
+    </RoleGate>
+  ),
 });
