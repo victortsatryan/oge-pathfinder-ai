@@ -8,17 +8,23 @@ import {
   getTeacherStudentDetail,
   createTeacherNote,
 } from "@/lib/teacher.functions";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 import { AdvisorPanel } from "@/components/oge/advisor-panel";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/$studentId")({
   component: StudentDetail,
 });
+
+const TABS = [
+  { key: "overview", label: "Обзор" },
+  { key: "progress", label: "Прогресс" },
+  { key: "mistakes", label: "Ошибки" },
+  { key: "path", label: "Маршрут" },
+  { key: "lessons", label: "Занятия" },
+  { key: "notes", label: "Заметки" },
+  { key: "advisor", label: "Советник" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
 
 function StudentDetail() {
   const { studentId } = Route.useParams();
@@ -26,12 +32,15 @@ function StudentDetail() {
   const detailFn = useServerFn(getTeacherStudentDetail);
   const noteFn = useServerFn(createTeacherNote);
 
+  const [tab, setTab] = useState<TabKey>("overview");
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["teacher", "student", studentId],
     queryFn: () => detailFn({ data: { student_profile_id: studentId } }),
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["teacher", "student", studentId] });
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: ["teacher", "student", studentId] });
 
   const noteMut = useMutation({
     mutationFn: (vars: { content: string; note_type: any }) =>
@@ -42,207 +51,362 @@ function StudentDetail() {
   const [noteText, setNoteText] = useState("");
   const [noteType, setNoteType] = useState<string>("observation");
 
-  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Загрузка…</div>;
-  if (error || !data) return <div className="p-6 text-sm text-red-600">Нет доступа или ученик не найден.</div>;
+  if (isLoading)
+    return (
+      <div className="pf-reader-wide py-16 text-sm" style={{ color: "var(--pf-muted)" }}>
+        Загрузка…
+      </div>
+    );
+  if (error || !data)
+    return (
+      <div className="pf-reader-wide py-16 text-sm" style={{ color: "var(--pf-cinnabar)" }}>
+        Нет доступа или ученик не найден.
+      </div>
+    );
 
   const d = data as any;
   const upcoming = (d.lessons ?? []).filter((l: any) => l.status !== "completed");
-  const activePath = (d.paths ?? []).find((p: any) => p.status === "active") ?? d.paths?.[0];
+  const activePath =
+    (d.paths ?? []).find((p: any) => p.status === "active") ?? d.paths?.[0];
 
   return (
-    <div className="space-y-5">
-      <Button asChild variant="ghost" size="sm">
-        <Link to="/teacher/students"><ArrowLeft className="h-4 w-4 mr-1" /> К списку</Link>
-      </Button>
-
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {d.profile?.display_name ?? "Без имени"}
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {d.profile?.grade ? `${d.profile.grade} · ` : ""}
-          {d.profile?.learning_goal ?? "Цель не указана"}
+    <article className="pf-reader-wide pf-rise">
+      <div className="pf-section-eyebrow">
+        <Link
+          to="/teacher/students"
+          className="pf-section-eyebrow__label inline-flex items-center gap-2 hover:text-[color:var(--pf-ink)]"
+        >
+          <ArrowLeft className="h-3 w-3" /> <b>К списку учеников</b>
+        </Link>
+        <span className="pf-section-eyebrow__label">
+          {d.profile?.grade ?? ""}
           {d.profile?.target_exam ? ` · ${d.profile.target_exam}` : ""}
-        </p>
+        </span>
+      </div>
+
+      <header className="mb-10">
+        <p className="pf-eyebrow mb-4">карточка ученика</p>
+        <h1 className="pf-h1">{d.profile?.display_name ?? "Без имени"}</h1>
+        {d.profile?.learning_goal ? (
+          <p className="pf-lead">{d.profile.learning_goal}</p>
+        ) : null}
       </header>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="flex flex-wrap h-auto">
-          <TabsTrigger value="overview">Обзор</TabsTrigger>
-          <TabsTrigger value="progress">Прогресс</TabsTrigger>
-          <TabsTrigger value="mistakes">Ошибки</TabsTrigger>
-          <TabsTrigger value="path">Маршрут</TabsTrigger>
-          <TabsTrigger value="calendar">Календарь</TabsTrigger>
-          <TabsTrigger value="lessons">Занятия</TabsTrigger>
-          <TabsTrigger value="notes">Заметки</TabsTrigger>
-          <TabsTrigger value="advisor">Советник</TabsTrigger>
-        </TabsList>
+      <nav className="pf-tabs" aria-label="Разделы карточки">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`pf-tabs__item ${tab === t.key ? "is-active" : ""}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
-        <TabsContent value="overview">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="pf-block p-5 space-y-2 text-sm">
-              <Info label="Цель" v={d.profile?.learning_goal ?? "—"} />
-              <Info label="Экзамен" v={d.profile?.target_exam ?? "—"} />
-              <Info label="Класс" v={d.profile?.grade ?? "—"} />
-              <Info label="Предметы" v={(d.subjects ?? []).map((s: any) => s.subject?.name).filter(Boolean).join(", ") || "—"} />
-              <Info label="Слабых тем" v={String((d.progress ?? []).filter((p: any) => (p.mastery_score ?? 0) < 50).length)} />
-              <Info label="Ошибок" v={String(d.mistakes.length)} />
-              <Info label="Ближайшее занятие" v={upcoming[0] ? `${upcoming[0].lesson_date} · ${upcoming[0].title}` : "—"} />
-              <Info label="Активный маршрут" v={activePath?.title ?? "—"} />
-            </div>
-            <div className="pf-block p-5 space-y-2">
-              <div className="pf-eyebrow">Свежие ошибки</div>
-              {d.mistakes.slice(0, 5).map((m: any) => (
-                <div key={m.id} className="text-sm border-b pb-1.5">
-                  <div className="font-medium">{m.mistake_type ?? "ошибка"}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleDateString()} · {m.source ?? "—"}</div>
-                </div>
+      {tab === "overview" && (
+        <div className="grid md:grid-cols-2 gap-x-12 gap-y-4">
+          <dl>
+            <DefRow label="Цель" v={d.profile?.learning_goal ?? "—"} />
+            <DefRow label="Экзамен" v={d.profile?.target_exam ?? "—"} />
+            <DefRow label="Класс" v={d.profile?.grade ?? "—"} />
+            <DefRow
+              label="Предметы"
+              v={
+                (d.subjects ?? [])
+                  .map((s: any) => s.subject?.name)
+                  .filter(Boolean)
+                  .join(", ") || "—"
+              }
+            />
+            <DefRow
+              label="Слабых тем"
+              v={String(
+                (d.progress ?? []).filter(
+                  (p: any) => (p.mastery_score ?? 0) < 50,
+                ).length,
+              )}
+            />
+            <DefRow label="Ошибок" v={String(d.mistakes.length)} />
+            <DefRow
+              label="Ближайшее занятие"
+              v={upcoming[0] ? `${upcoming[0].lesson_date} · ${upcoming[0].title}` : "—"}
+            />
+            <DefRow label="Активный маршрут" v={activePath?.title ?? "—"} />
+          </dl>
+
+          <div>
+            <p className="pf-eyebrow mb-4">свежие ошибки</p>
+            {d.mistakes.length === 0 ? (
+              <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+                Ошибки пока не зафиксированы.
+              </p>
+            ) : (
+              <ul>
+                {d.mistakes.slice(0, 5).map((m: any) => (
+                  <li
+                    key={m.id}
+                    className="py-3"
+                    style={{ borderBottom: "1px solid var(--pf-line)" }}
+                  >
+                    <div className="text-[14px] font-medium">
+                      {m.mistake_type ?? "ошибка"}
+                    </div>
+                    <div
+                      className="mt-1 font-mono text-[11px] uppercase tracking-widest"
+                      style={{ color: "var(--pf-muted)" }}
+                    >
+                      {new Date(m.created_at).toLocaleDateString()} ·{" "}
+                      {m.source ?? "—"}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "progress" && (
+        <div>
+          {d.progress.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+              Данных о прогрессе пока нет.
+            </p>
+          ) : (
+            <ul>
+              {d.progress.map((p: any) => (
+                <li
+                  key={p.topic_id}
+                  className="py-4"
+                  style={{ borderBottom: "1px solid var(--pf-line)" }}
+                >
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="text-[14px]">{p.topic?.title ?? "—"}</span>
+                    <span
+                      className="font-mono text-[11px] uppercase tracking-widest"
+                      style={{ color: "var(--pf-muted)" }}
+                    >
+                      {p.status} · {p.mastery_score ?? 0}%
+                    </span>
+                  </div>
+                  <div className="pf-bar">
+                    <div
+                      className={`pf-bar__fill ${
+                        (p.mastery_score ?? 0) < 30
+                          ? "pf-bar__fill--cinnabar"
+                          : (p.mastery_score ?? 0) < 60
+                            ? "pf-bar__fill--mustard"
+                            : ""
+                      }`}
+                      style={{ width: `${p.mastery_score ?? 0}%` }}
+                    />
+                  </div>
+                </li>
               ))}
-              {d.mistakes.length === 0 && <div className="text-sm text-muted-foreground">Ошибки пока не зафиксированы.</div>}
-            </div>
-          </div>
-        </TabsContent>
+            </ul>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="progress">
-          <div className="pf-block p-5 space-y-3">
-            {d.progress.length === 0 && <div className="text-sm text-muted-foreground">Данных о прогрессе пока нет.</div>}
-            {d.progress.map((p: any) => (
-              <div key={p.topic_id} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>{p.topic?.title ?? "—"}</span>
-                  <span className="flex gap-2 items-center">
-                    <Badge variant="outline">{p.status}</Badge>
-                    <span className="text-muted-foreground text-xs">{p.mastery_score ?? 0}%</span>
-                  </span>
-                </div>
-                <Progress value={p.mastery_score ?? 0} />
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="mistakes">
-          <div className="pf-block p-5">
-            {d.mistakes.length === 0 && <div className="text-sm text-muted-foreground">Ошибки пока не зафиксированы.</div>}
-            <ul className="space-y-2 text-sm">
+      {tab === "mistakes" && (
+        <div>
+          {d.mistakes.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+              Ошибки пока не зафиксированы.
+            </p>
+          ) : (
+            <ul>
               {d.mistakes.map((m: any) => (
-                <li key={m.id} className="border-b pb-2">
-                  <div className="font-medium">{m.mistake_type ?? "ошибка"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(m.created_at).toLocaleString()} · источник: {m.source ?? "—"}
+                <li
+                  key={m.id}
+                  className="py-4"
+                  style={{ borderBottom: "1px solid var(--pf-line)" }}
+                >
+                  <div className="text-[14px] font-medium">
+                    {m.mistake_type ?? "ошибка"}
                   </div>
-                  {m.mistake_description && <div className="text-xs mt-1">{m.mistake_description}</div>}
+                  <div
+                    className="mt-1 font-mono text-[11px] uppercase tracking-widest"
+                    style={{ color: "var(--pf-muted)" }}
+                  >
+                    {new Date(m.created_at).toLocaleString()} · источник:{" "}
+                    {m.source ?? "—"}
+                  </div>
+                  {m.mistake_description && (
+                    <p
+                      className="mt-2 text-[13px] leading-relaxed"
+                      style={{ color: "var(--pf-muted)" }}
+                    >
+                      {m.mistake_description}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
-          </div>
-        </TabsContent>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="path">
-          <div className="pf-block p-5">
-            {d.paths.length === 0 && <div className="text-sm text-muted-foreground">Маршрут ученика ещё не сформирован.</div>}
-            <ul className="space-y-2 text-sm">
+      {tab === "path" && (
+        <div>
+          {d.paths.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+              Маршрут ученика ещё не сформирован.
+            </p>
+          ) : (
+            <ul>
               {d.paths.map((p: any) => (
-                <li key={p.id} className="flex justify-between border-b pb-2">
+                <li
+                  key={p.id}
+                  className="py-4 flex justify-between items-baseline"
+                  style={{ borderBottom: "1px solid var(--pf-line)" }}
+                >
                   <div>
-                    <div className="font-medium">{p.title}</div>
-                    <div className="text-xs text-muted-foreground">{p.description ?? p.goal ?? "—"}</div>
+                    <div className="text-[15px] font-medium">{p.title}</div>
+                    <div
+                      className="mt-1 text-[13px]"
+                      style={{ color: "var(--pf-muted)" }}
+                    >
+                      {p.description ?? p.goal ?? "—"}
+                    </div>
                   </div>
-                  <Badge variant="outline">{p.status} · {p.generated_by}</Badge>
+                  <span
+                    className="font-mono text-[11px] uppercase tracking-widest whitespace-nowrap"
+                    style={{ color: "var(--pf-muted)" }}
+                  >
+                    {p.status} · {p.generated_by}
+                  </span>
                 </li>
               ))}
             </ul>
-          </div>
-        </TabsContent>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="calendar">
-          <div className="pf-block p-5">
-            {d.lessons.length === 0 && <div className="text-sm text-muted-foreground">Событий календаря пока нет.</div>}
-            <ul className="space-y-2 text-sm">
+      {tab === "lessons" && (
+        <div>
+          {d.lessons.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+              Занятий пока нет.
+            </p>
+          ) : (
+            <ul>
               {d.lessons.map((l: any) => (
-                <li key={l.id} className="flex justify-between border-b pb-2">
-                  <span>{l.title}</span>
-                  <span className="text-muted-foreground">{l.lesson_date} · {l.status}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="lessons">
-          <div className="pf-block p-5">
-            {d.lessons.length === 0 && <div className="text-sm text-muted-foreground">Занятий пока нет.</div>}
-            <ul className="space-y-2 text-sm">
-              {d.lessons.map((l: any) => (
-                <li key={l.id} className="flex justify-between border-b pb-2">
-                  <Link to="/lesson/$lessonId" params={{ lessonId: l.id }} className="hover:underline">
+                <li
+                  key={l.id}
+                  className="py-3 flex justify-between items-baseline"
+                  style={{ borderBottom: "1px solid var(--pf-line)" }}
+                >
+                  <Link
+                    to="/lesson/$lessonId"
+                    params={{ lessonId: l.id }}
+                    className="text-[14px] hover:underline"
+                  >
                     {l.title}
                   </Link>
-                  <span className="text-muted-foreground">{l.lesson_date} · {l.status}</span>
+                  <span
+                    className="font-mono text-[11px] uppercase tracking-widest"
+                    style={{ color: "var(--pf-muted)" }}
+                  >
+                    {l.lesson_date} · {l.status}
+                  </span>
                 </li>
               ))}
             </ul>
-          </div>
-        </TabsContent>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="notes">
-          <div className="pf-block p-5 space-y-3">
-            <div className="flex gap-2">
-              <Select value={noteType} onValueChange={setNoteType}>
-                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="observation">Наблюдение</SelectItem>
-                  <SelectItem value="lesson">По занятию</SelectItem>
-                  <SelectItem value="diagnostic">По диагностике</SelectItem>
-                  <SelectItem value="recommendation">Рекомендация</SelectItem>
-                  <SelectItem value="parent_note">Родителю</SelectItem>
-                  <SelectItem value="other">Другое</SelectItem>
-                </SelectContent>
-              </Select>
+      {tab === "notes" && (
+        <div>
+          <div className="mb-8">
+            <label className="pf-eyebrow block mb-3">новая заметка</label>
+            <div className="flex flex-wrap gap-3 mb-3">
+              {[
+                { v: "observation", l: "Наблюдение" },
+                { v: "lesson", l: "По занятию" },
+                { v: "diagnostic", l: "По диагностике" },
+                { v: "recommendation", l: "Рекомендация" },
+                { v: "parent_note", l: "Родителю" },
+                { v: "other", l: "Другое" },
+              ].map((o) => (
+                <button
+                  key={o.v}
+                  onClick={() => setNoteType(o.v)}
+                  className="text-[11px] font-mono uppercase tracking-widest px-3 py-1"
+                  style={{
+                    border: "1px solid var(--pf-line-strong)",
+                    background:
+                      noteType === o.v ? "var(--pf-ink)" : "transparent",
+                    color:
+                      noteType === o.v ? "var(--pf-paper)" : "var(--pf-muted)",
+                  }}
+                >
+                  {o.l}
+                </button>
+              ))}
             </div>
-            <Textarea
+            <textarea
               rows={3}
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               placeholder="Заметка по ученику…"
+              className="w-full bg-transparent p-3 text-[14px]"
+              style={{ border: "1px solid var(--pf-line-strong)" }}
             />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
+            <div className="flex justify-end mt-3">
+              <button
                 disabled={!noteText.trim() || noteMut.isPending}
                 onClick={() => {
-                  noteMut.mutate({ content: noteText.trim(), note_type: noteType });
+                  noteMut.mutate({
+                    content: noteText.trim(),
+                    note_type: noteType,
+                  });
                   setNoteText("");
                 }}
+                className="pf-btn pf-btn--accent"
               >
-                <StickyNote className="h-4 w-4 mr-1" /> Сохранить
-              </Button>
+                <StickyNote className="h-4 w-4" /> Сохранить
+              </button>
             </div>
-            <ul className="space-y-3 text-sm">
-              {d.notes.length === 0 && <li className="text-muted-foreground">Заметок пока нет.</li>}
-              {d.notes.map((n: any) => (
-                <li key={n.id} className="border-b pb-2">
-                  <div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString()} · {n.note_type}</div>
-                  <div>{n.content}</div>
-                </li>
-              ))}
-            </ul>
           </div>
-        </TabsContent>
 
-        <TabsContent value="advisor">
-          <AdvisorPanel studentProfileId={studentId} />
-        </TabsContent>
-      </Tabs>
-    </div>
+          <ul>
+            {d.notes.length === 0 && (
+              <li className="text-sm" style={{ color: "var(--pf-muted)" }}>
+                Заметок пока нет.
+              </li>
+            )}
+            {d.notes.map((n: any) => (
+              <li
+                key={n.id}
+                className="py-4"
+                style={{ borderBottom: "1px solid var(--pf-line)" }}
+              >
+                <div
+                  className="font-mono text-[11px] uppercase tracking-widest mb-1"
+                  style={{ color: "var(--pf-muted)" }}
+                >
+                  {new Date(n.created_at).toLocaleString()} · {n.note_type}
+                </div>
+                <div className="text-[14px] leading-relaxed">{n.content}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {tab === "advisor" && <AdvisorPanel studentProfileId={studentId} />}
+    </article>
   );
 }
 
-function Info({ label, v }: { label: string; v: string }) {
+function DefRow({ label, v }: { label: string; v: string }) {
   return (
-    <div className="flex justify-between gap-4 border-b pb-1.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{v}</span>
+    <div className="pf-def">
+      <dt>{label}</dt>
+      <dd className="text-right">{v}</dd>
     </div>
   );
 }

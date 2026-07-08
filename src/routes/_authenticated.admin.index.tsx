@@ -1,39 +1,79 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowUpRight } from "lucide-react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminHome,
 });
 
+const CARDS = [
+  {
+    to: "/admin/content" as const,
+    num: "01",
+    title: "Pathy Studio",
+    desc: "PCS JSON, дерево программы, карточки Learning Objectives.",
+  },
+  {
+    to: "/admin/import" as const,
+    num: "02",
+    title: "Импорт",
+    desc: "Массовая загрузка материалов из CSV / JSON с проверкой дублей.",
+  },
+  {
+    to: "/admin/new" as const,
+    num: "03",
+    title: "Новый материал",
+    desc: "Форма со всеми полями материала и привязкой к теме.",
+  },
+  {
+    to: "/admin/sources" as const,
+    num: "04",
+    title: "Источники",
+    desc: "Каталог источников — ФИПИ, Решу ОГЭ, РЭШ, InternetUrok и др.",
+  },
+];
+
 function AdminHome() {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <Link to="/admin/content">
-        <Card className="hover:border-primary transition">
-          <CardHeader><CardTitle>Pathy Studio</CardTitle><CardDescription>PCS JSON и программа</CardDescription></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Импорт образовательного контента, дерево программы, карточки Learning Objectives.</CardContent>
-        </Card>
-      </Link>
+    <section>
+      <SectionEyebrow section="Разделы" sub="управление контентом" mark="mustard" />
 
-      <Link to="/admin/import">
-        <Card className="hover:border-primary transition">
-          <CardHeader><CardTitle>Импорт</CardTitle><CardDescription>Загрузить CSV / JSON</CardDescription></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Массовая загрузка материалов с проверкой дублей.</CardContent>
-        </Card>
-      </Link>
-      <Link to="/admin/new">
-        <Card className="hover:border-primary transition">
-          <CardHeader><CardTitle>Новый материал</CardTitle><CardDescription>Создать вручную</CardDescription></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">Форма со всеми полями материала и привязкой к теме.</CardContent>
-        </Card>
-      </Link>
-      <Link to="/admin/sources">
-        <Card className="hover:border-primary transition">
-          <CardHeader><CardTitle>Источники</CardTitle><CardDescription>Каталог источников</CardDescription></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">ФИПИ, Решу ОГЭ, РЭШ, InternetUrok и др.</CardContent>
-        </Card>
-      </Link>
-    </div>
+      <ul
+        className="grid gap-0"
+        style={{ borderTop: "1px solid var(--pf-line-strong)" }}
+      >
+        {CARDS.map((c) => (
+          <li key={c.to} style={{ borderBottom: "1px solid var(--pf-line-strong)" }}>
+            <Link
+              to={c.to}
+              className="grid grid-cols-[80px,1fr,auto] gap-6 items-baseline py-8 hover:bg-[color:color-mix(in_oklab,var(--pf-line)_25%,transparent)] transition-colors px-2"
+            >
+              <span
+                className="font-mono text-[13px] uppercase tracking-widest"
+                style={{ color: "var(--pf-muted)" }}
+              >
+                {c.num}
+              </span>
+              <div>
+                <div className="text-[22px] font-medium leading-tight">
+                  {c.title}
+                </div>
+                <div
+                  className="mt-2 text-[14px] leading-relaxed"
+                  style={{ color: "var(--pf-muted)" }}
+                >
+                  {c.desc}
+                </div>
+              </div>
+              <ArrowUpRight
+                className="h-5 w-5"
+                style={{ color: "var(--pf-muted)" }}
+              />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
