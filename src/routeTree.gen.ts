@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AuthIndexRouteImport } from './routes/auth.index'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as DevNavigationRouteImport } from './routes/dev.navigation'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -66,13 +66,13 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/auth/',
+  path: '/auth/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -86,9 +86,9 @@ const DevNavigationRoute = DevNavigationRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/callback',
-  path: '/callback',
-  getParentRoute: () => AuthRoute,
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTeacherRoute = AuthenticatedTeacherRouteImport.update({
   id: '/teacher',
@@ -355,7 +355,6 @@ const AuthenticatedAdminContentObjectivesLoIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
-  '/auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -364,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/teacher': typeof AuthenticatedTeacherRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/navigation': typeof DevNavigationRoute
+  '/auth/': typeof AuthIndexRoute
   '/admin/content': typeof AuthenticatedAdminContentRouteWithChildren
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
@@ -406,13 +406,13 @@ export interface FileRoutesByFullPath {
   '/admin/content/objectives/': typeof AuthenticatedAdminContentObjectivesIndexRoute
 }
 export interface FileRoutesByTo {
-  '/auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/navigation': typeof DevNavigationRoute
   '/': typeof AuthenticatedIndexRoute
+  '/auth': typeof AuthIndexRoute
   '/admin/import': typeof AuthenticatedAdminImportRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
   '/admin/routes': typeof AuthenticatedAdminRoutesRoute
@@ -456,7 +456,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
@@ -466,6 +465,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/dev/navigation': typeof DevNavigationRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/auth/': typeof AuthIndexRoute
   '/_authenticated/admin/content': typeof AuthenticatedAdminContentRouteWithChildren
   '/_authenticated/admin/import': typeof AuthenticatedAdminImportRoute
   '/_authenticated/admin/new': typeof AuthenticatedAdminNewRoute
@@ -511,7 +511,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/login'
     | '/admin'
     | '/onboarding'
@@ -520,6 +519,7 @@ export interface FileRouteTypes {
     | '/teacher'
     | '/auth/callback'
     | '/dev/navigation'
+    | '/auth/'
     | '/admin/content'
     | '/admin/import'
     | '/admin/new'
@@ -562,13 +562,13 @@ export interface FileRouteTypes {
     | '/admin/content/objectives/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/auth'
     | '/login'
     | '/onboarding'
     | '/profile'
     | '/auth/callback'
     | '/dev/navigation'
     | '/'
+    | '/auth'
     | '/admin/import'
     | '/admin/new'
     | '/admin/routes'
@@ -611,7 +611,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
-    | '/auth'
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/onboarding'
@@ -621,6 +620,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/dev/navigation'
     | '/_authenticated/'
+    | '/auth/'
     | '/_authenticated/admin/content'
     | '/_authenticated/admin/import'
     | '/_authenticated/admin/new'
@@ -665,9 +665,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  AuthRoute: typeof AuthRouteWithChildren
   LoginRoute: typeof LoginRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   DevNavigationRoute: typeof DevNavigationRoute
+  AuthIndexRoute: typeof AuthIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -679,18 +680,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/': {
+      id: '/auth/'
+      path: '/auth'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -709,10 +710,10 @@ declare module '@tanstack/react-router' {
     }
     '/auth/callback': {
       id: '/auth/callback'
-      path: '/callback'
+      path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof AuthRoute
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/teacher': {
       id: '/_authenticated/teacher'
@@ -1185,21 +1186,12 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
-interface AuthRouteChildren {
-  AuthCallbackRoute: typeof AuthCallbackRoute
-}
-
-const AuthRouteChildren: AuthRouteChildren = {
-  AuthCallbackRoute: AuthCallbackRoute,
-}
-
-const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  AuthRoute: AuthRouteWithChildren,
   LoginRoute: LoginRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   DevNavigationRoute: DevNavigationRoute,
+  AuthIndexRoute: AuthIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
