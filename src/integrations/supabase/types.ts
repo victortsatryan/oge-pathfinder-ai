@@ -3501,11 +3501,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_my_teacher_profile: {
+        Args: { _teacher_profile_id: string }
+        Returns: boolean
+      }
       is_teacher_of_student: {
         Args: { _student_profile_id: string; _user_id: string }
         Returns: boolean
       }
       pcs_import: { Args: { mode?: string; payload: Json }; Returns: Json }
+      student_linked_to_teacher_profile: {
+        Args: { _teacher_profile_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "teacher" | "student"
