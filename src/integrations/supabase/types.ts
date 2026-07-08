@@ -2081,48 +2081,69 @@ export type Database = {
       student_profiles: {
         Row: {
           age: number | null
+          available_time: string | null
           country: string | null
           created_at: string
           display_name: string | null
           grade: string | null
           id: string
           language: string
+          learning_barriers: string[] | null
           learning_goal: string | null
+          learning_goals: string[] | null
+          onboarding_completed: boolean
+          onboarding_completed_at: string | null
           preferred_intensity: string | null
+          self_assessment: string | null
           target_date: string | null
           target_exam: string | null
+          target_program: string | null
           target_score: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           age?: number | null
+          available_time?: string | null
           country?: string | null
           created_at?: string
           display_name?: string | null
           grade?: string | null
           id?: string
           language?: string
+          learning_barriers?: string[] | null
           learning_goal?: string | null
+          learning_goals?: string[] | null
+          onboarding_completed?: boolean
+          onboarding_completed_at?: string | null
           preferred_intensity?: string | null
+          self_assessment?: string | null
           target_date?: string | null
           target_exam?: string | null
+          target_program?: string | null
           target_score?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           age?: number | null
+          available_time?: string | null
           country?: string | null
           created_at?: string
           display_name?: string | null
           grade?: string | null
           id?: string
           language?: string
+          learning_barriers?: string[] | null
           learning_goal?: string | null
+          learning_goals?: string[] | null
+          onboarding_completed?: boolean
+          onboarding_completed_at?: string | null
           preferred_intensity?: string | null
+          self_assessment?: string | null
           target_date?: string | null
           target_exam?: string | null
+          target_program?: string | null
           target_score?: string | null
           updated_at?: string
           user_id?: string
