@@ -262,7 +262,14 @@ export const adminUpdateCandidate = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => adminUpdateSchema.parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
-    const payload: Record<string, unknown> = {};
+    const payload: {
+      status?: (typeof STATUSES)[number];
+      reviewed_by?: string;
+      reviewed_at?: string;
+      published_at?: string;
+      admin_notes?: string | null;
+      learning_objective_id?: string | null;
+    } = {};
     if (data.status !== undefined) {
       payload.status = data.status;
       payload.reviewed_by = context.userId;
