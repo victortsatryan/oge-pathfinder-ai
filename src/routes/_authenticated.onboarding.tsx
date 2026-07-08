@@ -20,31 +20,75 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 
 // -------------------- Static option sets --------------------
 
-const GOAL_OPTIONS = [
-  { id: "oge", label: "Подготовиться к ОГЭ" },
-  { id: "ege", label: "Подготовиться к ЕГЭ" },
-  { id: "school", label: "Подтянуть школьную программу" },
-  { id: "gaps", label: "Восполнить пробелы" },
-  { id: "confidence", label: "Стать увереннее в предмете" },
-  { id: "university", label: "Подготовиться к поступлению" },
+const EDUCATION_SYSTEMS: {
+  id: string;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}[] = [
+  { id: "ru_school", label: "Российская школа" },
+  { id: "es_school", label: "Испанская школа", hint: "скоро появится", disabled: true },
+  { id: "ib", label: "IB", hint: "скоро появится", disabled: true },
+  { id: "a_level", label: "A-Level", hint: "скоро появится", disabled: true },
+  { id: "other", label: "Другая программа", hint: "скоро появится", disabled: true },
 ];
 
-const PROGRAM_OPTIONS = [
-  { id: "OGE", label: "9 класс · ОГЭ", hint: "экзамен в 9 классе" },
-  { id: "EGE", label: "11 класс · ЕГЭ", hint: "экзамен в 11 классе" },
-  {
-    id: "other",
-    label: "Вне школьной программы",
-    hint: "скоро — олимпиады, вуз, международные программы",
-    disabled: true,
-  },
+const RU_GRADES = Array.from({ length: 11 }, (_, i) => {
+  const n = i + 1;
+  return {
+    id: String(n),
+    label: `${n} класс`,
+    disabled: n !== 9 && n !== 11,
+    hint: n !== 9 && n !== 11 ? "скоро появится" : undefined,
+  };
+});
+
+// Fallback subject lists by grade (used when DB doesn't return matching subjects).
+const FALLBACK_SUBJECTS: Record<string, { slug: string; name: string }[]> = {
+  "9": [
+    { slug: "ru", name: "Русский язык" },
+    { slug: "math", name: "Математика" },
+    { slug: "en", name: "Английский язык" },
+    { slug: "bio", name: "Биология" },
+    { slug: "phys", name: "Физика" },
+    { slug: "chem", name: "Химия" },
+    { slug: "inf", name: "Информатика" },
+    { slug: "hist", name: "История" },
+    { slug: "soc", name: "Обществознание" },
+    { slug: "geo", name: "География" },
+    { slug: "lit", name: "Литература" },
+  ],
+  "11": [
+    { slug: "ru", name: "Русский язык" },
+    { slug: "math_base", name: "Математика (базовая)" },
+    { slug: "math_prof", name: "Математика (профильная)" },
+    { slug: "en", name: "Английский язык" },
+    { slug: "bio", name: "Биология" },
+    { slug: "phys", name: "Физика" },
+    { slug: "chem", name: "Химия" },
+    { slug: "inf", name: "Информатика" },
+    { slug: "hist", name: "История" },
+    { slug: "soc", name: "Обществознание" },
+    { slug: "geo", name: "География" },
+    { slug: "lit", name: "Литература" },
+  ],
+};
+
+const GOAL_OPTIONS_BASE = [
+  { id: "school", label: "Подтянуть школьную программу" },
+  { id: "gaps", label: "Закрыть пробелы" },
+  { id: "confidence", label: "Стать увереннее в предмете" },
+  { id: "grades", label: "Улучшить оценки" },
+  { id: "university", label: "Подготовиться к поступлению" },
+  { id: "hard_topics", label: "Разобраться в сложных темах" },
 ];
 
 const ASSESSMENT_OPTIONS = [
   { id: "beginner", label: "Пока только начинаю", n: 1 },
   { id: "basic", label: "Есть базовые знания", n: 2 },
-  { id: "confident", label: "Чувствую себя уверенно", n: 3 },
-  { id: "ready", label: "Почти готов к экзамену", n: 4 },
+  { id: "mixed", label: "Где-то понимаю, где-то теряюсь", n: 3 },
+  { id: "confident", label: "Чувствую себя уверенно", n: 4 },
+  { id: "ready", label: "Почти готов к экзамену", n: 5 },
 ];
 
 const BARRIER_OPTIONS = [
@@ -52,28 +96,31 @@ const BARRIER_OPTIONS = [
   { id: "forget", label: "Быстро забываю" },
   { id: "system", label: "Не хватает системы" },
   { id: "rare", label: "Редко занимаюсь" },
-  { id: "anxiety", label: "Волнуюсь перед экзаменами" },
+  { id: "anxiety", label: "Волнуюсь перед проверками или экзаменами" },
   { id: "careless", label: "Ошибаюсь по невнимательности" },
   { id: "time", label: "Не хватает времени" },
-  { id: "start", label: "Трудно заставить себя начать" },
+  { id: "start", label: "Трудно начать" },
   { id: "direction", label: "Не знаю, что учить дальше" },
+  { id: "boring", label: "Материал кажется скучным" },
 ];
 
 const TIME_OPTIONS = [
-  { id: "15-20", label: "15–20 минут" },
-  { id: "30-40", label: "30–40 минут" },
-  { id: "60", label: "около часа" },
-  { id: "60-120", label: "1–2 часа" },
-  { id: "variable", label: "по-разному" },
+  { id: "15-20", label: "15–20 минут в день" },
+  { id: "30-40", label: "30–40 минут в день" },
+  { id: "60", label: "Около часа в день" },
+  { id: "60-120", label: "1–2 часа в день" },
+  { id: "weekly", label: "Несколько раз в неделю" },
+  { id: "unknown", label: "Пока не знаю" },
 ];
 
 // -------------------- State --------------------
 
 type Answers = {
+  educationSystem: string | null;
+  grade: string | null;
+  subjects: string[]; // subject ids (uuid) OR fallback slug tokens
   goals: string[];
   goalOther: string;
-  program: string | null;
-  subjects: Set<string>;
   assessment: string | null;
   barriers: string[];
   barrierOther: string;
@@ -81,17 +128,18 @@ type Answers = {
 };
 
 const initial: Answers = {
+  educationSystem: null,
+  grade: null,
+  subjects: [],
   goals: [],
   goalOther: "",
-  program: null,
-  subjects: new Set(),
   assessment: null,
   barriers: [],
   barrierOther: "",
   time: null,
 };
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 // -------------------- Page --------------------
 
@@ -113,7 +161,6 @@ function OnboardingPage() {
     onError: (e: any) => toast.error(e?.message ?? "Не удалось сохранить роль"),
   });
 
-  // Role picker screen (before student wizard)
   if (role === null) {
     return (
       <RolePicker
@@ -131,17 +178,16 @@ function OnboardingPage() {
     return <FullscreenNote text="Переносим вас в кабинет преподавателя…" />;
   }
 
-  // -------- Student wizard --------
   const canNext = validateStep(step, answers);
-
   const next = () => setStep((s) => Math.min(TOTAL_STEPS, s + 1));
-  const back = () => (step === 1 ? setRole(null) : setStep((s) => Math.max(1, s - 1)));
+  const back = () =>
+    step === 1 ? setRole(null) : setStep((s) => Math.max(1, s - 1));
 
   return (
     <WizardChrome step={step} total={TOTAL_STEPS} onBack={back}>
       {step === 1 && <StepWelcome onNext={next} />}
       {step === 2 && (
-        <StepGoals
+        <StepEducationSystem
           answers={answers}
           setAnswers={setAnswers}
           onNext={next}
@@ -149,7 +195,7 @@ function OnboardingPage() {
         />
       )}
       {step === 3 && (
-        <StepProgram
+        <StepGrade
           answers={answers}
           setAnswers={setAnswers}
           onNext={next}
@@ -165,7 +211,7 @@ function OnboardingPage() {
         />
       )}
       {step === 5 && (
-        <StepAssessment
+        <StepGoals
           answers={answers}
           setAnswers={setAnswers}
           onNext={next}
@@ -173,7 +219,7 @@ function OnboardingPage() {
         />
       )}
       {step === 6 && (
-        <StepBarriers
+        <StepAssessment
           answers={answers}
           setAnswers={setAnswers}
           onNext={next}
@@ -181,6 +227,14 @@ function OnboardingPage() {
         />
       )}
       {step === 7 && (
+        <StepBarriers
+          answers={answers}
+          setAnswers={setAnswers}
+          onNext={next}
+          canNext={canNext}
+        />
+      )}
+      {step === 8 && (
         <StepTime
           answers={answers}
           setAnswers={setAnswers}
@@ -188,7 +242,7 @@ function OnboardingPage() {
           canNext={canNext}
         />
       )}
-      {step === 8 && <StepSummary answers={answers} />}
+      {step === 9 && <StepSummary answers={answers} />}
     </WizardChrome>
   );
 }
@@ -198,17 +252,19 @@ function validateStep(step: number, a: Answers): boolean {
     case 1:
       return true;
     case 2:
-      return a.goals.length > 0 || a.goalOther.trim().length > 0;
+      return !!a.educationSystem;
     case 3:
-      return !!a.program;
+      return !!a.grade;
     case 4:
-      return a.subjects.size > 0;
+      return a.subjects.length > 0;
     case 5:
-      return true;
+      return a.goals.length > 0 || a.goalOther.trim().length > 0;
     case 6:
-      return true;
+      return !!a.assessment;
     case 7:
       return true;
+    case 8:
+      return !!a.time;
     default:
       return true;
   }
@@ -230,11 +286,13 @@ function WizardChrome({
   return (
     <main className="min-h-screen relative" style={{ background: "var(--pf-paper)" }}>
       <div className="max-w-3xl mx-auto px-6 sm:px-10 py-10 sm:py-14 pf-rise">
-        {/* Header */}
         <div className="pf-section-eyebrow">
           <span className="pf-section-eyebrow__label inline-flex items-center gap-3">
             <PathyLogo size="sm" />
-            <span>/ онбординг · шаг {String(step).padStart(2, "0")} из {String(total).padStart(2, "0")}</span>
+            <span>
+              / онбординг · шаг {String(step).padStart(2, "0")} из{" "}
+              {String(total).padStart(2, "0")}
+            </span>
           </span>
           <button
             type="button"
@@ -245,7 +303,6 @@ function WizardChrome({
           </button>
         </div>
 
-        {/* Progress bar */}
         <div className="mt-6 h-[2px] w-full" style={{ background: "var(--pf-line)" }}>
           <div
             className="h-full transition-[width] duration-500 ease-out"
@@ -253,7 +310,6 @@ function WizardChrome({
           />
         </div>
 
-        {/* Content */}
         <div className="mt-14">{children}</div>
       </div>
       <Monogram />
@@ -284,7 +340,10 @@ function RolePicker({
 
         <header className="mt-16 mb-14">
           <p className="pf-eyebrow mb-3">С чего начнём</p>
-          <h1 className="pf-h1 leading-[0.95]" style={{ fontSize: "clamp(48px, 7vw, 88px)" }}>
+          <h1
+            className="pf-h1 leading-[0.95]"
+            style={{ fontSize: "clamp(48px, 7vw, 88px)" }}
+          >
             Кто вы <span style={{ color: "var(--pf-mustard)" }}>сегодня</span>?
           </h1>
           <span
@@ -331,7 +390,8 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
         className="pf-h1 leading-[0.95]"
         style={{ fontSize: "clamp(44px, 6.5vw, 84px)" }}
       >
-        Добро пожаловать <br />в <span style={{ color: "var(--pf-mustard)" }}>Pathy</span>.
+        Добро пожаловать <br />в{" "}
+        <span style={{ color: "var(--pf-mustard)" }}>Pathy</span>.
       </h1>
       <span
         aria-hidden
@@ -339,8 +399,8 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
         style={{ width: 72, height: 2, background: "var(--pf-cinnabar)" }}
       />
       <p className="pf-lead mt-8" style={{ maxWidth: "52ch" }}>
-        Давайте познакомимся. Несколько коротких вопросов помогут сделать обучение более
-        подходящим именно для вас — займёт три-пять минут.
+        Несколько коротких вопросов помогут настроить обучение под вашу
+        ситуацию. Займёт три-пять минут.
       </p>
       <div className="mt-12">
         <Button size="lg" onClick={onNext}>
@@ -351,24 +411,179 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
   );
 }
 
-function StepGoals({
-  answers,
-  setAnswers,
-  onNext,
-  canNext,
-}: StepProps) {
-  const toggle = (id: string) =>
-    setAnswers((a) => ({
-      ...a,
-      goals: a.goals.includes(id) ? a.goals.filter((g) => g !== id) : [...a.goals, id],
-    }));
+function StepEducationSystem({ answers, setAnswers, onNext, canNext }: StepProps) {
+  return (
+    <StepFrame
+      eyebrow="программа"
+      title={
+        <>
+          По какой программе <span style={{ color: "var(--pf-mustard)" }}>учитесь</span>?
+        </>
+      }
+      lead="Это определит, какие классы и предметы показать дальше."
+      onNext={onNext}
+      canNext={canNext}
+    >
+      <div className="grid gap-2">
+        {EDUCATION_SYSTEMS.map((p) => (
+          <OptionRow
+            key={p.id}
+            selected={answers.educationSystem === p.id}
+            label={p.label}
+            sub={p.hint}
+            disabled={p.disabled}
+            onClick={() =>
+              !p.disabled &&
+              setAnswers({ ...answers, educationSystem: p.id, grade: null, subjects: [] })
+            }
+          />
+        ))}
+      </div>
+    </StepFrame>
+  );
+}
+
+function StepGrade({ answers, setAnswers, onNext, canNext }: StepProps) {
+  const grades = answers.educationSystem === "ru_school" ? RU_GRADES : [];
+  return (
+    <StepFrame
+      eyebrow="класс"
+      title={
+        <>
+          В каком вы <span style={{ color: "var(--pf-mustard)" }}>классе</span>?
+        </>
+      }
+      lead="Пока доступны 9 и 11 классы. Остальные скоро появятся."
+      onNext={onNext}
+      canNext={canNext}
+    >
+      {grades.length === 0 ? (
+        <p className="text-sm text-[color:var(--pf-muted)]">
+          Для выбранной программы классы пока не добавлены.
+        </p>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {grades.map((g) => (
+            <OptionRow
+              key={g.id}
+              selected={answers.grade === g.id}
+              label={g.label}
+              sub={g.hint}
+              disabled={g.disabled}
+              onClick={() =>
+                !g.disabled && setAnswers({ ...answers, grade: g.id, subjects: [] })
+              }
+            />
+          ))}
+        </div>
+      )}
+    </StepFrame>
+  );
+}
+
+function StepSubjects({ answers, setAnswers, onNext, canNext }: StepProps) {
+  const listFn = useServerFn(listSubjects);
+  const subjectsQ = useQuery({
+    queryKey: ["onboarding-subjects"],
+    queryFn: async () => {
+      const res = await listFn();
+      return Array.isArray(res) ? res : [];
+    },
+  });
+
+  // Match DB subjects to grade via exam_type (OGE/EGE); fallback to grade list.
+  const items = useMemo(() => {
+    const all = Array.isArray(subjectsQ.data) ? (subjectsQ.data as any[]) : [];
+    const grade = answers.grade;
+    const examWanted = grade === "9" ? "OGE" : grade === "11" ? "EGE" : null;
+
+    let matched: { id: string; name: string; sub?: string }[] = [];
+    if (examWanted) {
+      matched = all
+        .filter((s) => (s?.exam_type ?? "").toString().toUpperCase() === examWanted)
+        .map((s) => ({ id: s.id, name: s.name, sub: s.description ?? undefined }));
+    }
+
+    if (matched.length === 0 && grade && FALLBACK_SUBJECTS[grade]) {
+      // Try to map fallback slugs to real DB subjects; if not found, use slug token.
+      matched = FALLBACK_SUBJECTS[grade].map((f) => {
+        const dbMatch = all.find(
+          (s) => (s?.slug ?? "") === f.slug || (s?.name ?? "") === f.name,
+        );
+        return dbMatch
+          ? { id: dbMatch.id, name: dbMatch.name }
+          : { id: `slug:${f.slug}`, name: f.name };
+      });
+    }
+
+    return matched;
+  }, [subjectsQ.data, answers.grade]);
+
+  const toggle = (id: string) => {
+    const cur = Array.isArray(answers.subjects) ? answers.subjects : [];
+    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+    setAnswers({ ...answers, subjects: next });
+  };
+
+  return (
+    <StepFrame
+      eyebrow="предметы"
+      title={
+        <>
+          Какие предметы сейчас <span style={{ color: "var(--pf-mustard)" }}>важны</span>?
+        </>
+      }
+      lead="Отметьте всё, чем занимаетесь. Можно выбрать несколько."
+      onNext={onNext}
+      canNext={canNext}
+    >
+      {subjectsQ.isLoading ? (
+        <p className="text-sm text-[color:var(--pf-muted)]">Загрузка…</p>
+      ) : subjectsQ.isError ? (
+        <p className="text-sm text-[color:var(--pf-muted)]">
+          Не удалось загрузить предметы. Попробуйте ещё раз.
+        </p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-[color:var(--pf-muted)]">
+          Для этого класса предметы пока не добавлены.
+        </p>
+      ) : (
+        <div className="grid gap-2">
+          {items.map((s) => (
+            <OptionRow
+              key={s.id}
+              selected={answers.subjects.includes(s.id)}
+              label={s.name}
+              sub={s.sub}
+              onClick={() => toggle(s.id)}
+            />
+          ))}
+        </div>
+      )}
+    </StepFrame>
+  );
+}
+
+function StepGoals({ answers, setAnswers, onNext, canNext }: StepProps) {
+  const options = useMemo(() => {
+    const list = [...GOAL_OPTIONS_BASE];
+    if (answers.grade === "9") list.unshift({ id: "oge", label: "Подготовиться к ОГЭ" });
+    if (answers.grade === "11") list.unshift({ id: "ege", label: "Подготовиться к ЕГЭ" });
+    return list;
+  }, [answers.grade]);
+
+  const toggle = (id: string) => {
+    const cur = Array.isArray(answers.goals) ? answers.goals : [];
+    const next = cur.includes(id) ? cur.filter((g) => g !== id) : [...cur, id];
+    setAnswers({ ...answers, goals: next });
+  };
 
   return (
     <StepFrame
       eyebrow="цель"
       title={
         <>
-          Что сейчас <span style={{ color: "var(--pf-mustard)" }}>важно</span>?
+          Что для вас сейчас <span style={{ color: "var(--pf-mustard)" }}>главное</span>?
         </>
       }
       lead="Можно выбрать несколько вариантов."
@@ -376,10 +591,10 @@ function StepGoals({
       canNext={canNext}
     >
       <div className="grid gap-2">
-        {GOAL_OPTIONS.map((o) => (
+        {options.map((o) => (
           <OptionRow
             key={o.id}
-            selected={answers.goals.includes(o.id)}
+            selected={(answers.goals ?? []).includes(o.id)}
             label={o.label}
             onClick={() => toggle(o.id)}
           />
@@ -398,110 +613,7 @@ function StepGoals({
   );
 }
 
-function StepProgram({
-  answers,
-  setAnswers,
-  onNext,
-  canNext,
-}: StepProps) {
-  return (
-    <StepFrame
-      eyebrow="программа"
-      title={
-        <>
-          По какой программе <span style={{ color: "var(--pf-mustard)" }}>готовитесь</span>?
-        </>
-      }
-      lead="Это определит, какие предметы показать дальше."
-      onNext={onNext}
-      canNext={canNext}
-    >
-      <div className="grid gap-2">
-        {PROGRAM_OPTIONS.map((p) => (
-          <OptionRow
-            key={p.id}
-            selected={answers.program === p.id}
-            label={p.label}
-            sub={p.hint}
-            disabled={p.disabled}
-            onClick={() => !p.disabled && setAnswers({ ...answers, program: p.id, subjects: new Set() })}
-          />
-        ))}
-      </div>
-    </StepFrame>
-  );
-}
-
-function StepSubjects({
-  answers,
-  setAnswers,
-  onNext,
-  canNext,
-}: StepProps) {
-  const listFn = useServerFn(listSubjects);
-  const subjectsQ = useQuery({
-    queryKey: ["onboarding-subjects"],
-    queryFn: () => listFn(),
-  });
-
-  const filtered = useMemo(() => {
-    const all = (subjectsQ.data ?? []) as any[];
-    if (!answers.program) return all;
-    // Match subjects.exam_type to selected program; if none exist, fall back to all
-    const forProgram = all.filter(
-      (s) => (s.exam_type ?? "").toUpperCase() === answers.program,
-    );
-    return forProgram.length > 0 ? forProgram : all;
-  }, [subjectsQ.data, answers.program]);
-
-  const toggle = (id: string) => {
-    const next = new Set(answers.subjects);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setAnswers({ ...answers, subjects: next });
-  };
-
-  return (
-    <StepFrame
-      eyebrow="предметы"
-      title={
-        <>
-          Какие предметы сейчас <span style={{ color: "var(--pf-mustard)" }}>важны</span>?
-        </>
-      }
-      lead="Отметьте всё, чем занимаетесь. Можно выбрать несколько."
-      onNext={onNext}
-      canNext={canNext}
-    >
-      {subjectsQ.isLoading ? (
-        <p className="text-sm text-[color:var(--pf-muted)]">Загрузка…</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-sm text-[color:var(--pf-muted)]">
-          Для выбранной программы пока нет предметов. Мы добавим их позже.
-        </p>
-      ) : (
-        <div className="grid gap-2">
-          {filtered.map((s: any) => (
-            <OptionRow
-              key={s.id}
-              selected={answers.subjects.has(s.id)}
-              label={s.name}
-              sub={s.description ?? undefined}
-              onClick={() => toggle(s.id)}
-            />
-          ))}
-        </div>
-      )}
-    </StepFrame>
-  );
-}
-
-function StepAssessment({
-  answers,
-  setAnswers,
-  onNext,
-  canNext,
-}: StepProps) {
+function StepAssessment({ answers, setAnswers, onNext, canNext }: StepProps) {
   return (
     <StepFrame
       eyebrow="самооценка"
@@ -529,24 +641,19 @@ function StepAssessment({
   );
 }
 
-function StepBarriers({
-  answers,
-  setAnswers,
-  onNext,
-  canNext,
-}: StepProps) {
-  const toggle = (id: string) =>
-    setAnswers((a) => ({
-      ...a,
-      barriers: a.barriers.includes(id) ? a.barriers.filter((b) => b !== id) : [...a.barriers, id],
-    }));
+function StepBarriers({ answers, setAnswers, onNext, canNext }: StepProps) {
+  const toggle = (id: string) => {
+    const cur = Array.isArray(answers.barriers) ? answers.barriers : [];
+    const next = cur.includes(id) ? cur.filter((b) => b !== id) : [...cur, id];
+    setAnswers({ ...answers, barriers: next });
+  };
 
   return (
     <StepFrame
       eyebrow="барьеры"
       title={
         <>
-          Что обычно <span style={{ color: "var(--pf-mustard)" }}>мешает</span>?
+          Что чаще всего <span style={{ color: "var(--pf-mustard)" }}>мешает</span>?
         </>
       }
       lead="Можно выбрать несколько. Пропустите, если ничего не подходит."
@@ -557,7 +664,7 @@ function StepBarriers({
         {BARRIER_OPTIONS.map((o) => (
           <OptionRow
             key={o.id}
-            selected={answers.barriers.includes(o.id)}
+            selected={(answers.barriers ?? []).includes(o.id)}
             label={o.label}
             onClick={() => toggle(o.id)}
           />
@@ -576,12 +683,7 @@ function StepBarriers({
   );
 }
 
-function StepTime({
-  answers,
-  setAnswers,
-  onNext,
-  canNext,
-}: StepProps) {
+function StepTime({ answers, setAnswers, onNext, canNext }: StepProps) {
   return (
     <StepFrame
       eyebrow="ритм"
@@ -590,7 +692,7 @@ function StepTime({
           Сколько времени готовы <span style={{ color: "var(--pf-mustard)" }}>уделять</span>?
         </>
       }
-      lead="В день. Это нужно для расчёта маршрута."
+      lead="Реалистично, а не идеально."
       onNext={onNext}
       canNext={canNext}
     >
@@ -616,46 +718,91 @@ function StepSummary({ answers }: { answers: Answers }) {
 
   const subjectsQ = useQuery({
     queryKey: ["onboarding-subjects"],
-    queryFn: () => listFn(),
+    queryFn: async () => {
+      const res = await listFn();
+      return Array.isArray(res) ? res : [];
+    },
   });
 
-  const subjectNames = useMemo(() => {
-    const all = (subjectsQ.data ?? []) as any[];
-    return all
-      .filter((s) => answers.subjects.has(s.id))
-      .map((s) => s.name as string);
-  }, [subjectsQ.data, answers.subjects]);
+  // Resolve subject names — from DB when uuid, from fallback slug otherwise.
+  const { subjectNames, dbSubjectIds } = useMemo(() => {
+    const all = Array.isArray(subjectsQ.data) ? (subjectsQ.data as any[]) : [];
+    const selected = Array.isArray(answers.subjects) ? answers.subjects : [];
+    const fallback = answers.grade ? FALLBACK_SUBJECTS[answers.grade] ?? [] : [];
+    const names: string[] = [];
+    const dbIds: string[] = [];
+    for (const id of selected) {
+      if (id.startsWith("slug:")) {
+        const slug = id.slice(5);
+        const f = fallback.find((x) => x.slug === slug);
+        if (f) names.push(f.name);
+      } else {
+        const s = all.find((x) => x.id === id);
+        if (s) {
+          names.push(s.name);
+          dbIds.push(s.id);
+        }
+      }
+    }
+    return { subjectNames: names, dbSubjectIds: dbIds };
+  }, [subjectsQ.data, answers.subjects, answers.grade]);
 
-  const summary = useMemo(
+  const summaryParagraphs = useMemo(
     () => buildSummary(answers, subjectNames),
     [answers, subjectNames],
   );
 
+  const goalLabels = useMemo(() => {
+    const options = [
+      { id: "oge", label: "Подготовиться к ОГЭ" },
+      { id: "ege", label: "Подготовиться к ЕГЭ" },
+      ...GOAL_OPTIONS_BASE,
+    ];
+    return (answers.goals ?? []).map(
+      (id) => options.find((g) => g.id === id)?.label ?? id,
+    );
+  }, [answers.goals]);
+
+  const targetExam =
+    (answers.goals ?? []).includes("oge")
+      ? "OGE"
+      : (answers.goals ?? []).includes("ege")
+        ? "EGE"
+        : null;
+
   const submit = useMutation({
     mutationFn: async () => {
-      const goalsCombined = [
-        ...answers.goals.map((id) => GOAL_OPTIONS.find((g) => g.id === id)?.label ?? id),
-        ...(answers.goalOther.trim() ? [answers.goalOther.trim()] : []),
-      ];
-      const barriersCombined = [
-        ...answers.barriers.map(
-          (id) => BARRIER_OPTIONS.find((b) => b.id === id)?.label ?? id,
-        ),
-        ...(answers.barrierOther.trim() ? [answers.barrierOther.trim()] : []),
-      ];
+      const barriersCombined = (answers.barriers ?? []).map(
+        (id) => BARRIER_OPTIONS.find((b) => b.id === id)?.label ?? id,
+      );
+      const summaryText = summaryParagraphs.join("\n\n");
+
+      if (dbSubjectIds.length === 0) {
+        throw new Error(
+          "Выбранные предметы пока не заведены в системе. Пожалуйста, выберите хотя бы один доступный предмет.",
+        );
+      }
+
       return completeFn({
         data: {
-          subjects: Array.from(answers.subjects).map((subject_id) => ({
+          subjects: dbSubjectIds.map((subject_id) => ({
             subject_id,
             program_id: null,
           })),
-          target_program: answers.program,
-          target_exam: answers.program?.toLowerCase() ?? null,
-          learning_goals: goalsCombined,
-          learning_goal: goalsCombined.join("; ") || null,
+          education_system: answers.educationSystem,
+          grade: answers.grade,
+          target_program: answers.grade
+            ? `ru_school_grade_${answers.grade}`
+            : null,
+          target_exam: targetExam,
+          learning_goals: goalLabels,
+          learning_goal: goalLabels.join("; ") || null,
+          custom_learning_goal: answers.goalOther.trim() || null,
           self_assessment: answers.assessment,
           learning_barriers: barriersCombined,
+          custom_learning_barrier: answers.barrierOther.trim() || null,
           available_time: answers.time,
+          onboarding_summary: summaryText,
         },
       });
     },
@@ -663,16 +810,27 @@ function StepSummary({ answers }: { answers: Answers }) {
       await qc.invalidateQueries({ queryKey: ["my-role"] });
       await qc.invalidateQueries({ queryKey: ["my-student-subjects"] });
       toast.success("Профиль создан");
-      navigate({ to: "/student/diagnostic" });
     },
     onError: (e: any) =>
       toast.error(e?.message ?? "Не удалось завершить онбординг"),
   });
 
+  const goDiagnostic = async () => {
+    if (!submit.isSuccess) await submit.mutateAsync();
+    navigate({ to: "/student/diagnostic" });
+  };
+  const goDashboard = async () => {
+    if (!submit.isSuccess) await submit.mutateAsync();
+    navigate({ to: "/student" });
+  };
+
   return (
     <div>
       <p className="pf-eyebrow mb-4">первая сводка</p>
-      <h1 className="pf-h1" style={{ fontSize: "clamp(36px, 5vw, 60px)", maxWidth: "20ch" }}>
+      <h1
+        className="pf-h1"
+        style={{ fontSize: "clamp(36px, 5vw, 60px)", maxWidth: "20ch" }}
+      >
         Остался последний <span style={{ color: "var(--pf-mustard)" }}>шаг</span>
       </h1>
       <span
@@ -682,7 +840,7 @@ function StepSummary({ answers }: { answers: Answers }) {
       />
 
       <div className="mt-10 space-y-6">
-        {summary.map((paragraph, i) => (
+        {summaryParagraphs.map((paragraph, i) => (
           <p
             key={i}
             className="text-[17px] leading-relaxed"
@@ -693,17 +851,27 @@ function StepSummary({ answers }: { answers: Answers }) {
         ))}
       </div>
 
-      <div className="mt-14 grid gap-3 sm:flex sm:items-center sm:gap-6">
-        <Button
-          size="lg"
-          onClick={() => submit.mutate()}
-          disabled={submit.isPending}
-        >
+      <p
+        className="mt-10 text-[15px] leading-relaxed"
+        style={{ color: "var(--pf-muted)", maxWidth: "58ch" }}
+      >
+        Мы уже понимаем вашу цель и условия обучения. Теперь нужно определить
+        стартовый уровень знаний — после этого Pathy сможет построить
+        персональный маршрут.
+      </p>
+
+      <div className="mt-12 grid gap-3 sm:flex sm:items-center sm:gap-6">
+        <Button size="lg" onClick={goDiagnostic} disabled={submit.isPending}>
           {submit.isPending ? "Сохраняем…" : "Начать диагностику →"}
         </Button>
-        <p className="text-[13px]" style={{ color: "var(--pf-muted)", maxWidth: "42ch" }}>
-          Диагностика займёт около 10 минут и определит стартовую точку маршрута.
-        </p>
+        <Button
+          size="lg"
+          variant="outline"
+          onClick={goDashboard}
+          disabled={submit.isPending}
+        >
+          Перейти в кабинет
+        </Button>
       </div>
     </div>
   );
@@ -736,7 +904,10 @@ function StepFrame({
   return (
     <div>
       <p className="pf-eyebrow mb-3">{eyebrow}</p>
-      <h1 className="pf-h1" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", maxWidth: "22ch" }}>
+      <h1
+        className="pf-h1"
+        style={{ fontSize: "clamp(32px, 4.5vw, 52px)", maxWidth: "22ch" }}
+      >
         {title}
       </h1>
       <span
@@ -805,7 +976,10 @@ function OptionRow({
             {index}
           </span>
         ) : null}
-        <span className="text-[15px] font-medium" style={{ color: "var(--pf-ink)" }}>
+        <span
+          className="text-[15px] font-medium"
+          style={{ color: "var(--pf-ink)" }}
+        >
           {label}
         </span>
         {sub ? (
@@ -942,40 +1116,42 @@ function Monogram() {
 
 function buildSummary(a: Answers, subjectNames: string[]): string[] {
   const paragraphs: string[] = [];
+  const goals = Array.isArray(a.goals) ? a.goals : [];
+  const barriers = Array.isArray(a.barriers) ? a.barriers : [];
 
-  const programLabel =
-    a.program === "OGE"
-      ? "к ОГЭ (9 класс)"
-      : a.program === "EGE"
-        ? "к ЕГЭ (11 класс)"
-        : "к обучению";
+  const goalMap: Record<string, string> = {
+    oge: "подготовка к ОГЭ",
+    ege: "подготовка к ЕГЭ",
+    school: "укрепление школьной программы",
+    gaps: "закрытие пробелов",
+    confidence: "уверенность в предмете",
+    grades: "улучшение оценок",
+    university: "подготовка к поступлению",
+    hard_topics: "разбор сложных тем",
+  };
+  const goalPhrases = goals.map((g) => goalMap[g]).filter(Boolean);
 
   const subjectsSentence = joinRu(subjectNames);
-  const goalLabels = a.goals
-    .map((id) => GOAL_OPTIONS.find((g) => g.id === id)?.label ?? "")
-    .filter(Boolean);
-  const primaryGoal = goalLabels[0]?.toLowerCase() ?? null;
 
-  // Paragraph 1 — цель + предметы
-  if (subjectsSentence) {
+  if (goalPhrases.length > 0) {
+    const primary = goalPhrases.slice(0, 2).join(" и ");
     paragraphs.push(
-      primaryGoal
-        ? `Сейчас ваша главная цель — ${primaryGoal.replace(/^подготовиться\s+/i, "подготовка ")}${
-            subjectsSentence ? ` по предметам: ${subjectsSentence}.` : "."
-          }`
-        : `Вы готовитесь ${programLabel}. Выбранные предметы: ${subjectsSentence}.`,
+      subjectsSentence
+        ? `Сейчас ваша главная цель — ${primary}. Вы выбрали ${subjectsSentence}.`
+        : `Сейчас ваша главная цель — ${primary}.`,
     );
-  } else {
-    paragraphs.push(`Вы готовитесь ${programLabel}.`);
+  } else if (subjectsSentence) {
+    paragraphs.push(`Вы выбрали ${subjectsSentence}.`);
   }
 
-  // Paragraph 2 — самооценка + барьеры
   const assessmentPhrase = (() => {
     switch (a.assessment) {
       case "beginner":
         return "вы только начинаете погружение в материал";
       case "basic":
         return "у вас уже есть базовые знания, на которые можно опереться";
+      case "mixed":
+        return "в одних темах вы уверены, в других теряетесь";
       case "confident":
         return "вы уверенно чувствуете себя в материале";
       case "ready":
@@ -990,13 +1166,14 @@ function buildSummary(a: Answers, subjectNames: string[]): string[] {
     forget: "закрепить материал, чтобы он не забывался",
     system: "получить понятную систему подготовки",
     rare: "выстроить регулярность занятий",
-    anxiety: "снизить тревогу перед экзаменом",
+    anxiety: "снизить тревогу перед проверками",
     careless: "уменьшить количество ошибок по невнимательности",
     time: "рационально распорядиться временем",
     start: "легче начинать занятия",
     direction: "понимать, что учить следующим шагом",
+    boring: "сделать материал понятнее и живее",
   };
-  const barrierNeeds = a.barriers
+  const barrierNeeds = barriers
     .map((id) => barrierMap[id])
     .filter(Boolean)
     .slice(0, 3);
@@ -1015,19 +1192,16 @@ function buildSummary(a: Answers, subjectNames: string[]): string[] {
     );
   }
 
-  // Paragraph 3 — время + переход к диагностике
   const timeLabel = TIME_OPTIONS.find((t) => t.id === a.time)?.label;
   if (timeLabel) {
     paragraphs.push(
-      `Комфортный ритм — ${timeLabel} в день. Это хороший момент, чтобы определить вашу стартовую точку.`,
+      `Комфортный ритм — ${timeLabel.toLowerCase()}. Следующий шаг — определить стартовый уровень знаний.`,
     );
   } else {
-    paragraphs.push("Это хороший момент, чтобы определить вашу стартовую точку.");
+    paragraphs.push(
+      "Следующий шаг — определить стартовый уровень знаний. После этого Pathy сможет предложить маршрут.",
+    );
   }
-
-  paragraphs.push(
-    "После диагностики Pathy построит персональный маршрут: последовательность тем, занятия и материалы под ваши цели.",
-  );
 
   return paragraphs;
 }
