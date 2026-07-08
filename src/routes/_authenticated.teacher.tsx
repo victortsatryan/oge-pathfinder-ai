@@ -9,6 +9,7 @@ const NAV: NavItem[] = [
   { label: "Занятия", to: "/teacher/lessons" },
   { label: "Аналитика", to: "/teacher/analytics" },
   { label: "Советник", to: "/teacher/advisor" },
+  { label: "Библиотека", to: "/teacher/library" },
   { label: "Профиль", to: "/teacher/profile" },
 ];
 
