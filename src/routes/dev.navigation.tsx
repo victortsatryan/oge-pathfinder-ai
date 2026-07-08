@@ -114,6 +114,10 @@ function DevNavigation() {
       <div className={`rounded-lg border px-4 py-3 text-sm ${devOpen ? "border-amber-500/40 bg-amber-500/10" : "border-emerald-500/40 bg-emerald-500/10"}`}>
         <b>Режим доступа:</b>{" "}
         {devOpen ? "🟡 dev / preview — админка и dev-переключатель открыты" : "🟢 production — маршруты защищены ролями"}
+        <div className="mt-1 text-xs text-muted-foreground">
+          Dev role используется только в preview/development и не действует в production.
+          В production доступ определяется исключительно Supabase session и таблицей <code>user_roles</code>.
+        </div>
       </div>
 
       {devOpen && (

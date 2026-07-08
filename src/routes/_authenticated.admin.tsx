@@ -1,11 +1,12 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { LogOut } from "lucide-react";
 
 import { amIAdmin } from "@/lib/admin-materials.functions";
 import { Button } from "@/components/ui/button";
 import { isDevOpenAccess, getAccessMode } from "@/lib/admin-access";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, signOut } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
@@ -48,6 +49,21 @@ function AdminLayout() {
           <Button asChild variant="outline" size="sm"><Link to="/admin/sources">Источники</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/routes">Diagnostics</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/dev/navigation">Dev Navigation</Link></Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={async () => {
+              try {
+                window.localStorage.removeItem("educaite-demo-role");
+              } catch {
+                /* noop */
+              }
+              await signOut();
+              window.location.href = "/auth";
+            }}
+          >
+            <LogOut className="h-4 w-4 mr-1" /> Выйти
+          </Button>
         </nav>
       </div>
 
