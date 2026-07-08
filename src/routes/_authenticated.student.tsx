@@ -10,6 +10,7 @@ const NAV: NavItem[] = [
   { label: "Календарь", to: "/student/calendar" },
   { label: "Аналитика", to: "/student/analytics" },
   { label: "Ассистент", to: "/student/assistant" },
+  { label: "Библиотека", to: "/student/library" },
   { label: "Профиль", to: "/student/profile" },
 ];
 
