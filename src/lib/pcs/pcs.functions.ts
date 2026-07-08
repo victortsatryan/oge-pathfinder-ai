@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { pcsSchema } from "./schema";
+import { pcsSchema, pcsDiagnosticSchema, detectPcsKind } from "./schema";
 
 async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
@@ -47,13 +47,68 @@ export const pcsPreviewImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sb = context.supabase as any;
     await assertAdmin(sb, context.userId);
+    const kind = detectPcsKind(data.json);
+
+    if (kind === "diagnostic_test") {
+      const parsed = pcsDiagnosticSchema.safeParse(data.json);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          kind,
+          errors: parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+        };
+      }
+      const p = parsed.data;
+      const { data: subject } = await sb.from("subjects").select("id,name")
+        .or(`pcs_key.eq.${p.subject.key},slug.eq.${p.subject.key}`).maybeSingle();
+      const { data: test } = await sb.from("diagnostic_tests").select("id")
+        .eq("pcs_key", p.diagnostic_test.key).maybeSingle();
+      const topicKeys = Array.from(new Set(
+        p.diagnostic_test.tasks.map((t) => t.topic_key).filter((k): k is string => !!k),
+      ));
+      let resolvedTopicKeys: string[] = [];
+      let missingTopicKeys: string[] = [];
+      if (subject && topicKeys.length > 0) {
+        const { data: topics } = await sb.from("topics")
+          .select("pcs_key, slug, theme_code")
+          .eq("subject_id", subject.id);
+        const known = new Set<string>();
+        for (const row of topics ?? []) {
+          if (row.pcs_key) known.add(row.pcs_key);
+          if (row.slug) known.add(row.slug);
+          if (row.theme_code) known.add(row.theme_code);
+        }
+        for (const k of topicKeys) (known.has(k) ? resolvedTopicKeys : missingTopicKeys).push(k);
+      } else {
+        missingTopicKeys = topicKeys;
+      }
+      return {
+        ok: true,
+        kind,
+        summary: {
+          subject: p.subject.title,
+          program: p.program?.title ?? null,
+          diagnostic_title: p.diagnostic_test.title,
+          diagnostic_type: p.diagnostic_test.diagnostic_type,
+          tasks: p.diagnostic_test.tasks.length,
+          pcs_version: p.pcs_version,
+          schema_version: p.schema_version,
+        },
+        resolved: {
+          subject_exists: Boolean(subject),
+          diagnostic_exists: Boolean(test),
+          topic_keys_resolved: resolvedTopicKeys,
+          topic_keys_missing: missingTopicKeys,
+        },
+      };
+    }
+
     const parsed = pcsSchema.safeParse(data.json);
     if (!parsed.success) {
       return {
         ok: false,
-        errors: parsed.error.issues.map((i) => ({
-          path: i.path.join("."), message: i.message,
-        })),
+        kind,
+        errors: parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
       };
     }
     const p = parsed.data;
@@ -75,6 +130,7 @@ export const pcsPreviewImport = createServerFn({ method: "POST" })
     }
     return {
       ok: true,
+      kind,
       summary: {
         program: p.program.title,
         subject: p.subject.title,
@@ -107,7 +163,9 @@ export const pcsRunImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sb = context.supabase as any;
     await assertAdmin(sb, context.userId);
-    const parsed = pcsSchema.safeParse(data.json);
+    const kind = detectPcsKind(data.json);
+    const schema = kind === "diagnostic_test" ? pcsDiagnosticSchema : pcsSchema;
+    const parsed = schema.safeParse(data.json);
     if (!parsed.success) {
       await sb.from("content_imports").insert({
         filename: data.filename, imported_by: context.userId,
@@ -116,13 +174,14 @@ export const pcsRunImport = createServerFn({ method: "POST" })
       });
       throw new Error("PCS JSON: " + parsed.error.issues.map((i) => i.message).join("; "));
     }
-    const { data: rpc, error } = await sb.rpc("pcs_import", {
+    const rpcName = kind === "diagnostic_test" ? "pcs_import_diagnostic" : "pcs_import";
+    const { data: rpc, error } = await sb.rpc(rpcName, {
       payload: parsed.data as any, mode: data.mode,
     });
     if (error) {
       await sb.from("content_imports").insert({
         filename: data.filename, imported_by: context.userId,
-        pcs_version: parsed.data.pcs_version, status: "failed", rows_failed: 1,
+        pcs_version: (parsed.data as any).pcs_version, status: "failed", rows_failed: 1,
         error_log: { message: error.message } as any,
       });
       throw new Error(error.message);
@@ -131,11 +190,11 @@ export const pcsRunImport = createServerFn({ method: "POST" })
     const updated = rpc?.updated ?? 0;
     await sb.from("content_imports").insert({
       filename: data.filename, imported_by: context.userId,
-      pcs_version: parsed.data.pcs_version, status: "success",
+      pcs_version: (parsed.data as any).pcs_version, status: "success",
       rows_created: created, rows_updated: updated,
       summary: rpc as any,
     });
-    return { ok: true, result: rpc };
+    return { ok: true, kind, result: rpc };
   });
 
 export const pcsListImports = createServerFn({ method: "GET" })

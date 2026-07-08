@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "pcs_version": "1.0.0",
+  "kind": "diagnostic_test",
+  "education_system": "RU",
+  "grade": 9,
+  "subject": { "key": "physics", "title": "Физика" },
+  "program": { "key": "physics-oge-9", "title": "Физика, 9 класс (ОГЭ)" },
+  "diagnostic_test": {
+    "key": "phys-9-entry-2026",
+    "title": "Физика — входная диагностика (9 класс)",
+    "description": "Проверяет базовые понятия механики и работу с формулами.",
+    "diagnostic_type": "entry",
+    "duration_minutes": 30,
+    "is_public": true,
+    "source_name": "Pathy",
+    "tasks": [
+      {
+        "key": "phys-9-entry-2026-1",
+        "topic_key": "phys.mechanics.basics",
+        "prompt": "Единица измерения скорости в системе СИ:",
+        "answer_type": "single",
+        "options": ["км/ч", "м/с", "м/с²", "с/м"],
+        "correct_answer": "м/с",
+        "explanation": "СИ-единица скорости — метр в секунду.",
+        "difficulty": "easy",
+        "points": 1,
+        "order": 1
+      },
+      {
+        "key": "phys-9-entry-2026-2",
+        "topic_key": "phys.mechanics.basics",
+        "prompt": "Тело прошло 60 м за 20 с. Какова средняя скорость?",
+        "answer_type": "single",
+        "options": ["1 м/с", "2 м/с", "3 м/с", "4 м/с"],
+        "correct_answer": "3 м/с",
+        "explanation": "v = s/t = 60/20 = 3 м/с.",
+        "difficulty": "easy",
+        "points": 1,
+        "order": 2
+      },
+      {
+        "key": "phys-9-entry-2026-3",
+        "topic_key": "phys.mechanics.basics",
+        "prompt": "Выберите все векторные величины:",
+        "answer_type": "multiple",
+        "options": ["Масса", "Скорость", "Сила", "Время"],
+        "correct_answer": ["Скорость", "Сила"],
+        "explanation": "Векторные — те, что имеют направление.",
+        "difficulty": "medium",
+        "points": 2,
+        "order": 3
+      }
+    ]
+  }
+}

@@ -2,9 +2,12 @@ import { z } from "zod";
 
 const keyTitle = z.object({ key: z.string().min(1), title: z.string().min(1), order: z.number().int().optional() });
 
-export const pcsSchema = z.object({
+// -------- Learning objective variant (default) --------
+
+export const pcsLearningObjectiveSchema = z.object({
   schema_version: z.string(),
   pcs_version: z.string(),
+  kind: z.literal("learning_objective").optional(),
   education_system: z.string(),
   grade: z.union([z.string(), z.number()]).transform((v) => String(v)),
   program: keyTitle,
@@ -62,4 +65,60 @@ export const pcsSchema = z.object({
   }).optional(),
 });
 
-export type PcsPayload = z.infer<typeof pcsSchema>;
+export type PcsPayload = z.infer<typeof pcsLearningObjectiveSchema>;
+// Kept for backward compatibility with existing imports.
+export const pcsSchema = pcsLearningObjectiveSchema;
+
+// -------- Diagnostic test variant --------
+
+const answerType = z.enum(["single", "multiple", "text"]);
+const difficulty = z.enum(["easy", "medium", "hard"]);
+
+export const pcsDiagnosticTaskSchema = z.object({
+  key: z.string().min(1),
+  topic_key: z.string().optional(),
+  prompt: z.string().min(1),
+  answer_type: answerType.default("single"),
+  options: z.array(z.string()).optional(),
+  correct_answer: z.union([z.string(), z.array(z.string())]),
+  explanation: z.string().optional(),
+  difficulty: difficulty.optional(),
+  task_type: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  points: z.number().int().optional(),
+  order: z.number().int().optional(),
+  source_name: z.string().optional(),
+  source_url: z.string().optional(),
+});
+
+export const pcsDiagnosticSchema = z.object({
+  schema_version: z.string(),
+  pcs_version: z.string(),
+  kind: z.literal("diagnostic_test"),
+  education_system: z.string(),
+  grade: z.union([z.string(), z.number()]).transform((v) => String(v)),
+  program: keyTitle.optional(),
+  subject: keyTitle,
+  diagnostic_test: z.object({
+    key: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    diagnostic_type: z.string().default("entry"),
+    duration_minutes: z.number().int().optional(),
+    source_name: z.string().optional(),
+    source_url: z.string().optional(),
+    is_public: z.boolean().optional(),
+    tasks: z.array(pcsDiagnosticTaskSchema).min(1),
+  }),
+});
+
+export type PcsDiagnosticPayload = z.infer<typeof pcsDiagnosticSchema>;
+
+// -------- Any variant --------
+
+export function detectPcsKind(json: unknown): "diagnostic_test" | "learning_objective" {
+  if (json && typeof json === "object" && (json as any).kind === "diagnostic_test") {
+    return "diagnostic_test";
+  }
+  return "learning_objective";
+}
