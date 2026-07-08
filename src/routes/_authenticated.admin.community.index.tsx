@@ -79,7 +79,7 @@ function AdminCommunityQueue() {
                 <div>
                   <div className="text-[16px] font-medium">{r.title}</div>
                   <div className="text-xs mt-1" style={{ color: "var(--pf-muted)" }}>
-                    {r.author?.display_name ?? r.author?.email ?? "—"}
+                    {r.author?.display_name ?? "—"}
                     {r.subjects?.name ? ` · ${r.subjects.name}` : ""}
                     {r.topics?.title ? ` · ${r.topics.title}` : ""}
                   </div>

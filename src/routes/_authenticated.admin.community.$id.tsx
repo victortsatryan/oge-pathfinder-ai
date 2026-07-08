@@ -83,7 +83,7 @@ function AdminCandidateDetail() {
           </div>
 
           <InfoRow label="Автор">
-            {data.author?.display_name ?? data.author?.email ?? c.author_id}
+            {data.author?.display_name ?? c.author_id}
           </InfoRow>
           <InfoRow label="Образовательная система / класс">
             {c.education_system ?? "—"} {c.grade ? `· ${c.grade}` : ""}
