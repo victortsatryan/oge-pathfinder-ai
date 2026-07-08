@@ -14,15 +14,20 @@ const onboardingSchema = z.object({
       }),
     )
     .min(1),
+  education_system: z.string().trim().max(40).nullable().optional(),
+  grade: z.string().trim().max(40).nullable().optional(),
   target_program: z.string().trim().max(40).nullable().optional(),
   target_exam: z.string().trim().max(40).nullable().optional(),
   target_score: z.string().trim().max(40).nullable().optional(),
   target_date: z.string().nullable().optional(),
   learning_goal: z.string().trim().max(500).nullable().optional(),
-  learning_goals: z.array(z.string().trim().max(80)).max(20).optional(),
+  learning_goals: z.array(z.string().trim().max(120)).max(20).optional(),
+  custom_learning_goal: z.string().trim().max(500).nullable().optional(),
   self_assessment: z.string().trim().max(40).nullable().optional(),
-  learning_barriers: z.array(z.string().trim().max(80)).max(20).optional(),
+  learning_barriers: z.array(z.string().trim().max(120)).max(20).optional(),
+  custom_learning_barrier: z.string().trim().max(500).nullable().optional(),
   available_time: z.string().trim().max(40).nullable().optional(),
+  onboarding_summary: z.string().trim().max(4000).nullable().optional(),
 });
 
 export const completeStudentOnboarding = createServerFn({ method: "POST" })
