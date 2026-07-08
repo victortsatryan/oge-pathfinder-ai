@@ -10,6 +10,7 @@ import {
   listMyTeacherStudents,
 } from "@/lib/teacher.functions";
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
+import { PathyLogo } from "@/components/oge/logo";
 
 export const Route = createFileRoute("/_authenticated/teacher/profile")({
   component: TeacherProfilePage,
@@ -97,8 +98,9 @@ function TeacherProfilePage() {
   return (
     <article className="pf-reader-wide pf-rise">
       <div className="pf-section-eyebrow">
-        <span className="pf-section-eyebrow__label">
-          <b>Профиль</b> / преподаватель
+        <span className="pf-section-eyebrow__label inline-flex items-center gap-3">
+          <PathyLogo size="sm" />
+          <span>/ профиль · преподаватель</span>
         </span>
         <span className="pf-section-eyebrow__label">
           {students.length} учеников · {attention} требуют внимания
@@ -108,12 +110,26 @@ function TeacherProfilePage() {
       <header className="mb-12">
         <p className="pf-eyebrow mb-4">личное дело</p>
         <h1 className="pf-h1" style={{ maxWidth: "18ch" }}>
-          {profile.display_name || "Преподаватель"}
+          {(() => {
+            const n = profile.display_name || "Преподаватель";
+            const chars = Array.from(n);
+            return (
+              <>
+                {chars.slice(0, -1).join("")}
+                <span style={{ color: "var(--pf-mustard)" }}>{chars.slice(-1).join("")}</span>
+              </>
+            );
+          })()}
         </h1>
+        <span
+          aria-hidden
+          className="block mt-4"
+          style={{ width: 56, height: 2, background: "var(--pf-cinnabar)" }}
+        />
         {profile.specialization ? (
-          <p className="pf-lead">{profile.specialization}</p>
+          <p className="pf-lead mt-6">{profile.specialization}</p>
         ) : (
-          <p className="pf-lead">
+          <p className="pf-lead mt-6">
             Ваша информация, специализация и статистика по ученикам. Всё, что видит
             платформа, когда рекомендует ученикам занятия.
           </p>

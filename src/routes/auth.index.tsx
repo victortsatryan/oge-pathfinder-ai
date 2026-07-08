@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { supabase } from "@/integrations/supabase/client";
-import { APP_NAME } from "@/lib/brand";
+import { PathyLogo } from "@/components/oge/logo";
 
 type AuthSearch = { redirect?: string };
 
@@ -103,15 +103,14 @@ function AuthPage() {
           className="p-6 flex justify-between items-baseline"
           style={{ borderBottom: "1px solid var(--pf-line-strong)" }}
         >
-          <span
-            className="uppercase text-[10px] font-medium"
-            style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              letterSpacing: "0.2em",
-              color: "var(--pf-muted)",
-            }}
-          >
-            {APP_NAME} / Auth
+          <span className="inline-flex items-center gap-3" style={{ color: "var(--pf-muted)" }}>
+            <PathyLogo size="sm" />
+            <span
+              className="uppercase text-[10px]"
+              style={{ fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.2em" }}
+            >
+              / auth
+            </span>
           </span>
           <div
             className="w-2 h-2"

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
+import { PathyLogo } from "@/components/oge/logo";
 import {
   getStudentOverview,
   getWeakTopics,
@@ -62,8 +63,9 @@ function StudentHome() {
   return (
     <article className="pf-reader-wide pf-rise">
       <div className="pf-section-eyebrow">
-        <span className="pf-section-eyebrow__label">
-          <b>Главная</b> / {todayLabel}
+        <span className="pf-section-eyebrow__label inline-flex items-center gap-3">
+          <PathyLogo size="sm" />
+          <span>/ главная · {todayLabel}</span>
         </span>
         <span className="pf-section-eyebrow__label">
           прогресс {o?.avg_mastery ?? 0}% · слабых тем {o?.weak_topics ?? 0}
@@ -74,9 +76,14 @@ function StudentHome() {
       <header className="mb-14">
         <p className="pf-eyebrow mb-4">рабочий стол</p>
         <h1 className="pf-h1" style={{ maxWidth: "14ch" }}>
-          Что делать сейчас
+          Что делать <span style={{ color: "var(--pf-mustard)" }}>сейчас</span>
         </h1>
-        <p className="pf-lead">
+        <span
+          aria-hidden
+          className="block mt-4"
+          style={{ width: 56, height: 2, background: "var(--pf-cinnabar)" }}
+        />
+        <p className="pf-lead mt-6">
           Маршрут построен по диагностике и текущему прогрессу. Начните с ближайшей точки — карта знаний обновится после занятия.
         </p>
       </header>

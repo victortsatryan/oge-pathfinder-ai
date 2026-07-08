@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
+import { PathyLogo } from "@/components/oge/logo";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -137,16 +138,34 @@ function StudentProfilePage() {
   return (
     <main className="min-h-screen" style={{ background: "var(--pf-paper)" }}>
       <div className="max-w-5xl mx-auto px-10 py-14 pf-rise">
-        <SectionEyebrow section="Pathy" sub="профиль ученика" />
+        <div className="pf-section-eyebrow">
+          <span className="pf-section-eyebrow__label inline-flex items-center gap-3">
+            <PathyLogo size="sm" />
+            <span>/ профиль · ученик</span>
+          </span>
+        </div>
 
         <header className="mt-10 mb-14 max-w-3xl">
           <p className="pf-eyebrow mb-3">
             исследователь{p?.grade ? ` · ${p.grade}` : ""}
           </p>
           <h1 className="pf-h1" style={{ maxWidth: "18ch" }}>
-            {displayName}
+            {(() => {
+              const chars = Array.from(displayName);
+              return (
+                <>
+                  {chars.slice(0, -1).join("")}
+                  <span style={{ color: "var(--pf-mustard)" }}>{chars.slice(-1).join("")}</span>
+                </>
+              );
+            })()}
           </h1>
-          <p className="pf-lead mt-4">
+          <span
+            aria-hidden
+            className="block mt-4"
+            style={{ width: 56, height: 2, background: "var(--pf-cinnabar)" }}
+          />
+          <p className="pf-lead mt-6">
             {p?.learning_goal ||
               "Учебный профиль — карта территории. Здесь живут цели, выбранные предметы, прогресс по темам и слабые места."}
           </p>
