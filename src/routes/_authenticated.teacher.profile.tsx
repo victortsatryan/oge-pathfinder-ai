@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { getMyTeacherProfile, updateMyTeacherProfile, listMyTeacherStudents } from "@/lib/teacher.functions";
-import { PageHeader } from "@/components/oge/page-header";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import {
+  getMyTeacherProfile,
+  updateMyTeacherProfile,
+  listMyTeacherStudents,
+} from "@/lib/teacher.functions";
+import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 
 export const Route = createFileRoute("/_authenticated/teacher/profile")({
   component: TeacherProfilePage,
@@ -21,22 +21,33 @@ function TeacherProfilePage() {
   const updFn = useServerFn(updateMyTeacherProfile);
   const listFn = useServerFn(listMyTeacherStudents);
 
-  const { data: profile, isLoading: profileLoading, isError: profileError, error: profileErr, refetch: refetchProfile } = useQuery({ queryKey: ["teacher", "profile"], queryFn: () => getFn(), retry: 1 });
-  const { data: list } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn(), retry: 1 });
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isError: profileError,
+    error: profileErr,
+    refetch,
+  } = useQuery({ queryKey: ["teacher", "profile"], queryFn: () => getFn(), retry: 1 });
+  const { data: list } = useQuery({
+    queryKey: ["teacher", "students"],
+    queryFn: () => listFn(),
+    retry: 1,
+  });
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<any>({});
 
   useEffect(() => {
-    if (profile) setForm({
-      display_name: profile.display_name ?? "",
-      specialization: profile.specialization ?? "",
-      bio: profile.bio ?? "",
-      timezone: profile.timezone ?? "",
-      language: profile.language ?? "ru",
-      subjects: (profile.subjects ?? []).join(", "),
-      experience_years: profile.experience_years ?? "",
-    });
+    if (profile)
+      setForm({
+        display_name: profile.display_name ?? "",
+        specialization: profile.specialization ?? "",
+        bio: profile.bio ?? "",
+        timezone: profile.timezone ?? "",
+        language: profile.language ?? "ru",
+        subjects: (profile.subjects ?? []).join(", "),
+        experience_years: profile.experience_years ?? "",
+      });
   }, [profile]);
 
   const upd = useMutation({
@@ -53,113 +64,235 @@ function TeacherProfilePage() {
   const active = students.filter((s) => s.status === "active").length;
   const attention = students.filter((s) => s.needs_attention).length;
 
-  if (profileLoading) return <div className="p-6 text-sm text-muted-foreground">Загрузка профиля…</div>;
-  if (profileError || !profile) {
+  if (profileLoading) {
     return (
-      <div className="p-6 space-y-3">
-        <PageHeader title="Профиль преподавателя" lead="Не удалось загрузить профиль." />
-        <div className="pf-block p-5 space-y-2 text-sm">
-          <div className="font-medium text-destructive">Ошибка загрузки</div>
-          <div className="text-muted-foreground">function: getMyTeacherProfile</div>
-          <div className="whitespace-pre-wrap break-words">
-            {(profileErr as any)?.message ?? "Профиль преподавателя не найден и не удалось создать автоматически."}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Действие: убедитесь, что вы авторизованы. Профиль создастся автоматически при повторной попытке.
-          </div>
-          <button onClick={() => refetchProfile()} className="text-sm underline">Повторить</button>
-        </div>
+      <div className="pf-reader-wide pf-rise">
+        <p className="pf-eyebrow">загрузка профиля…</p>
       </div>
     );
   }
 
+  if (profileError || !profile) {
+    return (
+      <article className="pf-reader-wide pf-rise">
+        <div className="pf-section-eyebrow">
+          <span className="pf-section-eyebrow__label">
+            <b>Профиль</b> / ошибка
+          </span>
+        </div>
+        <h1 className="pf-h1 mb-4" style={{ maxWidth: "18ch" }}>
+          Не удалось загрузить профиль
+        </h1>
+        <p className="pf-lead mb-8">
+          {(profileErr as any)?.message ??
+            "Профиль преподавателя не найден и не удалось создать автоматически."}
+        </p>
+        <button className="pf-btn pf-btn--ghost" onClick={() => refetch()}>
+          Повторить
+        </button>
+      </article>
+    );
+  }
+
   return (
-    <>
-      <PageHeader title="Профиль преподавателя" lead="Ваша информация, специализация и статистика по ученикам." />
-
-      <div className="grid lg:grid-cols-[1.4fr,1fr] gap-6">
-        <div className="pf-block p-6 space-y-4">
-          {!editing ? (
-            <>
-              <Row label="Имя" value={profile.display_name ?? "—"} />
-              <Row label="Специализация" value={profile.specialization ?? "—"} />
-              <Row label="Предметы" value={(profile.subjects ?? []).join(", ") || "—"} />
-              <Row label="Опыт (лет)" value={profile.experience_years ?? "—"} />
-              <Row label="Часовой пояс" value={profile.timezone ?? "—"} />
-              <Row label="Язык" value={profile.language ?? "ru"} />
-              <div>
-                <div className="text-xs text-muted-foreground mb-1">О себе</div>
-                <div className="text-sm whitespace-pre-wrap">{profile.bio ?? "—"}</div>
-              </div>
-              <Button onClick={() => setEditing(true)}>Редактировать профиль</Button>
-            </>
-          ) : (
-            <div className="space-y-3">
-              <Field label="Имя" v={form.display_name} onChange={(v) => setForm({ ...form, display_name: v })} />
-              <Field label="Специализация" v={form.specialization} onChange={(v) => setForm({ ...form, specialization: v })} />
-              <Field label="Предметы (через запятую)" v={form.subjects} onChange={(v) => setForm({ ...form, subjects: v })} />
-              <Field label="Опыт (лет)" v={form.experience_years} onChange={(v) => setForm({ ...form, experience_years: v })} />
-              <Field label="Часовой пояс" v={form.timezone} onChange={(v) => setForm({ ...form, timezone: v })} />
-              <Field label="Язык" v={form.language} onChange={(v) => setForm({ ...form, language: v })} />
-              <div className="space-y-1.5">
-                <Label>О себе</Label>
-                <Textarea rows={4} value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setEditing(false)}>Отмена</Button>
-                <Button
-                  disabled={upd.isPending}
-                  onClick={() =>
-                    upd.mutate({
-                      display_name: form.display_name || null,
-                      specialization: form.specialization || null,
-                      bio: form.bio || null,
-                      timezone: form.timezone || null,
-                      language: form.language || "ru",
-                      subjects: String(form.subjects || "").split(",").map((s: string) => s.trim()).filter(Boolean),
-                      experience_years: form.experience_years === "" ? null : Number(form.experience_years),
-                    })
-                  }
-                >
-                  Сохранить
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="pf-block p-6 space-y-3">
-          <div className="pf-eyebrow">Статистика</div>
-          <Stat label="Всего учеников" value={students.length} />
-          <Stat label="Активных" value={active} />
-          <Stat label="Требуют внимания" value={attention} />
-        </div>
+    <article className="pf-reader-wide pf-rise">
+      <div className="pf-section-eyebrow">
+        <span className="pf-section-eyebrow__label">
+          <b>Профиль</b> / преподаватель
+        </span>
+        <span className="pf-section-eyebrow__label">
+          {students.length} учеников · {attention} требуют внимания
+        </span>
       </div>
-    </>
+
+      <header className="mb-12">
+        <p className="pf-eyebrow mb-4">личное дело</p>
+        <h1 className="pf-h1" style={{ maxWidth: "18ch" }}>
+          {profile.display_name || "Преподаватель"}
+        </h1>
+        {profile.specialization ? (
+          <p className="pf-lead">{profile.specialization}</p>
+        ) : (
+          <p className="pf-lead">
+            Ваша информация, специализация и статистика по ученикам. Всё, что видит
+            платформа, когда рекомендует ученикам занятия.
+          </p>
+        )}
+      </header>
+
+      {/* Метрики */}
+      <div className="grid sm:grid-cols-3 gap-x-10 mb-16">
+        <Metric label="всего учеников" value={students.length} />
+        <Metric label="активных" value={active} />
+        <Metric label="требуют внимания" value={attention} accent />
+      </div>
+
+      {/* Данные */}
+      <section className="mb-16">
+        <SectionEyebrow
+          section="Данные"
+          sub={editing ? "редактирование" : "просмотр"}
+          mark="mustard"
+          right={
+            !editing ? (
+              <button
+                className="pf-section-eyebrow__label hover:text-[color:var(--pf-ink)]"
+                onClick={() => setEditing(true)}
+              >
+                редактировать →
+              </button>
+            ) : null
+          }
+        />
+
+        {!editing ? (
+          <dl>
+            <Row label="Имя" value={profile.display_name ?? "—"} />
+            <Row label="Специализация" value={profile.specialization ?? "—"} />
+            <Row
+              label="Предметы"
+              value={(profile.subjects ?? []).join(", ") || "—"}
+            />
+            <Row label="Опыт (лет)" value={profile.experience_years ?? "—"} />
+            <Row label="Часовой пояс" value={profile.timezone ?? "—"} />
+            <Row label="Язык" value={profile.language ?? "ru"} />
+            <Row label="О себе" value={profile.bio ?? "—"} multiline />
+          </dl>
+        ) : (
+          <div className="grid gap-5">
+            <Field
+              label="Имя"
+              value={form.display_name}
+              onChange={(v) => setForm({ ...form, display_name: v })}
+            />
+            <Field
+              label="Специализация"
+              value={form.specialization}
+              onChange={(v) => setForm({ ...form, specialization: v })}
+            />
+            <Field
+              label="Предметы (через запятую)"
+              value={form.subjects}
+              onChange={(v) => setForm({ ...form, subjects: v })}
+            />
+            <Field
+              label="Опыт (лет)"
+              value={form.experience_years}
+              onChange={(v) => setForm({ ...form, experience_years: v })}
+            />
+            <Field
+              label="Часовой пояс"
+              value={form.timezone}
+              onChange={(v) => setForm({ ...form, timezone: v })}
+            />
+            <Field
+              label="Язык"
+              value={form.language}
+              onChange={(v) => setForm({ ...form, language: v })}
+            />
+            <div className="grid gap-2">
+              <label className="pf-section-eyebrow__label">О себе</label>
+              <textarea
+                rows={4}
+                value={form.bio ?? ""}
+                onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                className="pf-input-line"
+                style={{ borderBottomWidth: 1, resize: "vertical", minHeight: 88 }}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                className="pf-btn pf-btn--accent"
+                disabled={upd.isPending}
+                onClick={() =>
+                  upd.mutate({
+                    display_name: form.display_name || null,
+                    specialization: form.specialization || null,
+                    bio: form.bio || null,
+                    timezone: form.timezone || null,
+                    language: form.language || "ru",
+                    subjects: String(form.subjects || "")
+                      .split(",")
+                      .map((s: string) => s.trim())
+                      .filter(Boolean),
+                    experience_years:
+                      form.experience_years === "" ? null : Number(form.experience_years),
+                  })
+                }
+              >
+                {upd.isPending ? "Сохранение…" : "Сохранить"}
+              </button>
+              <button
+                className="pf-btn pf-btn--ghost"
+                onClick={() => setEditing(false)}
+                disabled={upd.isPending}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+    </article>
   );
 }
 
-function Row({ label, value }: { label: string; value: any }) {
+function Row({
+  label,
+  value,
+  multiline,
+}: {
+  label: string;
+  value: any;
+  multiline?: boolean;
+}) {
   return (
-    <div className="flex justify-between gap-4 border-b pb-2 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value}</span>
+    <div className="pf-def">
+      <dt>{label}</dt>
+      <dd style={multiline ? { whiteSpace: "pre-wrap" } : undefined}>{value}</dd>
     </div>
   );
 }
-function Field({ label, v, onChange }: { label: string; v: any; onChange: (v: string) => void }) {
+
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: any;
+  onChange: (v: string) => void;
+}) {
   return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input value={v ?? ""} onChange={(e) => onChange(e.target.value)} />
+    <div className="grid gap-2">
+      <label className="pf-section-eyebrow__label">{label}</label>
+      <input
+        className="pf-input-line"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
-function Stat({ label, value }: { label: string; value: number }) {
+
+function Metric({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: boolean;
+}) {
   return (
-    <div className="flex justify-between text-sm border-b pb-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold">{value}</span>
+    <div className="pf-metric">
+      <span className="pf-metric__label">{label}</span>
+      <span
+        className={`pf-metric__value${accent ? " pf-metric__value--accent" : ""}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
