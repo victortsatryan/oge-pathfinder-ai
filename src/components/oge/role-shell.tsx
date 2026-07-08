@@ -1,18 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { type ReactNode } from "react";
-import {
-  Compass,
-  Map as MapIcon,
-  CalendarRange,
-  Library,
-  Activity,
-  Sparkles,
-  Users,
-  ClipboardList,
-  Stethoscope,
-  BarChart3,
-  LogOut,
-} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { signOut } from "@/hooks/use-auth";
@@ -21,24 +8,6 @@ export type NavItem = {
   label: string;
   to: string;
   icon?: ReactNode;
-};
-
-// Predefined icon map for default nav items
-const ICONS: Record<string, ReactNode> = {
-  "/student": <Compass className="h-[18px] w-[18px]" />,
-  "/student/diagnostic": <Stethoscope className="h-[18px] w-[18px]" />,
-  "/student/lessons": <MapIcon className="h-[18px] w-[18px]" />,
-  "/student/calendar": <CalendarRange className="h-[18px] w-[18px]" />,
-  "/student/materials": <Library className="h-[18px] w-[18px]" />,
-  "/student/progress": <Activity className="h-[18px] w-[18px]" />,
-  "/student/assistant": <Sparkles className="h-[18px] w-[18px]" />,
-  "/teacher": <Compass className="h-[18px] w-[18px]" />,
-  "/teacher/students": <Users className="h-[18px] w-[18px]" />,
-  "/teacher/diagnostic": <Stethoscope className="h-[18px] w-[18px]" />,
-  "/teacher/plans": <ClipboardList className="h-[18px] w-[18px]" />,
-  "/teacher/materials": <Library className="h-[18px] w-[18px]" />,
-  "/teacher/analytics": <BarChart3 className="h-[18px] w-[18px]" />,
-  "/teacher/assistant": <Sparkles className="h-[18px] w-[18px]" />,
 };
 
 export function RoleShell({
@@ -50,6 +19,7 @@ export function RoleShell({
   accent?: string;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isTeacher = accent === "Преподаватель";
 
   return (
     <div className="pf-shell">
@@ -59,54 +29,56 @@ export function RoleShell({
           <span>Pathy</span>
         </Link>
 
-        <nav className="pf-rail__nav" aria-label="Основная навигация">
-          {items.map((it) => {
-            const active =
-              pathname === it.to ||
-              (it.to !== "/" && pathname.startsWith(it.to + "/"));
-            return (
-              <Link
-                key={it.to}
-                to={it.to}
-                className={cn("pf-rail__item", active && "is-active")}
-              >
-                <span className="pf-rail__icon" aria-hidden>
-                  {it.icon ?? ICONS[it.to] ?? <Compass className="h-[18px] w-[18px]" />}
-                </span>
-                <span>{it.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex flex-col gap-1 flex-1">
+          <div className="pf-rail__section">
+            {isTeacher ? "Кабинет / преподаватель" : "Маршрут / ученик"}
+          </div>
+          <nav className="pf-rail__nav" aria-label="Основная навигация">
+            {items.map((it) => {
+              const active =
+                pathname === it.to ||
+                (it.to !== "/" && pathname.startsWith(it.to + "/"));
+              return (
+                <Link
+                  key={it.to}
+                  to={it.to}
+                  className={cn("pf-rail__item", active && "is-active")}
+                >
+                  <span>{it.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-        <Link to="/profile" className="pf-rail__user">
-          <span className="pf-rail__user-avatar">
-            {accent === "Преподаватель" ? "ПР" : "УЧ"}
-          </span>
-          <span className="pf-rail__user-meta">
-            <b>{accent === "Преподаватель" ? "Преподаватель" : "Иван"}</b>
-            <span>{accent === "Преподаватель" ? "Кабинет" : "9 класс"}</span>
-          </span>
-        </Link>
+        <div className="flex flex-col gap-3">
+          <Link to="/profile" className="pf-rail__user">
+            <span className="pf-rail__user-avatar">
+              {isTeacher ? "ПР" : "УЧ"}
+            </span>
+            <span className="pf-rail__user-meta">
+              <b>{isTeacher ? "Преподаватель" : "Иван"}</b>
+              <span>{isTeacher ? "кабинет" : "9 класс"}</span>
+            </span>
+          </Link>
 
-        <button
-          type="button"
-          onClick={async () => {
-            try {
-              window.localStorage.removeItem("educaite-demo-role");
-            } catch {
-              /* noop */
-            }
-            await signOut();
-            window.location.href = "/auth";
-          }}
-          className="pf-rail__item mt-2 w-full text-left"
-        >
-          <span className="pf-rail__icon" aria-hidden>
-            <LogOut className="h-[18px] w-[18px]" />
-          </span>
-          <span>Выйти</span>
-        </button>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                window.localStorage.removeItem("educaite-demo-role");
+              } catch {
+                /* noop */
+              }
+              await signOut();
+              window.location.href = "/auth";
+            }}
+            className="pf-rail__section text-left hover:text-[color:var(--pf-ink)] transition-colors"
+            style={{ padding: "8px 10px 0", cursor: "pointer" }}
+          >
+            → выйти
+          </button>
+        </div>
       </aside>
 
       <main className="pf-main">
