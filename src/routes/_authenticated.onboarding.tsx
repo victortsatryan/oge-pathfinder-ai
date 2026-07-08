@@ -150,8 +150,6 @@ function RoleRow({
   description,
   action,
   onClick,
-  onHover,
-  onLeave,
   disabled,
 }: {
   index: string;
@@ -161,8 +159,6 @@ function RoleRow({
   description: string;
   action: string;
   onClick: () => void;
-  onHover: () => void;
-  onLeave: () => void;
   disabled?: boolean;
 }) {
   const [hover, setHover] = useState(false);
@@ -170,22 +166,10 @@ function RoleRow({
     <button
       type="button"
       onClick={onClick}
-      onMouseEnter={() => {
-        setHover(true);
-        onHover();
-      }}
-      onMouseLeave={() => {
-        setHover(false);
-        onLeave();
-      }}
-      onFocus={() => {
-        setHover(true);
-        onHover();
-      }}
-      onBlur={() => {
-        setHover(false);
-        onLeave();
-      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
       disabled={disabled}
       className="group relative text-left grid gap-3 py-8 border-t border-[color:var(--pf-line-strong)] last:border-b transition-colors px-2 -mx-2 disabled:opacity-60"
     >
