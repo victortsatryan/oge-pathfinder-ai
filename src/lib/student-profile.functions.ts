@@ -14,10 +14,15 @@ const onboardingSchema = z.object({
       }),
     )
     .min(1),
+  target_program: z.string().trim().max(40).nullable().optional(),
   target_exam: z.string().trim().max(40).nullable().optional(),
   target_score: z.string().trim().max(40).nullable().optional(),
   target_date: z.string().nullable().optional(),
   learning_goal: z.string().trim().max(500).nullable().optional(),
+  learning_goals: z.array(z.string().trim().max(80)).max(20).optional(),
+  self_assessment: z.string().trim().max(40).nullable().optional(),
+  learning_barriers: z.array(z.string().trim().max(80)).max(20).optional(),
+  available_time: z.string().trim().max(40).nullable().optional(),
 });
 
 export const completeStudentOnboarding = createServerFn({ method: "POST" })
@@ -50,14 +55,20 @@ export const completeStudentOnboarding = createServerFn({ method: "POST" })
       if (r.error) throw r.error;
       profile = r.data;
     }
-    const profilePatch: Record<string, unknown> = {};
+    const profilePatch: Record<string, unknown> = {
+      onboarding_completed: true,
+      onboarding_completed_at: new Date().toISOString(),
+    };
     if (data.target_exam !== undefined) profilePatch.target_exam = data.target_exam;
+    if (data.target_program !== undefined) profilePatch.target_program = data.target_program;
     if (data.target_score !== undefined) profilePatch.target_score = data.target_score;
     if (data.target_date !== undefined) profilePatch.target_date = data.target_date;
     if (data.learning_goal !== undefined) profilePatch.learning_goal = data.learning_goal;
-    if (Object.keys(profilePatch).length > 0) {
-      await sb.from("student_profiles").update(profilePatch).eq("id", profile.id);
-    }
+    if (data.learning_goals !== undefined) profilePatch.learning_goals = data.learning_goals;
+    if (data.self_assessment !== undefined) profilePatch.self_assessment = data.self_assessment;
+    if (data.learning_barriers !== undefined) profilePatch.learning_barriers = data.learning_barriers;
+    if (data.available_time !== undefined) profilePatch.available_time = data.available_time;
+    await sb.from("student_profiles").update(profilePatch).eq("id", profile.id);
 
     // 3) Subjects + seed topic progress
     for (const s of data.subjects) {
