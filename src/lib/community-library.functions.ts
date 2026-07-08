@@ -196,7 +196,7 @@ export const adminListCandidates = createServerFn({ method: "POST" })
     if (authorIds.length) {
       const { data: profs } = await context.supabase
         .from("profiles")
-        .select("user_id, display_name, email")
+        .select("user_id, display_name")
         .in("user_id", authorIds);
       profiles = Object.fromEntries((profs ?? []).map((p: any) => [p.user_id, p]));
     }
@@ -243,7 +243,7 @@ export const adminGetCandidate = createServerFn({ method: "POST" })
 
     const { data: author } = await context.supabase
       .from("profiles")
-      .select("display_name, email")
+      .select("display_name")
       .eq("user_id", row.author_id)
       .maybeSingle();
 
