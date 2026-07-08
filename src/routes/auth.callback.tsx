@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { supabase } from "@/integrations/supabase/client";
+import { getMyAccess } from "@/lib/role.functions";
 
 type CallbackSearch = { redirect?: string };
 
@@ -20,10 +21,10 @@ function AuthCallback() {
 
   useEffect(() => {
     let cancelled = false;
+
     async function run() {
       try {
-        // Supabase JS auto-parses tokens from the URL hash on load.
-        // Also handle ?code= (PKCE / OAuth code flow) explicitly.
+        // supabase-js auto-parses the hash on load; also handle ?code= (PKCE).
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
         if (code) {
@@ -31,25 +32,42 @@ function AuthCallback() {
           if (exErr) throw exErr;
         }
 
-        // Give detectSessionInUrl a tick to settle.
-        const { data, error: sessErr } = await supabase.auth.getSession();
-        if (sessErr) throw sessErr;
-        if (!data.session) {
-          // Wait one tick for onAuthStateChange triggered by hash parsing.
+        // Wait for a session (up to ~2s).
+        let session = (await supabase.auth.getSession()).data.session;
+        for (let i = 0; !session && i < 10; i++) {
           await new Promise((r) => setTimeout(r, 200));
-          const { data: again } = await supabase.auth.getSession();
-          if (!again.session) throw new Error("no session");
+          session = (await supabase.auth.getSession()).data.session;
         }
+        if (!session) throw new Error("no-session");
+
+        // Verify user is real (revalidates against Auth server).
+        const { data: userRes, error: userErr } = await supabase.auth.getUser();
+        if (userErr || !userRes.user) throw userErr ?? new Error("no-user");
 
         if (cancelled) return;
-        const target = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/";
-        navigate({ to: target, replace: true });
-      } catch {
-        if (!cancelled) {
-          setError("Не удалось завершить вход. Попробуйте войти ещё раз.");
+
+        // If the callback carried an explicit safe redirect, honor it.
+        if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("/auth")) {
+          navigate({ to: redirectTo, replace: true });
+          return;
         }
+
+        // Otherwise route by role.
+        try {
+          const access = await getMyAccess();
+          const dest = destinationFor(access.primaryRole, access.onboardingCompleted);
+          navigate({ to: dest, replace: true });
+        } catch {
+          // If role lookup fails, default to onboarding — user is signed in.
+          navigate({ to: "/onboarding", replace: true });
+        }
+      } catch (e: unknown) {
+        if (cancelled) return;
+        const msg = (e as { message?: string })?.message ?? "";
+        setError(explainError(msg));
       }
     }
+
     void run();
     return () => {
       cancelled = true;
@@ -61,15 +79,16 @@ function AuthCallback() {
       className="min-h-screen flex items-center justify-center px-6"
       style={{ background: "var(--pf-paper)" }}
     >
-      <div className="text-center space-y-3">
+      <div className="max-w-md text-center space-y-4">
         {error ? (
           <>
+            <h1 className="pf-h2">Не удалось войти</h1>
             <p className="text-sm text-destructive">{error}</p>
             <button
               className="text-sm underline"
               onClick={() => navigate({ to: "/auth", replace: true })}
             >
-              Вернуться к входу
+              Вернуться ко входу
             </button>
           </>
         ) : (
@@ -78,4 +97,29 @@ function AuthCallback() {
       </div>
     </main>
   );
+}
+
+function destinationFor(
+  primaryRole: "student" | "teacher" | "admin" | null,
+  onboardingCompleted: boolean,
+): string {
+  if (!primaryRole) return "/onboarding";
+  if (primaryRole === "admin") return "/admin";
+  if (primaryRole === "teacher") return "/teacher";
+  if (primaryRole === "student") {
+    return onboardingCompleted ? "/student" : "/onboarding";
+  }
+  return "/onboarding";
+}
+
+function explainError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes("no-session") || m.includes("no-user")) {
+    return "Ссылка не сработала или уже была использована. Попробуйте войти ещё раз.";
+  }
+  if (m.includes("expired")) return "Ссылка устарела. Запросите новую.";
+  if (m.includes("network") || m.includes("fetch")) {
+    return "Нет связи с сервером. Проверьте интернет и попробуйте снова.";
+  }
+  return "Не удалось завершить вход. Попробуйте отправить ссылку ещё раз.";
 }

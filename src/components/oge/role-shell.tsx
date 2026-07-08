@@ -11,9 +11,11 @@ import {
   ClipboardList,
   Stethoscope,
   BarChart3,
+  LogOut,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { signOut } from "@/hooks/use-auth";
 
 export type NavItem = {
   label: string;
@@ -86,6 +88,25 @@ export function RoleShell({
             <span>{accent === "Преподаватель" ? "Кабинет" : "9 класс"}</span>
           </span>
         </Link>
+
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              window.localStorage.removeItem("educaite-demo-role");
+            } catch {
+              /* noop */
+            }
+            await signOut();
+            window.location.href = "/auth";
+          }}
+          className="pf-rail__item mt-2 w-full text-left"
+        >
+          <span className="pf-rail__icon" aria-hidden>
+            <LogOut className="h-[18px] w-[18px]" />
+          </span>
+          <span>Выйти</span>
+        </button>
       </aside>
 
       <main className="pf-main">
