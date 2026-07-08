@@ -9,7 +9,7 @@ import { APP_NAME } from "@/lib/brand";
 
 type AuthSearch = { redirect?: string };
 
-export const Route = createFileRoute("/auth")({
+export const Route = createFileRoute("/auth/")({
   validateSearch: (search: Record<string, unknown>): AuthSearch => ({
     redirect: typeof search.redirect === "string" ? search.redirect : undefined,
   }),
