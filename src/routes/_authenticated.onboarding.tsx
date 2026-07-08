@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 
 import { setMyRole } from "@/lib/role.functions";
+import { PathyLogo } from "@/components/oge/logo";
 import {
   listSubjects,
   completeStudentOnboarding,
