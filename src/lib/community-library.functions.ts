@@ -95,7 +95,7 @@ export const saveCandidate = createServerFn({ method: "POST" })
     const nowIso = new Date().toISOString();
     const nextStatus = data.submit ? "submitted" : "draft";
 
-    const payload: Record<string, unknown> = {
+    const payload = {
       author_id: context.userId,
       title: data.title,
       description: data.description ?? null,
