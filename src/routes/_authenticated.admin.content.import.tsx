@@ -77,7 +77,50 @@ function ImportPage() {
         </Card>
       )}
 
-      {preview?.ok && (
+      {preview?.ok && preview.kind === "diagnostic_test" && (
+        <Card>
+          <CardHeader><CardTitle>Preview — диагностика</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-2">
+              <div><b>Предмет:</b> {preview.summary.subject}</div>
+              <div><b>Программа:</b> {preview.summary.program ?? "—"}</div>
+              <div><b>Название:</b> {preview.summary.diagnostic_title}</div>
+              <div><b>Тип:</b> {preview.summary.diagnostic_type}</div>
+              <div><b>Задания:</b> {preview.summary.tasks}</div>
+              <div><b>PCS version:</b> {preview.summary.pcs_version}</div>
+            </div>
+            <div className="rounded-md bg-muted p-3 text-xs space-y-1">
+              <div>
+                Предмет: {preview.resolved.subject_exists ? "существует" : "НЕ найден — импорт упадёт"} ·
+                Диагностика: {preview.resolved.diagnostic_exists ? "будет обновлена" : "будет создана"}
+              </div>
+              {preview.resolved.topic_keys_missing?.length > 0 && (
+                <div className="text-amber-700">
+                  Не найдены темы: {preview.resolved.topic_keys_missing.join(", ")} — задания привяжутся без темы.
+                </div>
+              )}
+            </div>
+            {preview.resolved.diagnostic_exists && (
+              <div className="flex gap-2 items-center">
+                <span className="text-sm">Действие:</span>
+                <select className="border rounded px-2 py-1 text-sm"
+                  value={mode} onChange={(e) => setMode(e.target.value as any)}>
+                  <option value="update">Обновить</option>
+                  <option value="skip">Отмена (пропустить)</option>
+                </select>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button onClick={() => runMut.mutate()} disabled={runMut.isPending || mode === "skip"}>
+                Импортировать
+              </Button>
+              <Button variant="outline" onClick={() => { setPreview(null); setJson(null); }}>Отмена</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {preview?.ok && preview.kind !== "diagnostic_test" && (
         <Card>
           <CardHeader><CardTitle>Preview</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm">
