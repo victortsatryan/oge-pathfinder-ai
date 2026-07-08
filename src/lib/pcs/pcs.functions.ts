@@ -163,7 +163,9 @@ export const pcsRunImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sb = context.supabase as any;
     await assertAdmin(sb, context.userId);
-    const parsed = pcsSchema.safeParse(data.json);
+    const kind = detectPcsKind(data.json);
+    const schema = kind === "diagnostic_test" ? pcsDiagnosticSchema : pcsSchema;
+    const parsed = schema.safeParse(data.json);
     if (!parsed.success) {
       await sb.from("content_imports").insert({
         filename: data.filename, imported_by: context.userId,
@@ -172,13 +174,14 @@ export const pcsRunImport = createServerFn({ method: "POST" })
       });
       throw new Error("PCS JSON: " + parsed.error.issues.map((i) => i.message).join("; "));
     }
-    const { data: rpc, error } = await sb.rpc("pcs_import", {
+    const rpcName = kind === "diagnostic_test" ? "pcs_import_diagnostic" : "pcs_import";
+    const { data: rpc, error } = await sb.rpc(rpcName, {
       payload: parsed.data as any, mode: data.mode,
     });
     if (error) {
       await sb.from("content_imports").insert({
         filename: data.filename, imported_by: context.userId,
-        pcs_version: parsed.data.pcs_version, status: "failed", rows_failed: 1,
+        pcs_version: (parsed.data as any).pcs_version, status: "failed", rows_failed: 1,
         error_log: { message: error.message } as any,
       });
       throw new Error(error.message);
@@ -187,11 +190,11 @@ export const pcsRunImport = createServerFn({ method: "POST" })
     const updated = rpc?.updated ?? 0;
     await sb.from("content_imports").insert({
       filename: data.filename, imported_by: context.userId,
-      pcs_version: parsed.data.pcs_version, status: "success",
+      pcs_version: (parsed.data as any).pcs_version, status: "success",
       rows_created: created, rows_updated: updated,
       summary: rpc as any,
     });
-    return { ok: true, result: rpc };
+    return { ok: true, kind, result: rpc };
   });
 
 export const pcsListImports = createServerFn({ method: "GET" })
