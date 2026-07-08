@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 
 import { setMyRole } from "@/lib/role.functions";
+import { PathyLogo } from "@/components/oge/logo";
 import {
   listSubjects,
   completeStudentOnboarding,
@@ -31,7 +32,7 @@ type Step = "role" | "student-form";
 function OnboardingPage() {
   const [step, setStep] = useState<Step>("role");
   const [role, setRole] = useState<"student" | "teacher" | null>(null);
-  const [hoveredRole, setHoveredRole] = useState<"student" | "teacher" | null>(null);
+  // hover state kept locally in RoleRow; no route graph anymore
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -54,90 +55,80 @@ function OnboardingPage() {
       className="min-h-screen relative"
       style={{ background: "var(--pf-paper)" }}
     >
-      <div className="max-w-6xl mx-auto px-10 py-16 pf-rise">
+      <div className="max-w-5xl mx-auto px-10 py-16 pf-rise">
         <div className="pf-section-eyebrow">
           <span className="pf-section-eyebrow__label">
-            <b>Pathy</b> / онбординг · шаг 01 из 02
+            <PathyLogo size="sm" />
+            <span className="ml-3">/ онбординг · шаг 01 из 02</span>
           </span>
           <span className="pf-section-eyebrow__label">роль</span>
         </div>
 
-        {/* Двухколоночная композиция: слева — вертикальный маршрут-график,
-            справа — типографический герой и карточки ролей */}
-        <div className="mt-14 grid grid-cols-1 lg:grid-cols-[180px,1fr] gap-x-12">
-          <RouteGraph highlight={hoveredRole} />
+        <div className="mt-16">
+          {/* Герой: Path + y как маленький флажок */}
+          <header className="mb-16 max-w-3xl relative">
+            <p
+              className="text-[16px] font-light tracking-wide mb-3"
+              style={{ color: "var(--pf-muted)" }}
+            >
+              Добро пожаловать в
+            </p>
+            <h1
+              className="pf-h1 leading-[0.9]"
+              style={{ fontSize: "clamp(64px, 9vw, 128px)" }}
+            >
+              <span style={{ color: "var(--pf-ink)" }}>Path</span>
+              <span style={{ color: "var(--pf-mustard)" }}>y</span>
+            </h1>
+            {/* Красная линия-акцент под заголовком */}
+            <span
+              aria-hidden
+              className="block mt-6"
+              style={{
+                width: 72,
+                height: 2,
+                background: "var(--pf-cinnabar)",
+              }}
+            />
+            <p
+              className="pf-lead mt-8"
+              style={{ maxWidth: "56ch" }}
+            >
+              Pathy строит индивидуальный маршрут по любому предмету, отслеживает
+              прогресс и помогает AI-ассистентом. Выберите роль, чтобы продолжить.
+            </p>
+          </header>
 
-          <div>
-            {/* Герой: Path + y как маленький флажок */}
-            <header className="mb-20 max-w-2xl">
-              <p
-                className="text-[16px] font-light tracking-wide mb-3"
-                style={{ color: "var(--pf-muted)" }}
-              >
-                Добро пожаловать в
-              </p>
-              <h1
-                className="pf-h1 leading-[0.9]"
-                style={{ fontSize: "clamp(64px, 9vw, 128px)" }}
-              >
-                <span style={{ color: "var(--pf-ink)" }}>Path</span>
-                <span style={{ color: "var(--pf-mustard)" }}>y</span>
-              </h1>
-              <p
-                className="mt-6 font-mono text-[12px] uppercase tracking-[0.25em] flex flex-wrap items-center gap-x-3 gap-y-2"
-                style={{ color: "var(--pf-ink)" }}
-              >
-                <span>маршрут</span>
-                <Dot color="var(--pf-cinnabar)" />
-                <span>открытие</span>
-                <Dot color="var(--pf-mustard)" />
-                <span>маленькие победы</span>
-                <Dot color="var(--pf-forest)" />
-              </p>
-              <p
-                className="pf-lead mt-8"
-                style={{ maxWidth: "56ch" }}
-              >
-                Pathy строит индивидуальный маршрут по любому предмету, отслеживает
-                прогресс и помогает AI-ассистентом. Выберите роль, чтобы продолжить.
-              </p>
-            </header>
-
-            <div className="grid gap-0">
-              <RoleRow
-                index="01"
-                accent="var(--pf-mustard)"
-                role="ученик"
-                title="Я исследую территорию предмета"
-                description="Диагностика, маршрут на сегодня, проблемные зоны, занятия и материалы — единая карта подготовки."
-                action="Продолжить как ученик →"
-                onHover={() => setHoveredRole("student")}
-                onLeave={() => setHoveredRole(null)}
-                onClick={() => {
-                  setRole("student");
-                  setStep("student-form");
-                }}
-              />
-              <RoleRow
-                index="02"
-                accent="var(--pf-cinnabar)"
-                role="преподаватель"
-                title="Я веду учеников по карте"
-                description="Профили учеников, слабые темы, индивидуальные маршруты и рекомендации AI-навигатора — в одном пространстве."
-                action={
-                  teacherMut.isPending && role === "teacher"
-                    ? "Сохранение…"
-                    : "Войти как преподаватель →"
-                }
-                disabled={teacherMut.isPending}
-                onHover={() => setHoveredRole("teacher")}
-                onLeave={() => setHoveredRole(null)}
-                onClick={() => {
-                  setRole("teacher");
-                  teacherMut.mutate();
-                }}
-              />
-            </div>
+          <div className="grid gap-0">
+            <RoleRow
+              index="01"
+              accent="var(--pf-mustard)"
+              role="ученик"
+              title="Я исследую территорию предмета"
+              description="Диагностика, маршрут на сегодня, проблемные зоны, занятия и материалы — единая карта подготовки."
+              action="Продолжить как ученик →"
+              onClick={() => {
+                setRole("student");
+                setStep("student-form");
+              }}
+            />
+            <RoleRow
+              index="02"
+              accent="var(--pf-cinnabar)"
+              role="преподаватель"
+              title="Я веду учеников по карте"
+              description="Профили учеников, слабые темы, индивидуальные маршруты и рекомендации AI-навигатора — в одном пространстве."
+              action={
+                teacherMut.isPending && role === "teacher"
+                  ? "Сохранение…"
+                  : "Войти как преподаватель →"
+              }
+              disabled={teacherMut.isPending}
+              onClick={() => {
+                setRole("teacher");
+                teacherMut.mutate();
+              }}
+            />
           </div>
         </div>
       </div>
@@ -148,167 +139,8 @@ function OnboardingPage() {
   );
 }
 
-function Dot({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      className="inline-block h-1.5 w-1.5 rounded-full"
-      style={{ background: color }}
-    />
-  );
-}
 
-// Вертикальный «маршрут»: три узла + два индекс-маркера, синхронизированные
-// с карточками ролей. Метафора — путь состоит из шагов.
-function RouteGraph({ highlight }: { highlight: "student" | "teacher" | null }) {
-  const studentActive = highlight === "student";
-  const teacherActive = highlight === "teacher";
 
-  return (
-    <aside
-      aria-hidden
-      className="hidden lg:block relative"
-      style={{ minHeight: 560 }}
-    >
-      {/* Осевая линия */}
-      <div
-        className="absolute top-0 bottom-0"
-        style={{
-          left: 24,
-          width: 1,
-          background: "var(--pf-line-strong)",
-        }}
-      />
-
-      {/* Верхний узел */}
-      <Node top={0} label="диагностика" filled={false} />
-      {/* Средний узел */}
-      <Node top={140} label="маршрут" filled={false} />
-      {/* Финальный квадрат — «маленькие победы» */}
-      <SquareNode top={280} label="практика" />
-
-      {/* Индекс 01 — рядом с карточкой ученика */}
-      <IndexMarker
-        top={410}
-        label="01"
-        color="var(--pf-mustard)"
-        active={studentActive}
-        shape="circle"
-      />
-      {/* Индекс 02 — рядом с карточкой преподавателя */}
-      <IndexMarker
-        top={510}
-        label="02"
-        color="var(--pf-cinnabar)"
-        active={teacherActive}
-        shape="line"
-      />
-    </aside>
-  );
-}
-
-function Node({
-  top,
-  label,
-  filled,
-}: {
-  top: number;
-  label: string;
-  filled: boolean;
-}) {
-  return (
-    <div className="absolute flex items-center gap-4" style={{ top, left: 0 }}>
-      <span
-        aria-hidden
-        className="h-3 w-3 rounded-full"
-        style={{
-          background: filled ? "var(--pf-ink)" : "var(--pf-paper)",
-          border: "1px solid var(--pf-line-strong)",
-          marginLeft: 18,
-        }}
-      />
-      <span
-        className="font-mono text-[10px] uppercase tracking-[0.22em]"
-        style={{ color: "var(--pf-muted)" }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function SquareNode({ top, label }: { top: number; label: string }) {
-  return (
-    <div className="absolute flex items-center gap-4" style={{ top, left: 0 }}>
-      <span
-        aria-hidden
-        className="h-3 w-3"
-        style={{
-          background: "var(--pf-mustard)",
-          marginLeft: 18,
-        }}
-      />
-      <span
-        className="font-mono text-[10px] uppercase tracking-[0.22em]"
-        style={{ color: "var(--pf-ink)" }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function IndexMarker({
-  top,
-  label,
-  color,
-  active,
-  shape,
-}: {
-  top: number;
-  label: string;
-  color: string;
-  active: boolean;
-  shape: "circle" | "line";
-}) {
-  return (
-    <div
-      className="absolute flex items-center gap-4 transition-colors duration-200"
-      style={{ top, left: 0 }}
-    >
-      {shape === "circle" ? (
-        <span
-          aria-hidden
-          className="rounded-full transition-all duration-300"
-          style={{
-            width: active ? 28 : 20,
-            height: active ? 28 : 20,
-            background: active ? color : "var(--pf-paper)",
-            border: `1.5px solid ${color}`,
-            marginLeft: active ? 10 : 14,
-          }}
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="transition-all duration-300"
-          style={{
-            width: active ? 28 : 20,
-            height: 2,
-            background: color,
-            marginLeft: active ? 10 : 14,
-          }}
-        />
-      )}
-      <span
-        className="font-mono text-[13px] tracking-widest transition-colors duration-200"
-        style={{ color: active ? "var(--pf-ink)" : "var(--pf-muted)" }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
 
 function RoleRow({
   index,
@@ -318,8 +150,6 @@ function RoleRow({
   description,
   action,
   onClick,
-  onHover,
-  onLeave,
   disabled,
 }: {
   index: string;
@@ -329,8 +159,6 @@ function RoleRow({
   description: string;
   action: string;
   onClick: () => void;
-  onHover: () => void;
-  onLeave: () => void;
   disabled?: boolean;
 }) {
   const [hover, setHover] = useState(false);
@@ -338,22 +166,10 @@ function RoleRow({
     <button
       type="button"
       onClick={onClick}
-      onMouseEnter={() => {
-        setHover(true);
-        onHover();
-      }}
-      onMouseLeave={() => {
-        setHover(false);
-        onLeave();
-      }}
-      onFocus={() => {
-        setHover(true);
-        onHover();
-      }}
-      onBlur={() => {
-        setHover(false);
-        onLeave();
-      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
       disabled={disabled}
       className="group relative text-left grid gap-3 py-8 border-t border-[color:var(--pf-line-strong)] last:border-b transition-colors px-2 -mx-2 disabled:opacity-60"
     >

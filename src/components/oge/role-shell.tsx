@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { signOut } from "@/hooks/use-auth";
+import { PathyLogo } from "@/components/oge/logo";
 
 export type NavItem = {
   label: string;
@@ -24,9 +25,12 @@ export function RoleShell({
   return (
     <div className="pf-shell">
       <aside className="pf-rail">
-        <Link to="/" className="pf-rail__logo">
-          <span className="pf-rail__logo-mark" aria-hidden />
-          <span>Pathy</span>
+        <Link
+          to="/"
+          className="pf-rail__logo"
+          style={{ textDecoration: "none" }}
+        >
+          <PathyLogo size="sm" />
         </Link>
 
         <div className="flex flex-col gap-1 flex-1">
