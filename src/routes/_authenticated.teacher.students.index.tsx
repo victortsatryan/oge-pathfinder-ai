@@ -4,15 +4,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { listMyTeacherStudents, linkStudent, updateLinkStatus, listAvailableStudents } from "@/lib/teacher.functions";
+import { SectionEyebrow } from "@/components/oge/section-eyebrow";
+import {
+  listMyTeacherStudents,
+  linkStudent,
+  updateLinkStatus,
+  listAvailableStudents,
+} from "@/lib/teacher.functions";
 import { isDevOpenAccess } from "@/lib/admin-access";
-import { PageHeader } from "@/components/oge/page-header";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/")({
   component: StudentsPage,
 });
+
+const FILTERS = [
+  { key: "all", label: "Все" },
+  { key: "active", label: "Активные" },
+  { key: "attention", label: "Требуют внимания" },
+] as const;
+type FilterKey = (typeof FILTERS)[number]["key"];
 
 function StudentsPage() {
   const qc = useQueryClient();
@@ -22,13 +32,17 @@ function StudentsPage() {
   const availFn = useServerFn(listAvailableStudents);
 
   const devMode = typeof window !== "undefined" && isDevOpenAccess();
-  const { data } = useQuery({ queryKey: ["teacher", "students"], queryFn: () => listFn() });
+  const { data } = useQuery({
+    queryKey: ["teacher", "students"],
+    queryFn: () => listFn(),
+  });
   const { data: avail } = useQuery({
     queryKey: ["teacher", "available-students"],
     queryFn: () => availFn(),
     enabled: devMode,
   });
-  const [filter, setFilter] = useState<"all" | "active" | "attention">("all");
+
+  const [filter, setFilter] = useState<FilterKey>("all");
   const [studentId, setStudentId] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
@@ -42,14 +56,17 @@ function StudentsPage() {
       qc.invalidateQueries({ queryKey: ["teacher", "available-students"] });
     },
     onError: (e: any) => {
-      const msg = e?.message ?? "Не удалось привязать ученика. Проверьте ID профиля.";
+      const msg = e?.message ?? "Не удалось привязать ученика.";
       setErr(msg);
       toast.error(msg);
     },
   });
 
   const statusMut = useMutation({
-    mutationFn: (vars: { link_id: string; status: "active" | "paused" | "archived" }) => statusFn({ data: vars }),
+    mutationFn: (vars: {
+      link_id: string;
+      status: "active" | "paused" | "archived";
+    }) => statusFn({ data: vars }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher", "students"] }),
   });
 
@@ -61,106 +78,191 @@ function StudentsPage() {
   });
 
   return (
-    <>
-      <div className="pf-topbar">
-        <div className="pf-crumb"><b>Ученики</b> · {students.length}</div>
+    <article className="pf-reader-wide pf-rise">
+      <div className="pf-section-eyebrow">
+        <span className="pf-section-eyebrow__label">
+          <b>Ученики</b> / {students.length}
+        </span>
       </div>
 
-      <PageHeader title="Мои ученики" lead="Привяжите ученика по ID его профиля и отслеживайте прогресс." />
+      <header className="mb-12">
+        <p className="pf-eyebrow mb-4">кабинет</p>
+        <h1 className="pf-h1">Мои ученики</h1>
+        <p className="pf-lead">
+          Привяжите ученика по ID его профиля — карточка появится в списке ниже.
+        </p>
+      </header>
 
-      <div className="pf-block p-5 mb-6 space-y-3">
-        <div className="text-sm font-medium">Привязать ученика</div>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor="sid">ID профиля ученика (student_profile_id)</Label>
-            <Input id="sid" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="uuid…" />
+      {/* Привязка */}
+      <section className="mb-12">
+        <SectionEyebrow section="01" sub="Привязать ученика" mark="mustard" />
+        <div className="grid grid-cols-[1fr,auto] gap-6 items-end">
+          <div>
+            <label
+              htmlFor="sid"
+              className="block pf-eyebrow mb-2"
+            >
+              ID профиля ученика
+            </label>
+            <input
+              id="sid"
+              className="pf-input-line"
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              placeholder="uuid…"
+            />
           </div>
           <button
-            className="pf-btn"
+            className="pf-btn pf-btn--accent"
             disabled={!studentId || linkMut.isPending}
             onClick={() => linkMut.mutate(studentId.trim())}
           >
             Привязать
           </button>
         </div>
-        {err && <div className="text-sm text-red-600">{err}</div>}
-        <div className="text-xs text-muted-foreground">
+        {err && (
+          <p className="mt-3 text-sm" style={{ color: "var(--pf-cinnabar)" }}>
+            {err}
+          </p>
+        )}
+        <p className="mt-3 text-[12px]" style={{ color: "var(--pf-muted)" }}>
           Ученик может найти ID в своём профиле и передать преподавателю.
-        </div>
-      </div>
+        </p>
+      </section>
 
       {devMode && (avail?.students?.length ?? 0) > 0 && (
-        <div className="pf-block p-5 mb-6 space-y-2">
-          <div className="text-sm font-medium">Доступные тестовые ученики (dev)</div>
-          <div className="space-y-1.5">
+        <section className="mb-12">
+          <SectionEyebrow
+            section="dev"
+            sub="Тестовые ученики"
+            mark="forest"
+          />
+          <ul>
             {(avail?.students ?? []).map((s: any) => (
-              <div key={s.id} className="flex items-center justify-between text-sm border-b pb-1.5">
+              <li
+                key={s.id}
+                className="py-3 grid grid-cols-[1fr,auto] gap-4 items-center"
+                style={{ borderBottom: "1px solid var(--pf-line)" }}
+              >
                 <div>
-                  <div className="font-medium">{s.display_name ?? "Без имени"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {s.grade ?? "—"} · {s.learning_goal ?? "—"} · {s.target_exam ?? "—"}
+                  <div className="text-[14px] font-medium">
+                    {s.display_name ?? "Без имени"}
+                  </div>
+                  <div
+                    className="mt-1 font-mono text-[11px] uppercase tracking-widest"
+                    style={{ color: "var(--pf-muted)" }}
+                  >
+                    {s.grade ?? "—"} · {s.learning_goal ?? "—"} ·{" "}
+                    {s.target_exam ?? "—"}
                   </div>
                 </div>
                 {s.linked ? (
-                  <span className="text-xs text-muted-foreground">уже привязан</span>
+                  <span
+                    className="font-mono text-[11px] uppercase tracking-widest"
+                    style={{ color: "var(--pf-muted)" }}
+                  >
+                    уже привязан
+                  </span>
                 ) : (
-                  <button className="pf-chip" disabled={linkMut.isPending} onClick={() => linkMut.mutate(s.id)}>
+                  <button
+                    className="pf-btn pf-btn--ghost"
+                    disabled={linkMut.isPending}
+                    onClick={() => linkMut.mutate(s.id)}
+                  >
                     Привязать
                   </button>
                 )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Список */}
+      <section>
+        <SectionEyebrow
+          section="02"
+          sub="Список"
+          mark="ink"
+          right={
+            <div className="flex gap-4">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className="font-mono text-[11px] uppercase tracking-widest"
+                  style={{
+                    color:
+                      filter === f.key ? "var(--pf-ink)" : "var(--pf-muted)",
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          }
+        />
+
+        {filtered.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+            Никого по этому фильтру.
+          </p>
+        ) : (
+          <div>
+            {filtered.map((s: any) => (
+              <div key={s.link_id} className="pf-student-row">
+                <Link
+                  to="/teacher/students/$studentId"
+                  params={{ studentId: s.student?.id ?? "" }}
+                  className="contents"
+                >
+                  <span className="pf-student-row__avatar">
+                    {(s.student?.display_name ?? "У")[0]}
+                  </span>
+                  <div>
+                    <div className="pf-student-row__name">
+                      {s.student?.display_name ?? "Без имени"}
+                    </div>
+                    <div className="pf-student-row__sub">
+                      прогресс {s.avg_mastery}% · слабых тем {s.weak_count}
+                      {s.last_active &&
+                        ` · посл. активность ${new Date(s.last_active).toLocaleDateString()}`}
+                    </div>
+                  </div>
+                </Link>
+                <span
+                  className="font-mono text-[11px] uppercase tracking-widest"
+                  style={{
+                    color: s.needs_attention
+                      ? "var(--pf-cinnabar)"
+                      : "var(--pf-muted)",
+                  }}
+                >
+                  {s.needs_attention ? "внимание" : s.status}
+                </span>
+                <select
+                  className="font-mono text-[11px] uppercase tracking-widest bg-transparent px-2 py-1"
+                  style={{
+                    border: "1px solid var(--pf-line-strong)",
+                    color: "var(--pf-muted)",
+                  }}
+                  value={s.status}
+                  onChange={(e) =>
+                    statusMut.mutate({
+                      link_id: s.link_id,
+                      status: e.target.value as any,
+                    })
+                  }
+                >
+                  <option value="active">active</option>
+                  <option value="paused">paused</option>
+                  <option value="archived">archived</option>
+                </select>
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      <div className="flex gap-2 mb-4 text-sm">
-        {(["all", "active", "attention"] as const).map((k) => (
-          <button
-            key={k}
-            onClick={() => setFilter(k)}
-            className={`pf-chip ${filter === k ? "is-active" : ""}`}
-          >
-            {k === "all" ? "Все" : k === "active" ? "Активные" : "Требуют внимания"}
-          </button>
-        ))}
-      </div>
-
-      <div className="pf-block">
-        {filtered.length === 0 && (
-          <div className="p-6 text-sm text-muted-foreground">Никого по этому фильтру.</div>
         )}
-        {filtered.map((s: any) => (
-          <div key={s.link_id} className="pf-student-row">
-            <Link
-              to="/teacher/students/$studentId"
-              params={{ studentId: s.student?.id ?? "" }}
-              className="contents"
-            >
-              <span className="pf-student-row__avatar">{(s.student?.display_name ?? "У")[0]}</span>
-              <div>
-                <div className="pf-student-row__name">{s.student?.display_name ?? "Без имени"}</div>
-                <div className="pf-student-row__sub">
-                  прогресс {s.avg_mastery}% · слабых тем {s.weak_count}
-                  {s.last_active && ` · посл. активность ${new Date(s.last_active).toLocaleDateString()}`}
-                </div>
-              </div>
-            </Link>
-            <div className="pf-chip">{s.needs_attention ? "внимание" : s.status}</div>
-            <select
-              className="text-xs border rounded px-2 py-1"
-              value={s.status}
-              onChange={(e) =>
-                statusMut.mutate({ link_id: s.link_id, status: e.target.value as any })
-              }
-            >
-              <option value="active">active</option>
-              <option value="paused">paused</option>
-              <option value="archived">archived</option>
-            </select>
-          </div>
-        ))}
-      </div>
-    </>
+      </section>
+    </article>
   );
 }

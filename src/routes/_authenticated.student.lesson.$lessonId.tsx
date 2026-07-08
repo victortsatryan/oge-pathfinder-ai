@@ -4,13 +4,19 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
-import { PageHeader } from "@/components/oge/page-header";
-import { getLessonDetail, submitLessonTaskAttempt, completeLesson } from "@/lib/lesson.functions";
+import { SectionEyebrow } from "@/components/oge/section-eyebrow";
+import {
+  getLessonDetail,
+  submitLessonTaskAttempt,
+  completeLesson,
+} from "@/lib/lesson.functions";
 
 export const Route = createFileRoute("/_authenticated/student/lesson/$lessonId")({
   component: LessonPage,
   errorComponent: ({ error }) => (
-    <div className="p-10">Ошибка: {String((error as any)?.message ?? error)}</div>
+    <div className="pf-reader py-16 text-sm" style={{ color: "var(--pf-cinnabar)" }}>
+      Ошибка: {String((error as any)?.message ?? error)}
+    </div>
   ),
 });
 
@@ -36,10 +42,20 @@ function LessonPage() {
 
   const completeMut = useMutation({
     mutationFn: () => complete({ data: { lesson_id: lessonId } }),
-    onSuccess: () => q.refetch(),
+    onSuccess: () => {
+      q.refetch();
+      router.invalidate();
+    },
   });
 
-  if (q.isLoading) return <p className="p-10 text-sm text-[color:var(--pf-muted)]">Загрузка…</p>;
+  if (q.isLoading) {
+    return (
+      <div className="pf-reader py-16">
+        <p className="pf-eyebrow">загрузка…</p>
+      </div>
+    );
+  }
+
   const lesson: any = q.data?.lesson;
   const materials = q.data?.materials ?? [];
   const tasks = q.data?.tasks ?? [];
@@ -48,129 +64,232 @@ function LessonPage() {
   const attemptsByTask = Object.fromEntries(attempts.map((a: any) => [a.task_id, a]));
 
   return (
-    <>
-      <div className="pf-topbar">
-        <Link to="/student/path" className="pf-crumb hover:text-[color:var(--pf-ink)]">
-          <ArrowLeft className="h-3 w-3 inline mr-1" /> к маршруту
+    <article className="pf-reader pf-rise">
+      {/* Верхняя мета-строка: путь назад + мета-инфо */}
+      <div className="pf-section-eyebrow">
+        <Link
+          to="/student/path"
+          className="pf-section-eyebrow__label inline-flex items-center gap-2 hover:text-[color:var(--pf-ink)]"
+        >
+          <ArrowLeft className="h-3 w-3" /> <b>Занятие</b>
+          {lesson?.subjects?.name ? <span> / {lesson.subjects.name}</span> : null}
         </Link>
-        <div className="pf-crumb">
-          <b>занятие</b>{lesson?.subjects?.name ? ` · ${lesson.subjects.name}` : ""}
-        </div>
+        <span
+          className="pf-section-eyebrow__label"
+          title="Тема"
+        >
+          {lesson?.topics?.title ?? ""}
+        </span>
       </div>
 
-      <PageHeader
-        crumb={<>учебный модуль · {lesson?.topics?.title}</>}
-        title={lesson?.title ?? "Занятие"}
-        lead={lesson?.goal ?? lesson?.description ?? "Цель, материалы, практика и проверка."}
-      />
+      {/* Заголовок */}
+      <header className="mb-12">
+        <p className="pf-eyebrow mb-4">учебный модуль</p>
+        <h1 className="pf-h1" style={{ maxWidth: "18ch" }}>
+          {lesson?.title ?? "Занятие"}
+        </h1>
+        {(lesson?.goal || lesson?.description) && (
+          <p className="pf-lead">
+            {lesson?.goal ?? lesson?.description}
+          </p>
+        )}
+      </header>
 
-      <section className="pf-block mt-6">
-        <h2 className="pf-h2">Почему эта тема</h2>
-        <p className="text-sm text-[color:var(--pf-muted)] mt-2">
-          {lesson?.description ?? `Текущий уровень освоения темы: ${q.data?.mastery ?? 0}%.`}
+      {/* Почему эта тема */}
+      <section className="mb-12">
+        <SectionEyebrow section="01" sub="Почему эта тема" mark="ink" />
+        <p className="text-[15px] leading-relaxed" style={{ color: "var(--pf-muted)" }}>
+          {lesson?.description ??
+            `Текущий уровень освоения темы — ${q.data?.mastery ?? 0}%. Разберитесь с материалами, затем пройдите практику.`}
         </p>
       </section>
 
-      {materials.length === 0 ? (
-        <section className="pf-block mt-6">
-          <h2 className="pf-h2">Материалы</h2>
-          <p className="text-sm text-[color:var(--pf-muted)] mt-2">
+      {/* Материалы */}
+      <section className="mb-12">
+        <SectionEyebrow
+          section="02"
+          sub="Материалы"
+          mark="ink"
+          right={
+            <span className="pf-section-eyebrow__label">
+              {materials.length ? `${materials.length}` : "—"}
+            </span>
+          }
+        />
+        {materials.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
             Материалы пока не загружены. Мы добавим их по мере наполнения базы.
           </p>
-        </section>
-      ) : (
-        <section className="pf-block mt-6">
-          <h2 className="pf-h2">Материалы</h2>
-          <ul className="grid gap-2 mt-3">
+        ) : (
+          <ul className="grid gap-0">
             {materials.map((m: any) => {
               const mat = m.materials;
               return (
-                <li key={m.id} className="py-2 border-b border-[color:var(--pf-divider)]">
-                  <div className="text-sm font-medium">
+                <li
+                  key={m.id}
+                  className="py-4"
+                  style={{ borderBottom: "1px solid var(--pf-line)" }}
+                >
+                  <div className="text-[15px] font-medium">
                     {mat?.source_url ? (
-                      <a href={mat.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline">
+                      <a
+                        href={mat.source_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 hover:underline"
+                      >
                         {mat.title} <ExternalLink className="h-3 w-3" />
                       </a>
-                    ) : mat?.title}
+                    ) : (
+                      mat?.title
+                    )}
                   </div>
-                  <div className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--pf-muted)] mt-1">
-                    {mat?.material_type}{mat?.source_name ? ` · ${mat.source_name}` : ""}
+                  <div
+                    className="mt-1 font-mono text-[11px] uppercase tracking-widest"
+                    style={{ color: "var(--pf-muted)" }}
+                  >
+                    {mat?.material_type}
+                    {mat?.source_name ? ` · ${mat.source_name}` : ""}
                   </div>
                 </li>
               );
             })}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
 
-      {tasks.length === 0 ? (
-        <section className="pf-block mt-6">
-          <h2 className="pf-h2">Практика</h2>
-          <p className="text-sm text-[color:var(--pf-muted)] mt-2">
+      {/* Практика */}
+      <section className="mb-12">
+        <SectionEyebrow
+          section="03"
+          sub="Практика"
+          mark="mustard"
+          right={
+            <span className="pf-section-eyebrow__label">
+              {tasks.length ? `${attempts.length} / ${tasks.length}` : "—"}
+            </span>
+          }
+        />
+        {tasks.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
             Задания будут доступны после наполнения базы. Занятие можно завершить как «изучено».
           </p>
-        </section>
-      ) : (
-        <section className="pf-block mt-6">
-          <h2 className="pf-h2">Практика</h2>
-          <ol className="grid gap-4 mt-3">
+        ) : (
+          <ol className="grid gap-0">
             {tasks.map((t: any, idx: number) => {
               const task = t.tasks;
               const a = attemptsByTask[task.id];
               return (
-                <li key={t.id} className="py-3 border-b border-[color:var(--pf-divider)]">
-                  <div className="text-sm">
-                    <span className="font-mono text-[color:var(--pf-muted)] mr-2">{idx + 1}.</span>
+                <li
+                  key={t.id}
+                  className="py-5"
+                  style={{ borderBottom: "1px solid var(--pf-line)" }}
+                >
+                  <div className="text-[15px] leading-relaxed">
+                    <span
+                      className="font-mono mr-3"
+                      style={{ color: "var(--pf-muted)" }}
+                    >
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
                     {task.title ?? task.prompt}
                   </div>
-                  <div className="flex gap-2 mt-2">
+
+                  <div className="flex flex-wrap items-baseline gap-4 mt-4">
                     <input
                       defaultValue={a?.student_answer ?? ""}
-                      onChange={(e) => setAnswers((p) => ({ ...p, [task.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setAnswers((p) => ({ ...p, [task.id]: e.target.value }))
+                      }
                       placeholder="Ваш ответ"
-                      className="px-3 py-1.5 bg-transparent border border-[color:var(--pf-divider)] text-sm w-64"
+                      className="pf-input-line max-w-xs"
                     />
                     <button
-                      onClick={() => submitMut.mutate({ taskId: task.id, answer: answers[task.id] ?? a?.student_answer ?? "" })}
-                      className="pf-chip hover:bg-[color:var(--pf-ink)] hover:text-[color:var(--pf-paper)]"
+                      onClick={() =>
+                        submitMut.mutate({
+                          taskId: task.id,
+                          answer: answers[task.id] ?? a?.student_answer ?? "",
+                        })
+                      }
+                      className="pf-btn pf-btn--ghost"
                     >
-                      проверить
+                      Проверить
                     </button>
                     {a && (
-                      <span className={`pf-chip ${a.is_correct ? "" : "text-[color:var(--pf-cinnabar)]"}`}>
+                      <span
+                        className="font-mono text-[11px] uppercase tracking-widest"
+                        style={{
+                          color: a.is_correct
+                            ? "var(--pf-forest)"
+                            : "var(--pf-cinnabar)",
+                        }}
+                      >
                         {a.is_correct ? "верно" : "неверно"}
                       </span>
                     )}
                   </div>
+
                   {a && !a.is_correct && task.explanation && (
-                    <div className="text-xs text-[color:var(--pf-muted)] mt-2">{task.explanation}</div>
+                    <p
+                      className="text-[13px] leading-relaxed mt-3"
+                      style={{ color: "var(--pf-muted)" }}
+                    >
+                      {task.explanation}
+                    </p>
                   )}
                 </li>
               );
             })}
           </ol>
-        </section>
-      )}
+        )}
+      </section>
 
-      <section className="pf-block mt-6">
+      {/* Результат / завершить */}
+      <section className="mb-16">
+        <SectionEyebrow
+          section="04"
+          sub={result ? "Результат" : "Завершение"}
+          mark={result ? "forest" : "ink"}
+        />
         {result ? (
-          <>
-            <h2 className="pf-h2">Результат</h2>
-            <p className="font-mono text-sm mt-2">
-              {result.correct_tasks} / {result.completed_tasks} · {result.score_percent}%
+          <div>
+            <p
+              className="font-mono text-[13px] uppercase tracking-widest mb-2"
+              style={{ color: "var(--pf-muted)" }}
+            >
+              итог
             </p>
-            <p className="text-sm text-[color:var(--pf-muted)] mt-2">{result.summary}</p>
-          </>
+            <p className="text-4xl font-medium">
+              {result.correct_tasks} / {result.completed_tasks}
+              <span
+                className="ml-3 text-2xl"
+                style={{ color: "var(--pf-muted)" }}
+              >
+                {result.score_percent}%
+              </span>
+            </p>
+            {result.summary && (
+              <p
+                className="mt-4 text-[14px] leading-relaxed"
+                style={{ color: "var(--pf-muted)" }}
+              >
+                {result.summary}
+              </p>
+            )}
+          </div>
         ) : (
           <button
             onClick={() => completeMut.mutate()}
-            disabled={completeMut.isPending || (tasks.length > 0 && attempts.length === 0)}
-            className="pf-chip hover:bg-[color:var(--pf-ink)] hover:text-[color:var(--pf-paper)]"
+            disabled={
+              completeMut.isPending ||
+              (tasks.length > 0 && attempts.length === 0)
+            }
+            className="pf-btn pf-btn--accent"
           >
-            {completeMut.isPending ? "Завершаю…" : "Завершить занятие"}
+            {completeMut.isPending ? "Завершаю…" : "Завершить занятие →"}
           </button>
         )}
       </section>
-    </>
+    </article>
   );
 }

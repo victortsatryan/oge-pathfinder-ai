@@ -4,13 +4,21 @@ import { useServerFn } from "@tanstack/react-start";
 import { LogOut } from "lucide-react";
 
 import { amIAdmin } from "@/lib/admin-materials.functions";
-import { Button } from "@/components/ui/button";
 import { isDevOpenAccess, getAccessMode } from "@/lib/admin-access";
 import { useAuth, signOut } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminLayout,
 });
+
+const NAV = [
+  { label: "Studio", to: "/admin/content" },
+  { label: "Импорт", to: "/admin/import" },
+  { label: "Материал", to: "/admin/new" },
+  { label: "Источники", to: "/admin/sources" },
+  { label: "Diagnostics", to: "/admin/routes" },
+  { label: "Dev nav", to: "/dev/navigation" },
+] as const;
 
 function AdminLayout() {
   const check = useServerFn(amIAdmin);
@@ -22,65 +30,96 @@ function AdminLayout() {
   const devOpen = isDevOpenAccess();
   const mode = getAccessMode();
 
-  if (isLoading) return <div className="p-8 text-sm text-muted-foreground">Загрузка…</div>;
+  if (isLoading)
+    return (
+      <div className="pf-reader-wide py-16 text-sm" style={{ color: "var(--pf-muted)" }}>
+        Загрузка…
+      </div>
+    );
 
   const isAdmin = Boolean(data?.isAdmin);
   if (!devOpen && !isAdmin) {
     return (
-      <div className="container max-w-2xl py-16 text-center space-y-3">
-        <h1 className="text-3xl font-semibold">403 · Доступ запрещён</h1>
-        <p className="text-sm text-muted-foreground">Раздел доступен только пользователям с ролью <code>admin</code>.</p>
-        <Button asChild variant="outline" size="sm"><Link to="/">На главную</Link></Button>
+      <div className="pf-reader py-24 text-center space-y-6 pf-rise">
+        <p className="pf-eyebrow">403</p>
+        <h1 className="pf-h1">Доступ запрещён</h1>
+        <p className="pf-lead mx-auto">
+          Раздел доступен только пользователям с ролью <code>admin</code>.
+        </p>
+        <Link to="/" className="pf-btn pf-btn--ghost inline-flex">
+          На главную
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="container max-w-6xl py-8 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Админ-панель</h1>
-          <p className="text-sm text-muted-foreground">Управление контентом Pathy</p>
-        </div>
-        <nav className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm"><Link to="/admin/content">Pathy Studio</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/import">Импорт материалов</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/new">Новый материал</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/sources">Источники</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/routes">Diagnostics</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/dev/navigation">Dev Navigation</Link></Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              try {
-                window.localStorage.removeItem("educaite-demo-role");
-              } catch {
-                /* noop */
-              }
-              await signOut();
-              window.location.href = "/auth";
-            }}
-          >
-            <LogOut className="h-4 w-4 mr-1" /> Выйти
-          </Button>
-        </nav>
+    <div className="pf-reader-wide pf-rise" style={{ paddingBlock: "40px 80px" }}>
+      <div className="pf-section-eyebrow">
+        <span className="pf-section-eyebrow__label">
+          <b>Админ-панель</b> / Pathy
+        </span>
+        <span className="pf-section-eyebrow__label">
+          {mode === "dev-open" ? "dev · открытый доступ" : "production · admin"}
+        </span>
       </div>
 
-      <div
-        className={`rounded-lg border px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3 ${
-          mode === "dev-open"
-            ? "border-amber-500/40 bg-amber-500/10"
-            : "border-emerald-500/40 bg-emerald-500/10"
-        }`}
-      >
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-6">
         <div>
-          <b>Текущий режим доступа:</b>{" "}
-          {mode === "dev-open" ? "🟡 dev / preview — открытый доступ" : "🟢 production — защищено ролью admin"}
+          <p className="pf-eyebrow mb-3">содержимое платформы</p>
+          <h1 className="pf-h1">Редакция</h1>
         </div>
-        <div className="text-xs text-muted-foreground">
-          user: {user?.email ?? "—"} · role: {isAdmin ? "admin" : "не admin"}
-        </div>
+        <button
+          onClick={async () => {
+            try {
+              window.localStorage.removeItem("educaite-demo-role");
+            } catch {
+              /* noop */
+            }
+            await signOut();
+            window.location.href = "/auth";
+          }}
+          className="pf-btn pf-btn--ghost"
+        >
+          <LogOut className="h-4 w-4" /> Выйти
+        </button>
+      </header>
+
+      {/* Навигация — mono-полоса */}
+      <nav
+        className="flex flex-wrap gap-x-8 gap-y-2 mb-6 pb-3"
+        style={{ borderBottom: "1px solid var(--pf-line-strong)" }}
+      >
+        {NAV.map((n) => (
+          <Link
+            key={n.to}
+            to={n.to}
+            className="font-mono text-[11px] uppercase tracking-widest hover:text-[color:var(--pf-ink)]"
+            style={{ color: "var(--pf-muted)" }}
+            activeProps={{ style: { color: "var(--pf-ink)" } }}
+          >
+            {n.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Режим доступа — узкая полоса, не карточка */}
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 mb-10 font-mono text-[11px] uppercase tracking-widest"
+        style={{
+          borderLeft: `2px solid ${
+            mode === "dev-open" ? "var(--pf-mustard)" : "var(--pf-forest)"
+          }`,
+          background: "color-mix(in oklab, var(--pf-line) 30%, var(--pf-paper))",
+          color: "var(--pf-muted)",
+        }}
+      >
+        <span>
+          режим: {mode === "dev-open" ? "dev / preview" : "production"}
+        </span>
+        <span>
+          user: {user?.email ?? "—"} · role: {isAdmin ? "admin" : "guest"}
+        </span>
       </div>
 
       <Outlet />

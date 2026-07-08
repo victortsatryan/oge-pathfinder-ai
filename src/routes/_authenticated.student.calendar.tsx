@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 
-import { PageHeader } from "@/components/oge/page-header";
+import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 import { listCalendarEvents } from "@/lib/learning-path.functions";
 
 export const Route = createFileRoute("/_authenticated/student/calendar")({
@@ -16,6 +16,11 @@ const STATUS_LABEL: Record<string, string> = {
   skipped: "пропущено",
   rescheduled: "перенесено",
 };
+
+function isToday(dateStr: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  return dateStr === today;
+}
 
 function CalendarRoute() {
   const fetchEvents = useServerFn(listCalendarEvents);
@@ -32,76 +37,131 @@ function CalendarRoute() {
   const dates = Object.keys(grouped).sort();
 
   return (
-    <>
-      <div className="pf-topbar">
-        <div className="pf-crumb"><b>Маршрут</b> · календарь</div>
-        <Link to="/student/path" className="pf-crumb hover:text-[color:var(--pf-ink)]">
-          → учебный маршрут
+    <article className="pf-reader-wide pf-rise">
+      <div className="pf-section-eyebrow">
+        <span className="pf-section-eyebrow__label">
+          <b>Календарь</b> / маршрут
+        </span>
+        <Link
+          to="/student/path"
+          className="pf-section-eyebrow__label hover:text-[color:var(--pf-ink)]"
+        >
+          Маршрут →
         </Link>
       </div>
 
-      <PageHeader
-        title="Календарь"
-        lead="События подтягиваются из учебного маршрута: занятия, диагностики, повторения."
-      />
+      <header className="mb-12">
+        <p className="pf-eyebrow mb-4">учебные события</p>
+        <h1 className="pf-h1">Календарь</h1>
+        <p className="pf-lead">
+          События подтягиваются из учебного маршрута: занятия, диагностики, повторения.
+        </p>
+      </header>
 
       {q.isLoading ? (
-        <p className="text-sm text-[color:var(--pf-muted)] mt-6">Загрузка…</p>
+        <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+          Загрузка…
+        </p>
       ) : events.length === 0 ? (
-        <div className="pf-block mt-6">
-          <p className="text-sm text-[color:var(--pf-muted)]">
-            В календаре пока нет событий. Сформируйте учебный маршрут и сгенерируйте календарь.
+        <div>
+          <p className="text-sm mb-4" style={{ color: "var(--pf-muted)" }}>
+            В календаре пока нет событий. Сформируйте маршрут и сгенерируйте календарь.
           </p>
-          <Link to="/student/path" className="pf-chip mt-3 inline-block">
+          <Link to="/student/path" className="pf-btn pf-btn--ghost">
             → к учебному маршруту
           </Link>
         </div>
       ) : (
-        <div className="grid gap-6 mt-8">
-          {dates.map((date) => (
-            <div key={date} className="pf-block">
-              <div className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--pf-muted)] mb-3">
-                {new Date(date).toLocaleDateString("ru", {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "long",
-                })}
-              </div>
-              <div className="grid gap-2">
-                {grouped[date].map((e: any) => (
-                  <EventRow key={e.id} e={e} />
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="grid gap-0">
+          {dates.map((date) => {
+            const today = isToday(date);
+            return (
+              <section
+                key={date}
+                className="py-6"
+                style={{
+                  borderTop: "1px solid var(--pf-line-strong)",
+                }}
+              >
+                <div className="grid grid-cols-[140px,1fr] gap-8 items-start">
+                  <div>
+                    <div
+                      className="font-mono text-[11px] uppercase tracking-widest"
+                      style={{
+                        color: today ? "var(--pf-ink)" : "var(--pf-muted)",
+                      }}
+                    >
+                      {today ? "Сегодня" : new Date(date).toLocaleDateString("ru", { weekday: "short" })}
+                    </div>
+                    <div
+                      className="mt-1 text-2xl font-medium leading-tight"
+                      style={{
+                        color: today ? "var(--pf-cinnabar)" : "var(--pf-ink)",
+                      }}
+                    >
+                      {new Date(date).toLocaleDateString("ru", {
+                        day: "numeric",
+                        month: "long",
+                      })}
+                    </div>
+                  </div>
+
+                  <ul className="grid gap-0">
+                    {grouped[date].map((e: any) => (
+                      <li key={e.id}>
+                        <EventRow e={e} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            );
+          })}
+          <div style={{ borderTop: "1px solid var(--pf-line-strong)" }} />
         </div>
       )}
-    </>
+    </article>
   );
 }
 
 function EventRow({ e }: { e: any }) {
   const inner = (
-    <div className="grid grid-cols-[80px,1fr,140px] items-center gap-4 py-2 border-b border-[color:var(--pf-divider)] hover:bg-[color:var(--pf-cream,#f5f0e8)] transition">
-      <div className="font-mono text-[12px] text-[color:var(--pf-muted)]">
+    <div
+      className="grid grid-cols-[64px,1fr,120px] items-center gap-4 py-3"
+      style={{ borderBottom: "1px solid var(--pf-line)" }}
+    >
+      <div
+        className="font-mono text-[12px]"
+        style={{ color: "var(--pf-muted)" }}
+      >
         {e.start_time?.slice(0, 5) ?? "—"}
       </div>
       <div>
-        <div className="text-sm font-medium">{e.title}</div>
-        <div className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--pf-muted)] mt-0.5">
+        <div className="text-[14px] font-medium">{e.title}</div>
+        <div
+          className="mt-0.5 font-mono text-[11px] uppercase tracking-widest"
+          style={{ color: "var(--pf-muted)" }}
+        >
           {e.event_type}
           {e.subjects?.name ? ` · ${e.subjects.name}` : ""}
           {e.topics?.title ? ` · ${e.topics.title}` : ""}
         </div>
       </div>
-      <div className="text-right font-mono text-[11px] uppercase tracking-wider text-[color:var(--pf-muted)]">
+      <div
+        className="text-right font-mono text-[11px] uppercase tracking-widest"
+        style={{ color: "var(--pf-muted)" }}
+      >
         {STATUS_LABEL[e.status] ?? e.status}
       </div>
     </div>
   );
   if (e.lesson_id) {
     return (
-      <Link to="/student/lesson/$lessonId" params={{ lessonId: e.lesson_id }}>
+      <Link
+        to="/student/lesson/$lessonId"
+        params={{ lessonId: e.lesson_id }}
+        className="block hover:bg-[color:color-mix(in_oklab,var(--pf-line)_40%,transparent)]"
+      >
         {inner}
       </Link>
     );
