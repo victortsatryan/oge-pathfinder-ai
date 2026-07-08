@@ -2084,7 +2084,10 @@ export type Database = {
           available_time: string | null
           country: string | null
           created_at: string
+          custom_learning_barrier: string | null
+          custom_learning_goal: string | null
           display_name: string | null
+          education_system: string | null
           grade: string | null
           id: string
           language: string
@@ -2093,6 +2096,7 @@ export type Database = {
           learning_goals: string[] | null
           onboarding_completed: boolean
           onboarding_completed_at: string | null
+          onboarding_summary: string | null
           preferred_intensity: string | null
           self_assessment: string | null
           target_date: string | null
@@ -2107,7 +2111,10 @@ export type Database = {
           available_time?: string | null
           country?: string | null
           created_at?: string
+          custom_learning_barrier?: string | null
+          custom_learning_goal?: string | null
           display_name?: string | null
+          education_system?: string | null
           grade?: string | null
           id?: string
           language?: string
@@ -2116,6 +2123,7 @@ export type Database = {
           learning_goals?: string[] | null
           onboarding_completed?: boolean
           onboarding_completed_at?: string | null
+          onboarding_summary?: string | null
           preferred_intensity?: string | null
           self_assessment?: string | null
           target_date?: string | null
@@ -2130,7 +2138,10 @@ export type Database = {
           available_time?: string | null
           country?: string | null
           created_at?: string
+          custom_learning_barrier?: string | null
+          custom_learning_goal?: string | null
           display_name?: string | null
+          education_system?: string | null
           grade?: string | null
           id?: string
           language?: string
@@ -2139,6 +2150,7 @@ export type Database = {
           learning_goals?: string[] | null
           onboarding_completed?: boolean
           onboarding_completed_at?: string | null
+          onboarding_summary?: string | null
           preferred_intensity?: string | null
           self_assessment?: string | null
           target_date?: string | null
