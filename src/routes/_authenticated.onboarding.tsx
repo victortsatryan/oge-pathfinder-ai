@@ -4,18 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ConstructivistIllo } from "@/components/oge/constructivist-illo";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 import { setMyRole } from "@/lib/role.functions";
 import {
@@ -51,83 +41,108 @@ function OnboardingPage() {
 
   return (
     <main className="min-h-screen" style={{ background: "var(--pf-paper)" }}>
-      <div className="max-w-6xl mx-auto px-10 py-16">
-        <div className="flex items-center gap-3 mb-16">
-          <span
-            className="pf-rail__logo-mark"
-            aria-hidden
-            style={{ background: "var(--pf-cinnabar)" }}
-          />
-          <span className="pf-crumb">
-            <b>Pathy</b>
+      <div className="max-w-3xl mx-auto px-8 py-20 pf-rise">
+        <div className="pf-section-eyebrow">
+          <span className="pf-section-eyebrow__label">
+            <b>Pathy</b> / онбординг · шаг 01 из 02
           </span>
+          <span className="pf-section-eyebrow__label">роль</span>
         </div>
 
-        <div className="grid lg:grid-cols-[1.3fr,1fr] gap-16 items-start mb-20">
-          <div>
-            <p className="pf-eyebrow mb-4">Шаг 01 · Роль</p>
-            <h1 className="pf-h1 max-w-xl">Добро пожаловать в Pathy</h1>
-            <p className="pf-lead">
-              Pathy — персональная образовательная платформа. Она строит
-              индивидуальный маршрут по любому предмету, отслеживает прогресс и
-              помогает AI-ассистентом. Выберите режим, чтобы продолжить.
-            </p>
-          </div>
-          <ConstructivistIllo variant="today" className="w-full" />
-        </div>
+        <header className="mb-16">
+          <p className="pf-eyebrow mb-4">начнём</p>
+          <h1 className="pf-h1" style={{ maxWidth: "16ch" }}>
+            Добро пожаловать в Pathy
+          </h1>
+          <p className="pf-lead">
+            Pathy строит индивидуальный маршрут по любому предмету, отслеживает
+            прогресс и помогает AI-ассистентом. Выберите роль, чтобы продолжить.
+          </p>
+        </header>
 
-        <div className="pf-role-grid">
-          <button
-            type="button"
-            className="pf-role-tile text-left"
+        <div className="grid gap-0">
+          <RoleRow
+            index="01"
+            role="ученик"
+            title="Я исследую территорию предмета"
+            description="Диагностика, маршрут на сегодня, проблемные зоны, занятия и материалы — единая карта подготовки."
+            action="Продолжить как ученик →"
             onClick={() => {
               setRole("student");
               setStep("student-form");
             }}
-          >
-            <p className="pf-eyebrow">01 · ученик</p>
-            <h2 className="pf-h2">Я исследую территорию предмета</h2>
-            <p className="text-[15px] leading-relaxed text-[color:var(--pf-muted)]">
-              Диагностика, маршрут на сегодня, проблемные зоны, занятия и
-              материалы — всё как единая карта подготовки.
-            </p>
-            <span
-              className="pf-eyebrow mt-4"
-              style={{ color: "var(--pf-cinnabar)" }}
-            >
-              Продолжить как ученик →
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className="pf-role-tile text-left"
+          />
+          <RoleRow
+            index="02"
+            role="преподаватель"
+            title="Я веду учеников по карте"
+            description="Профили учеников, слабые темы, индивидуальные маршруты и рекомендации AI-навигатора — в одном пространстве."
+            action={
+              teacherMut.isPending && role === "teacher"
+                ? "Сохранение…"
+                : "Войти как преподаватель →"
+            }
             disabled={teacherMut.isPending}
             onClick={() => {
               setRole("teacher");
               teacherMut.mutate();
             }}
-          >
-            <p className="pf-eyebrow">02 · преподаватель</p>
-            <h2 className="pf-h2">Я веду учеников по карте</h2>
-            <p className="text-[15px] leading-relaxed text-[color:var(--pf-muted)]">
-              Профили учеников, слабые темы, индивидуальные маршруты и
-              рекомендации AI-навигатора — в одном пространстве.
-            </p>
-            <span
-              className="pf-eyebrow mt-4"
-              style={{ color: "var(--pf-cinnabar)" }}
-            >
-              {teacherMut.isPending && role === "teacher"
-                ? "Сохранение…"
-                : "Войти как преподаватель →"}
-            </span>
-          </button>
+          />
         </div>
       </div>
     </main>
   );
 }
+
+function RoleRow({
+  index,
+  role,
+  title,
+  description,
+  action,
+  onClick,
+  disabled,
+}: {
+  index: string;
+  role: string;
+  title: string;
+  description: string;
+  action: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="text-left grid gap-3 py-8 border-t border-[color:var(--pf-line-strong)] last:border-b hover:bg-[color:color-mix(in_oklab,var(--pf-line)_25%,transparent)] transition-colors px-2 -mx-2 disabled:opacity-60"
+    >
+      <div className="flex items-baseline gap-6">
+        <span className="pf-section-eyebrow__label font-mono" style={{ minWidth: 40 }}>
+          {index}
+        </span>
+        <span className="pf-section-eyebrow__label">/ {role}</span>
+      </div>
+      <h2 className="pf-h2 pl-[64px]" style={{ maxWidth: "28ch" }}>
+        {title}
+      </h2>
+      <p
+        className="pl-[64px] text-[15px] leading-relaxed"
+        style={{ color: "var(--pf-muted)", maxWidth: "58ch" }}
+      >
+        {description}
+      </p>
+      <span
+        className="pl-[64px] pf-eyebrow mt-2"
+        style={{ color: "var(--pf-mustard)" }}
+      >
+        {action}
+      </span>
+    </button>
+  );
+}
+
 
 function StudentOnboardingForm({ onBack }: { onBack: () => void }) {
   const navigate = useNavigate();
