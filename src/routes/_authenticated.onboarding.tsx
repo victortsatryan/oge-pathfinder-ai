@@ -55,90 +55,80 @@ function OnboardingPage() {
       className="min-h-screen relative"
       style={{ background: "var(--pf-paper)" }}
     >
-      <div className="max-w-6xl mx-auto px-10 py-16 pf-rise">
+      <div className="max-w-5xl mx-auto px-10 py-16 pf-rise">
         <div className="pf-section-eyebrow">
           <span className="pf-section-eyebrow__label">
-            <b>Pathy</b> / онбординг · шаг 01 из 02
+            <PathyLogo size="sm" />
+            <span className="ml-3">/ онбординг · шаг 01 из 02</span>
           </span>
           <span className="pf-section-eyebrow__label">роль</span>
         </div>
 
-        {/* Двухколоночная композиция: слева — вертикальный маршрут-график,
-            справа — типографический герой и карточки ролей */}
-        <div className="mt-14 grid grid-cols-1 lg:grid-cols-[180px,1fr] gap-x-12">
-          <RouteGraph highlight={hoveredRole} />
+        <div className="mt-16">
+          {/* Герой: Path + y как маленький флажок */}
+          <header className="mb-16 max-w-3xl relative">
+            <p
+              className="text-[16px] font-light tracking-wide mb-3"
+              style={{ color: "var(--pf-muted)" }}
+            >
+              Добро пожаловать в
+            </p>
+            <h1
+              className="pf-h1 leading-[0.9]"
+              style={{ fontSize: "clamp(64px, 9vw, 128px)" }}
+            >
+              <span style={{ color: "var(--pf-ink)" }}>Path</span>
+              <span style={{ color: "var(--pf-mustard)" }}>y</span>
+            </h1>
+            {/* Красная линия-акцент под заголовком */}
+            <span
+              aria-hidden
+              className="block mt-6"
+              style={{
+                width: 72,
+                height: 2,
+                background: "var(--pf-cinnabar)",
+              }}
+            />
+            <p
+              className="pf-lead mt-8"
+              style={{ maxWidth: "56ch" }}
+            >
+              Pathy строит индивидуальный маршрут по любому предмету, отслеживает
+              прогресс и помогает AI-ассистентом. Выберите роль, чтобы продолжить.
+            </p>
+          </header>
 
-          <div>
-            {/* Герой: Path + y как маленький флажок */}
-            <header className="mb-20 max-w-2xl">
-              <p
-                className="text-[16px] font-light tracking-wide mb-3"
-                style={{ color: "var(--pf-muted)" }}
-              >
-                Добро пожаловать в
-              </p>
-              <h1
-                className="pf-h1 leading-[0.9]"
-                style={{ fontSize: "clamp(64px, 9vw, 128px)" }}
-              >
-                <span style={{ color: "var(--pf-ink)" }}>Path</span>
-                <span style={{ color: "var(--pf-mustard)" }}>y</span>
-              </h1>
-              <p
-                className="mt-6 font-mono text-[12px] uppercase tracking-[0.25em] flex flex-wrap items-center gap-x-3 gap-y-2"
-                style={{ color: "var(--pf-ink)" }}
-              >
-                <span>маршрут</span>
-                <Dot color="var(--pf-cinnabar)" />
-                <span>открытие</span>
-                <Dot color="var(--pf-mustard)" />
-                <span>маленькие победы</span>
-                <Dot color="var(--pf-forest)" />
-              </p>
-              <p
-                className="pf-lead mt-8"
-                style={{ maxWidth: "56ch" }}
-              >
-                Pathy строит индивидуальный маршрут по любому предмету, отслеживает
-                прогресс и помогает AI-ассистентом. Выберите роль, чтобы продолжить.
-              </p>
-            </header>
-
-            <div className="grid gap-0">
-              <RoleRow
-                index="01"
-                accent="var(--pf-mustard)"
-                role="ученик"
-                title="Я исследую территорию предмета"
-                description="Диагностика, маршрут на сегодня, проблемные зоны, занятия и материалы — единая карта подготовки."
-                action="Продолжить как ученик →"
-                onHover={() => setHoveredRole("student")}
-                onLeave={() => setHoveredRole(null)}
-                onClick={() => {
-                  setRole("student");
-                  setStep("student-form");
-                }}
-              />
-              <RoleRow
-                index="02"
-                accent="var(--pf-cinnabar)"
-                role="преподаватель"
-                title="Я веду учеников по карте"
-                description="Профили учеников, слабые темы, индивидуальные маршруты и рекомендации AI-навигатора — в одном пространстве."
-                action={
-                  teacherMut.isPending && role === "teacher"
-                    ? "Сохранение…"
-                    : "Войти как преподаватель →"
-                }
-                disabled={teacherMut.isPending}
-                onHover={() => setHoveredRole("teacher")}
-                onLeave={() => setHoveredRole(null)}
-                onClick={() => {
-                  setRole("teacher");
-                  teacherMut.mutate();
-                }}
-              />
-            </div>
+          <div className="grid gap-0">
+            <RoleRow
+              index="01"
+              accent="var(--pf-mustard)"
+              role="ученик"
+              title="Я исследую территорию предмета"
+              description="Диагностика, маршрут на сегодня, проблемные зоны, занятия и материалы — единая карта подготовки."
+              action="Продолжить как ученик →"
+              onClick={() => {
+                setRole("student");
+                setStep("student-form");
+              }}
+            />
+            <RoleRow
+              index="02"
+              accent="var(--pf-cinnabar)"
+              role="преподаватель"
+              title="Я веду учеников по карте"
+              description="Профили учеников, слабые темы, индивидуальные маршруты и рекомендации AI-навигатора — в одном пространстве."
+              action={
+                teacherMut.isPending && role === "teacher"
+                  ? "Сохранение…"
+                  : "Войти как преподаватель →"
+              }
+              disabled={teacherMut.isPending}
+              onClick={() => {
+                setRole("teacher");
+                teacherMut.mutate();
+              }}
+            />
           </div>
         </div>
       </div>
@@ -148,6 +138,7 @@ function OnboardingPage() {
     </main>
   );
 }
+
 
 function Dot({ color }: { color: string }) {
   return (
