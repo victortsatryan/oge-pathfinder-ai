@@ -62,6 +62,7 @@ import { Route as AuthenticatedStudentDiagnosticSessionIdRouteImport } from './r
 import { Route as AuthenticatedAdminContentProgramsRouteImport } from './routes/_authenticated.admin.content.programs'
 import { Route as AuthenticatedAdminContentImportRouteImport } from './routes/_authenticated.admin.content.import'
 import { Route as AuthenticatedAdminContentHistoryRouteImport } from './routes/_authenticated.admin.content.history'
+import { Route as AuthenticatedAdminCommunityIdRouteImport } from './routes/_authenticated.admin.community.$id'
 import { Route as AuthenticatedAdminContentObjectivesIndexRouteImport } from './routes/_authenticated.admin.content.objectives.index'
 import { Route as AuthenticatedAdminContentObjectivesLoIdRouteImport } from './routes/_authenticated.admin.content.objectives.$loId'
 
@@ -368,6 +369,12 @@ const AuthenticatedAdminContentHistoryRoute =
     path: '/history',
     getParentRoute: () => AuthenticatedAdminContentRoute,
   } as any)
+const AuthenticatedAdminCommunityIdRoute =
+  AuthenticatedAdminCommunityIdRouteImport.update({
+    id: '/community/$id',
+    path: '/community/$id',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminContentObjectivesIndexRoute =
   AuthenticatedAdminContentObjectivesIndexRouteImport.update({
     id: '/objectives/',
@@ -419,6 +426,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/student/': typeof AuthenticatedStudentIndexRoute
   '/teacher/': typeof AuthenticatedTeacherIndexRoute
+  '/admin/community/$id': typeof AuthenticatedAdminCommunityIdRoute
   '/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
@@ -471,6 +479,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/student': typeof AuthenticatedStudentIndexRoute
   '/teacher': typeof AuthenticatedTeacherIndexRoute
+  '/admin/community/$id': typeof AuthenticatedAdminCommunityIdRoute
   '/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
@@ -529,6 +538,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/student/': typeof AuthenticatedStudentIndexRoute
   '/_authenticated/teacher/': typeof AuthenticatedTeacherIndexRoute
+  '/_authenticated/admin/community/$id': typeof AuthenticatedAdminCommunityIdRoute
   '/_authenticated/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/_authenticated/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/_authenticated/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
@@ -587,6 +597,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/student/'
     | '/teacher/'
+    | '/admin/community/$id'
     | '/admin/content/history'
     | '/admin/content/import'
     | '/admin/content/programs'
@@ -639,6 +650,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/student'
     | '/teacher'
+    | '/admin/community/$id'
     | '/admin/content/history'
     | '/admin/content/import'
     | '/admin/content/programs'
@@ -696,6 +708,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/'
     | '/_authenticated/student/'
     | '/_authenticated/teacher/'
+    | '/_authenticated/admin/community/$id'
     | '/_authenticated/admin/content/history'
     | '/_authenticated/admin/content/import'
     | '/_authenticated/admin/content/programs'
@@ -1096,6 +1109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminContentHistoryRouteImport
       parentRoute: typeof AuthenticatedAdminContentRoute
     }
+    '/_authenticated/admin/community/$id': {
+      id: '/_authenticated/admin/community/$id'
+      path: '/community/$id'
+      fullPath: '/admin/community/$id'
+      preLoaderRoute: typeof AuthenticatedAdminCommunityIdRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/content/objectives/': {
       id: '/_authenticated/admin/content/objectives/'
       path: '/objectives'
@@ -1148,6 +1168,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminRoutesRoute: typeof AuthenticatedAdminRoutesRoute
   AuthenticatedAdminSourcesRoute: typeof AuthenticatedAdminSourcesRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+  AuthenticatedAdminCommunityIdRoute: typeof AuthenticatedAdminCommunityIdRoute
   AuthenticatedAdminCommunityIndexRoute: typeof AuthenticatedAdminCommunityIndexRoute
 }
 
@@ -1158,6 +1179,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminRoutesRoute: AuthenticatedAdminRoutesRoute,
   AuthenticatedAdminSourcesRoute: AuthenticatedAdminSourcesRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedAdminCommunityIdRoute: AuthenticatedAdminCommunityIdRoute,
   AuthenticatedAdminCommunityIndexRoute: AuthenticatedAdminCommunityIndexRoute,
 }
 
