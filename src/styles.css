@@ -1744,3 +1744,57 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .pf-rise { animation: pf-rise 320ms ease-out both; }
+
+/* Assistant typing dots */
+@keyframes pfDotPulse {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1;    transform: translateY(-2px); }
+}
+
+/* Markdown prose inside assistant messages — inherits Constructivist tokens */
+.pf-prose p { margin: 0 0 0.75em; }
+.pf-prose p:last-child { margin-bottom: 0; }
+.pf-prose ul, .pf-prose ol { margin: 0.5em 0 0.75em 1.2em; }
+.pf-prose ul { list-style: disc; }
+.pf-prose ol { list-style: decimal; }
+.pf-prose li { margin-bottom: 0.25em; }
+.pf-prose strong { font-weight: 600; color: var(--pf-ink); }
+.pf-prose em { font-style: italic; }
+.pf-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.05em 0.35em;
+  background: color-mix(in oklab, var(--pf-line) 60%, transparent);
+  border-radius: 3px;
+}
+.pf-prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 12px 14px;
+  margin: 0.5em 0 0.75em;
+  background: color-mix(in oklab, var(--pf-line) 60%, transparent);
+  border-left: 2px solid var(--pf-ink);
+  overflow-x: auto;
+}
+.pf-prose pre code { background: transparent; padding: 0; }
+.pf-prose h1, .pf-prose h2, .pf-prose h3 {
+  font-family: var(--font-display, var(--font-mono));
+  font-weight: 600;
+  margin: 0.6em 0 0.35em;
+  line-height: 1.25;
+}
+.pf-prose h1 { font-size: 1.15em; }
+.pf-prose h2 { font-size: 1.08em; }
+.pf-prose h3 { font-size: 1em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pf-muted); }
+.pf-prose a { color: var(--pf-ultramarine); text-decoration: underline; text-underline-offset: 2px; }
+.pf-prose blockquote {
+  border-left: 2px solid var(--pf-mustard);
+  padding-left: 12px;
+  margin: 0.5em 0;
+  color: var(--pf-muted);
+}
+.pf-prose hr {
+  border: 0;
+  border-top: 1px solid var(--pf-line);
+  margin: 1em 0;
+}
