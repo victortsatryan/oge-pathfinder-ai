@@ -140,7 +140,7 @@ function AssistantPage() {
   });
 
   const contextSummary = useMemo(() => {
-    const events = (eventsQ.data?.events ?? []) as any[];
+    const events = Array.isArray(eventsQ.data) ? eventsQ.data : [];
     const upcoming = events
       .filter((e) => (e.event_date ?? "").slice(0, 10) >= today)
       .slice(0, 8)

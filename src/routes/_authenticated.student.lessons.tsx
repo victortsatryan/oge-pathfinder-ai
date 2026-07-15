@@ -16,6 +16,17 @@ const STATUS_LABEL: Record<string, string> = {
   skipped: "пропущено",
 };
 
+type CalendarEvent = {
+  id: string;
+  event_type: string;
+  title: string | null;
+  event_date: string;
+  status: string;
+  lesson_id: string | null;
+  subjects: { name: string | null } | null;
+  topics: { title: string | null } | null;
+};
+
 function LessonsList() {
   const fetchEvents = useServerFn(listCalendarEvents);
   const q = useQuery({
@@ -23,7 +34,8 @@ function LessonsList() {
     queryFn: () => fetchEvents({ data: {} }),
   });
 
-  const lessons = (q.data?.events ?? []).filter((e: any) => e.event_type === "lesson" && e.lesson_id);
+  const events: CalendarEvent[] = Array.isArray(q.data) ? q.data : [];
+  const lessons = events.filter((e) => e.event_type === "lesson" && e.lesson_id);
 
   return (
     <>
@@ -48,7 +60,7 @@ function LessonsList() {
         </div>
       ) : (
         <ul className="pf-block mt-6 grid gap-2">
-          {lessons.map((l: any) => (
+          {lessons.map((l) => (
             <li key={l.id} className="border-b border-[color:var(--pf-divider)]">
               <Link
                 to="/student/lesson/$lessonId"

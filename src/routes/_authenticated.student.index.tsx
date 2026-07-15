@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 import { PathyLogo } from "@/components/oge/logo";
@@ -15,6 +16,110 @@ import { listCalendarEvents } from "@/lib/learning-path.functions";
 export const Route = createFileRoute("/_authenticated/student/")({
   component: StudentHome,
 });
+
+type StudentOverview = {
+  profile: { id: string } | null;
+  active_subjects: number;
+  avg_mastery: number;
+  total_topics: number;
+  mastered_topics: number;
+  learning_topics: number;
+  weak_topics: number;
+  lessons_count: number;
+  diagnostics_count: number;
+  streak_days: number;
+};
+
+type CalendarEvent = {
+  id: string;
+  event_type: string;
+  title: string | null;
+  event_date: string;
+  start_time: string | null;
+  duration_minutes: number | null;
+  status: string;
+  lesson_id: string | null;
+  diagnostic_session_id: string | null;
+  subject_id: string | null;
+  topic_id: string | null;
+  subjects: { name: string | null } | null;
+  topics: { title: string | null } | null;
+};
+
+type WeakTopic = {
+  topic_id: string;
+  subject_id: string | null;
+  topic_title: string;
+  subject_title: string;
+  mastery_score: number;
+  status: string;
+  mistakes_count: number;
+  last_activity_at: string | null;
+};
+
+type Recommendation = {
+  kind: string;
+  topic_id: string;
+  topic_title: string;
+  subject_title: string;
+  reason: string;
+  priority: number;
+};
+
+function normalizeList<T>(queryName: string, value: T[] | null | undefined): T[] {
+  const safe = Array.isArray(value) ? value : [];
+  if (import.meta.env.DEV) {
+    console.debug(`[StudentHome:${queryName}]`, {
+      type: typeof value,
+      isArray: Array.isArray(value),
+      keys: value && typeof value === "object" ? Object.keys(value) : [],
+      sample: safe[0] ?? null,
+    });
+  }
+  return safe;
+}
+
+function SectionError({ message }: { message: string }) {
+  return (
+    <p className="text-sm" role="alert" style={{ color: "var(--pf-cinnabar)" }}>
+      {message}
+    </p>
+  );
+}
+
+class StudentHomeSectionBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    if (import.meta.env.DEV) {
+      console.debug("[StudentHome:section-error]", { message: error.message, stack: info.componentStack });
+    }
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
+const EMPTY_OVERVIEW: StudentOverview = {
+  profile: null,
+  active_subjects: 0,
+  avg_mastery: 0,
+  total_topics: 0,
+  mastered_topics: 0,
+  learning_topics: 0,
+  weak_topics: 0,
+  lessons_count: 0,
+  diagnostics_count: 0,
+  streak_days: 0,
+};
 
 /**
  * Learning Hub — Quiet Constructivism edition.
@@ -34,25 +139,32 @@ function StudentHome() {
   const overview = useQuery({
     queryKey: ["hub", "overview"],
     queryFn: () => overviewFn(),
+    initialData: EMPTY_OVERVIEW,
   });
   const weak = useQuery({
     queryKey: ["hub", "weak"],
     queryFn: () => weakFn({ data: { limit: 3 } }),
+    initialData: [] as WeakTopic[],
+    select: (data) => normalizeList<WeakTopic>("getWeakTopics", data),
   });
   const recs = useQuery({
     queryKey: ["hub", "recs"],
     queryFn: () => recsFn(),
+    initialData: [] as Recommendation[],
+    select: (data) => normalizeList<Recommendation>("getRecommendations", data),
   });
   const events = useQuery({
     queryKey: ["hub", "events", today, horizon],
     queryFn: () => eventsFn({ data: { from: today, to: horizon } }),
+    initialData: [] as CalendarEvent[],
+    select: (data) => normalizeList<CalendarEvent>("listCalendarEvents", data),
   });
 
-  const o = overview.data;
-  const upcoming = (events.data?.events ?? []) as any[];
+  const o = overview.data ?? EMPTY_OVERVIEW;
+  const upcoming = events.data;
   const next = upcoming.find((e) => e.status !== "completed") ?? upcoming[0] ?? null;
-  const weakList = (weak.data ?? []) as any[];
-  const recList = (recs.data ?? []) as any[];
+  const weakList = weak.data;
+  const recList = recs.data;
 
   const todayLabel = new Date().toLocaleDateString("ru", {
     day: "numeric",
@@ -68,8 +180,12 @@ function StudentHome() {
           <span>/ главная · {todayLabel}</span>
         </span>
         <span className="pf-section-eyebrow__label">
+          {overview.isError ? "прогресс недоступен" : (
+            <>
           прогресс {o?.avg_mastery ?? 0}% · слабых тем {o?.weak_topics ?? 0}
           {o?.streak_days ? ` · серия ${o.streak_days} дн.` : ""}
+            </>
+          )}
         </span>
       </div>
 
@@ -92,7 +208,10 @@ function StudentHome() {
       <section className="mb-16">
         <SectionEyebrow section="01" sub="Ближайшее занятие" mark="mustard" />
 
-        {next ? (
+        <StudentHomeSectionBoundary fallback={<SectionError message="Не удалось показать ближайшее занятие." />}>
+        {events.isError ? (
+          <SectionError message="Не удалось загрузить ближайшие занятия." />
+        ) : next ? (
           <div className="grid grid-cols-[120px,1fr,auto] gap-8 items-center">
             <div
               className="font-mono text-4xl"
@@ -153,6 +272,7 @@ function StudentHome() {
             .
           </p>
         )}
+        </StudentHomeSectionBoundary>
       </section>
 
       {/* Слабые темы */}
@@ -171,7 +291,10 @@ function StudentHome() {
           }
         />
 
-        {weakList.length === 0 ? (
+        <StudentHomeSectionBoundary fallback={<SectionError message="Не удалось показать слабые темы." />}>
+        {weak.isError ? (
+          <SectionError message="Не удалось загрузить слабые темы." />
+        ) : weakList.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
             Слабых тем не обнаружено. Хорошая работа!
           </p>
@@ -211,19 +334,23 @@ function StudentHome() {
             ))}
           </ul>
         )}
+        </StudentHomeSectionBoundary>
       </section>
 
       {/* Рекомендации */}
       <section className="mb-16">
         <SectionEyebrow section="03" sub="Рекомендации системы" mark="ink" />
 
-        {recList.length === 0 ? (
+        <StudentHomeSectionBoundary fallback={<SectionError message="Не удалось показать рекомендации." />}>
+        {recs.isError ? (
+          <SectionError message="Не удалось загрузить рекомендации." />
+        ) : recList.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
             Рекомендаций пока нет. Пройди диагностику или начни занятие из маршрута.
           </p>
         ) : (
           <ol>
-            {recList.slice(0, 4).map((s: any, i: number) => (
+            {recList.slice(0, 4).map((s, i) => (
               <li
                 key={`${s.topic_id}-${s.kind}`}
                 style={{ borderBottom: "1px solid var(--pf-line)" }}
@@ -257,6 +384,7 @@ function StudentHome() {
             ))}
           </ol>
         )}
+        </StudentHomeSectionBoundary>
       </section>
 
       {/* Быстрые действия */}

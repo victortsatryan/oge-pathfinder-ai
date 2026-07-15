@@ -22,11 +22,13 @@ export const getStudentOverview = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sb = context.supabase;
 
-    const { data: profile } = await sb
+    const { data: profile, error: profileError } = await sb
       .from("student_profiles")
       .select("id, learning_goal, target_score, grade")
       .eq("user_id", context.userId)
       .maybeSingle();
+
+    if (profileError) throw new Error(profileError.message);
 
     if (!profile) {
       return {
@@ -43,7 +45,7 @@ export const getStudentOverview = createServerFn({ method: "GET" })
       };
     }
 
-    const [{ data: subjects }, { data: progress }, { data: lessons }, { data: diags }] =
+    const [subjectsRes, progressRes, lessonsRes, diagsRes] =
       await Promise.all([
         sb.from("student_subjects").select("id").eq("student_profile_id", profile.id),
         sb
@@ -60,14 +62,22 @@ export const getStudentOverview = createServerFn({ method: "GET" })
           .eq("student_profile_id", profile.id),
       ]);
 
-    const prog = progress ?? [];
+    if (subjectsRes.error) throw new Error(subjectsRes.error.message);
+    if (progressRes.error) throw new Error(progressRes.error.message);
+    if (lessonsRes.error) throw new Error(lessonsRes.error.message);
+    if (diagsRes.error) throw new Error(diagsRes.error.message);
+
+    const subjects = subjectsRes.data ?? [];
+    const prog = progressRes.data ?? [];
+    const lessons = lessonsRes.data ?? [];
+    const diags = diagsRes.data ?? [];
     const mastered = prog.filter((p) => p.status === "mastered").length;
     const weak = prog.filter((p) => p.status === "weak" || p.status === "needs_review").length;
     const learning = prog.filter((p) => p.status === "learning" || p.status === "stable").length;
 
     // Streak: consecutive days with completed lessons (going back from today)
     const completedDates = new Set(
-      ((lessons ?? []) as Array<{ status: string; lesson_date: string | null }>)
+      lessons
         .filter((l) => l.status === "completed" && l.lesson_date)
         .map((l) => l.lesson_date as string),
     );
@@ -87,8 +97,8 @@ export const getStudentOverview = createServerFn({ method: "GET" })
       mastered_topics: mastered,
       learning_topics: learning,
       weak_topics: weak,
-      lessons_count: (lessons ?? []).filter((l) => l.status === "completed").length,
-      diagnostics_count: (diags ?? []).filter((d2) => d2.status === "completed").length,
+      lessons_count: lessons.filter((l) => l.status === "completed").length,
+      diagnostics_count: diags.filter((d2) => d2.status === "completed").length,
       streak_days: streak,
     };
   });
@@ -149,14 +159,15 @@ export const getWeakTopics = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ limit: z.number().int().min(1).max(50).default(10) }).parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
-    const { data: profile } = await sb
+    const { data: profile, error: profileError } = await sb
       .from("student_profiles")
       .select("id")
       .eq("user_id", context.userId)
       .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
     if (!profile) return [];
 
-    const { data: prog } = await sb
+    const { data: prog, error: progressError } = await sb
       .from("student_topic_progress")
       .select(
         "topic_id, subject_id, mastery_score, status, mistakes_count, last_activity_at, topics(title), subjects(title)",
@@ -165,17 +176,22 @@ export const getWeakTopics = createServerFn({ method: "GET" })
       .in("status", ["weak", "needs_review"])
       .order("mastery_score", { ascending: true })
       .limit(data.limit);
+    if (progressError) throw new Error(progressError.message);
 
-    return (prog ?? []).map((r: any) => ({
-      topic_id: r.topic_id,
-      subject_id: r.subject_id,
-      topic_title: r.topics?.title ?? "—",
-      subject_title: r.subjects?.title ?? "—",
-      mastery_score: r.mastery_score ?? 0,
-      status: r.status,
-      mistakes_count: r.mistakes_count ?? 0,
-      last_activity_at: r.last_activity_at ?? null,
-    }));
+    return (prog ?? []).map((r) => {
+      const topic = Array.isArray(r.topics) ? r.topics[0] : r.topics;
+      const subject = Array.isArray(r.subjects) ? r.subjects[0] : r.subjects;
+      return {
+        topic_id: r.topic_id,
+        subject_id: r.subject_id,
+        topic_title: topic?.title ?? "—",
+        subject_title: subject?.title ?? "—",
+        mastery_score: r.mastery_score ?? 0,
+        status: r.status,
+        mistakes_count: r.mistakes_count ?? 0,
+        last_activity_at: r.last_activity_at ?? null,
+      };
+    });
   });
 
 /** Mistake analysis: grouped by type and by topic. */
@@ -332,19 +348,21 @@ export const getRecommendations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const sb = context.supabase;
-    const { data: profile } = await sb
+    const { data: profile, error: profileError } = await sb
       .from("student_profiles")
       .select("id")
       .eq("user_id", context.userId)
       .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
     if (!profile) return [];
 
-    const { data: prog } = await sb
+    const { data: prog, error: progressError } = await sb
       .from("student_topic_progress")
       .select(
         "topic_id, subject_id, mastery_score, mistakes_count, last_activity_at, status, topics(title), subjects(title)",
       )
       .eq("student_profile_id", profile.id);
+    if (progressError) throw new Error(progressError.message);
 
     const recs: Array<{
       kind: string;
@@ -355,14 +373,16 @@ export const getRecommendations = createServerFn({ method: "GET" })
       priority: number;
     }> = [];
 
-    for (const p of (prog ?? []) as any[]) {
+    for (const p of prog ?? []) {
+      const topic = Array.isArray(p.topics) ? p.topics[0] : p.topics;
+      const subject = Array.isArray(p.subjects) ? p.subjects[0] : p.subjects;
       const days = daysSince(p.last_activity_at);
       if ((p.mastery_score ?? 0) < 50) {
         recs.push({
           kind: "review_topic",
           topic_id: p.topic_id,
-          topic_title: p.topics?.title ?? "—",
-          subject_title: p.subjects?.title ?? "—",
+          topic_title: topic?.title ?? "—",
+          subject_title: subject?.title ?? "—",
           reason: `Низкий уровень освоения (${p.mastery_score ?? 0}%). Стоит повторить теорию.`,
           priority: 100 - (p.mastery_score ?? 0),
         });
@@ -371,8 +391,8 @@ export const getRecommendations = createServerFn({ method: "GET" })
         recs.push({
           kind: "extra_practice",
           topic_id: p.topic_id,
-          topic_title: p.topics?.title ?? "—",
-          subject_title: p.subjects?.title ?? "—",
+          topic_title: topic?.title ?? "—",
+          subject_title: subject?.title ?? "—",
           reason: `Накоплено ${p.mistakes_count} ошибок — нужны дополнительные упражнения.`,
           priority: 50 + (p.mistakes_count ?? 0),
         });
@@ -381,8 +401,8 @@ export const getRecommendations = createServerFn({ method: "GET" })
         recs.push({
           kind: "return_to_topic",
           topic_id: p.topic_id,
-          topic_title: p.topics?.title ?? "—",
-          subject_title: p.subjects?.title ?? "—",
+          topic_title: topic?.title ?? "—",
+          subject_title: subject?.title ?? "—",
           reason: `Нет активности ${days} дней — пора вернуться к теме.`,
           priority: 40 + Math.min(days, 60),
         });
