@@ -315,5 +315,5 @@ export const listCalendarEvents = createServerFn({ method: "POST" })
     if (data.to) q = q.lte("event_date", data.to);
     const { data: events, error } = await q;
     if (error) throw new Error(error.message);
-    return { events: events ?? [] };
+    return events ?? [];
   });
