@@ -16,7 +16,16 @@ const STATUS_LABEL: Record<string, string> = {
   skipped: "пропущено",
 };
 
-type CalendarEvent = NonNullable<Awaited<ReturnType<typeof listCalendarEvents>>>[number];
+type CalendarEvent = {
+  id: string;
+  event_type: string;
+  title: string | null;
+  event_date: string;
+  status: string;
+  lesson_id: string | null;
+  subjects: { name: string | null } | null;
+  topics: { title: string | null } | null;
+};
 
 function LessonsList() {
   const fetchEvents = useServerFn(listCalendarEvents);
@@ -51,7 +60,7 @@ function LessonsList() {
         </div>
       ) : (
         <ul className="pf-block mt-6 grid gap-2">
-          {lessons.map((l: any) => (
+          {lessons.map((l) => (
             <li key={l.id} className="border-b border-[color:var(--pf-divider)]">
               <Link
                 to="/student/lesson/$lessonId"

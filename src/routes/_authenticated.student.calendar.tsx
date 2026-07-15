@@ -17,7 +17,21 @@ const STATUS_LABEL: Record<string, string> = {
   rescheduled: "перенесено",
 };
 
-type CalendarEvent = NonNullable<Awaited<ReturnType<typeof listCalendarEvents>>>[number];
+type CalendarEvent = {
+  id: string;
+  event_type: string;
+  title: string | null;
+  event_date: string;
+  start_time: string | null;
+  duration_minutes: number | null;
+  status: string;
+  lesson_id: string | null;
+  diagnostic_session_id: string | null;
+  subject_id: string | null;
+  topic_id: string | null;
+  subjects: { name: string | null } | null;
+  topics: { title: string | null } | null;
+};
 
 function isToday(dateStr: string) {
   const today = new Date().toISOString().slice(0, 10);
@@ -109,7 +123,7 @@ function CalendarRoute() {
                   </div>
 
                   <ul className="grid gap-0">
-                    {grouped[date].map((e: any) => (
+                    {grouped[date].map((e) => (
                       <li key={e.id}>
                         <EventRow e={e} />
                       </li>
