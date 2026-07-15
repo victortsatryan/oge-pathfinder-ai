@@ -16,6 +16,8 @@ const STATUS_LABEL: Record<string, string> = {
   skipped: "пропущено",
 };
 
+type CalendarEvent = NonNullable<Awaited<ReturnType<typeof listCalendarEvents>>>[number];
+
 function LessonsList() {
   const fetchEvents = useServerFn(listCalendarEvents);
   const q = useQuery({
@@ -23,7 +25,8 @@ function LessonsList() {
     queryFn: () => fetchEvents({ data: {} }),
   });
 
-  const lessons = (q.data?.events ?? []).filter((e: any) => e.event_type === "lesson" && e.lesson_id);
+  const events: CalendarEvent[] = Array.isArray(q.data) ? q.data : [];
+  const lessons = events.filter((e) => e.event_type === "lesson" && e.lesson_id);
 
   return (
     <>

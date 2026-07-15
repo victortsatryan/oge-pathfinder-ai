@@ -17,6 +17,8 @@ const STATUS_LABEL: Record<string, string> = {
   rescheduled: "перенесено",
 };
 
+type CalendarEvent = NonNullable<Awaited<ReturnType<typeof listCalendarEvents>>>[number];
+
 function isToday(dateStr: string) {
   const today = new Date().toISOString().slice(0, 10);
   return dateStr === today;
@@ -29,8 +31,8 @@ function CalendarRoute() {
     queryFn: () => fetchEvents({ data: {} }),
   });
 
-  const events = q.data?.events ?? [];
-  const grouped = events.reduce<Record<string, any[]>>((acc, e: any) => {
+  const events = Array.isArray(q.data) ? q.data : [];
+  const grouped = events.reduce<Record<string, CalendarEvent[]>>((acc, e) => {
     (acc[e.event_date] ??= []).push(e);
     return acc;
   }, {});
@@ -124,7 +126,7 @@ function CalendarRoute() {
   );
 }
 
-function EventRow({ e }: { e: any }) {
+function EventRow({ e }: { e: CalendarEvent }) {
   const inner = (
     <div
       className="grid grid-cols-[64px,1fr,120px] items-center gap-4 py-3"
