@@ -1,100 +1,64 @@
-# Pathy Studio v1 — план
+# Стабилизация слоя данных Pathy
 
-Внутренний админ-модуль для загрузки образовательного контента в формате **PCS (Pathy Content Schema)** через JSON-файлы. Доступ только для роли `admin`.
+Цель — устранить архитектурную причину повторяющихся ошибок `.map/.filter/.reduce is not a function`: UI перестанет напрямую зависеть от формата RPC-ответов Supabase. Работаем в 5 итераций, каждая закрывается typecheck + Playwright smoke.
 
-## 1. Область работ
+## Итерация 1 — Аудит и контракты
 
-Новый раздел `/admin/content` с подстраницами:
-- **Dashboard** — счётчики + последние импорты
-- **Import** — загрузка PCS JSON, preview, валидация, коммит
-- **Programs** — дерево программы (класс → предмет → раздел → тема → подтема → LO)
-- **Learning Objectives** — плоский список с фильтрами
-- **История импортов** — таблица `content_imports`
+- Пройти по всем `src/lib/*.functions.ts` и собрать таблицу: функция → фактический return-shape (из кода + `supabase--read_query` при сомнениях) → целевой контракт (`Promise<T[]>` или `Promise<T | null>`).
+- Сохранить отчёт в `docs/data-layer-audit.md` (таблица по разделам: student, teacher, admin, community, diagnostics, content, learning-path, analytics, assistant).
+- Определить единый набор доменных моделей в `src/lib/models/` (StudentProfile, StudentSubject, Lesson, CalendarEvent, WeakTopic, Recommendation, DiagnosticSession, Material, CommunityCandidate, ...).
 
-Существующая `/admin` (импорт материалов CSV) остаётся — Studio живёт рядом как отдельный модуль.
+## Итерация 2 — Zod-схемы и модели
 
-## 2. Схема БД (миграция)
+- `src/lib/models/schemas.ts` — Zod-схемы для каждой модели, экспорт типов через `z.infer`.
+- Хелперы `parseList(schema, raw)` и `parseOne(schema, raw)`:
+  - принимают `unknown`;
+  - разворачивают `{ data }` / `{ items }` / одиночный объект → массив, где применимо;
+  - при провале валидации логируют через `logger.warn` и возвращают `[]` / `null` (не бросают).
 
-Проверю фактическую схему `topics`, `learning_objectives`, `materials` (`supabase--read_query`), но по плану ожидается:
+## Итерация 3 — Repository Layer
 
-**Новые/расширенные таблицы:**
-- `subject_sections` — раздел предмета (subject_id, program_id, title, order_index)
-- `topics` — уже есть, добавить `parent_topic_id`, `section_id`, `pcs_key` если нет
-- `learning_objectives` — есть; добавить `pcs_key`, `pcs_version`, `theory`, `algorithm`, `status` (draft/reviewed/published/archived), `version`
-- `lo_examples` — примеры (learning_objective_id, title, statement, solution, order_index)
-- `task_patterns` — шаблоны заданий (learning_objective_id, pattern_key, statement_template, answer_schema jsonb, difficulty, hints jsonb, order_index)
-- `lo_sources` — источники (learning_objective_id, source_name, url, license, citation)
-- `lo_diagnostic_settings` — диагностика (learning_objective_id, min_tasks, mastery_threshold, difficulty_curve jsonb)
-- `content_imports` — id, filename, imported_by, imported_at, pcs_version, status, rows_created/updated/failed, error_log jsonb
+- `src/lib/repositories/` с файлами по доменам: `student.repository.ts`, `teacher.repository.ts`, `content.repository.ts`, `diagnostic.repository.ts`, `community.repository.ts`, `analytics.repository.ts`, `learning-path.repository.ts`, `assistant.repository.ts`, `materials.repository.ts`.
+- Каждый метод:
+  - вызывает существующий `createServerFn` через `useServerFn`-совместимый вызов (обёртка `callFn`);
+  - прогоняет ответ через Zod;
+  - возвращает строго `Promise<T[]>` или `Promise<T | null>`.
+- Существующие `*.functions.ts` остаются как транспорт; репозиторий — единственный публичный API для UI.
+- Убрать `any`/`as any` из репозиториев и сигнатур серверных функций (где это не требует правки RLS-логики).
 
-Для каждой таблицы: GRANT authenticated+service_role, RLS enabled, policy `has_role(auth.uid(),'admin')` для write; для read — либо authenticated (публичное дерево программ), либо admin-only.
+## Итерация 4 — Переход UI и унификация React Query
 
-## 3. PCS JSON — контракт
+- Единый `src/lib/query/defaults.ts`:
+  - `listQuery(key, fn)` → `{ queryKey, queryFn, initialData: [], placeholderData: keepPreviousData }`;
+  - `itemQuery(key, fn)` → `{ ..., initialData: null }`.
+- Пройти по всем экранам student/teacher/admin, заменить прямые `useServerFn(...)` на репозитории + `listQuery`/`itemQuery`.
+- Удалить локальные защиты: `Array.isArray`, `?? []`, ручные `normalizeList`, `as any` в компонентах.
+- Ввести `src/components/section-boundary.tsx` — переиспользуемый локальный ErrorBoundary с loading/empty/error slot-ами. Обернуть блоки: profile, progress, path, lessons, calendar, library, recommendations, weak topics.
 
-Zod-схема в `src/lib/pcs/schema.ts`:
+## Итерация 5 — Диагностика и регрессии
 
-```ts
-{
-  schema_version: "1.0",
-  pcs_version: string,
-  education_system: string,       // напр. "RU"
-  grade: number,                  // 11
-  program: { key, title },
-  subject: { key, title },
-  section: { key, title, order? },
-  topic: { key, title, order? },
-  subtopic: { key, title, order? },
-  learning_objective: {
-    key, title, version?, status?,
-    theory: string,               // markdown
-    algorithm?: string,
-  },
-  examples?: [{ title?, statement, solution, order? }],
-  task_patterns: [{ key, statement_template, answer_schema, difficulty?, hints? }],
-  materials?: [{ type, title, url?, content_text?, source_name?, license_note? }],
-  sources?: [{ name, url?, citation?, license? }],
-  diagnostic?: { min_tasks?, mastery_threshold?, difficulty_curve? },
-}
-```
+- Страница `/dev/data-health` (dev + admin): таблица репозиториев со статусом последнего запроса, типом, числом элементов, ошибками Zod (данные из in-memory реестра, куда `parseList/parseOne` пишут метаданные).
+- Playwright: расширить `tests/student-home.spec.ts` до полного smoke (Student: home/profile/lessons/calendar/path/library/diagnostic; Teacher: dashboard/students/lessons/advisor/analytics/profile/library; Admin: studio/import/programs/community). Проверка: страница не в `role="alert"`-fallback, нет в консоли `is not a function`.
+- Финальный отчёт в `docs/data-layer-audit.md`: старый контракт → новый контракт для каждой функции.
 
-## 4. Server functions (`src/lib/pcs/pcs.functions.ts`)
+## Технические детали
 
-Все с `requireSupabaseAuth` + admin-check через `has_role` RPC.
+- Логгер: тонкая обёртка `src/lib/logger.ts` (dev — `console.debug`, prod — no-op) для сообщений Zod.
+- Реестр data-health: `src/lib/query/registry.ts` — Map с последней записью на ключ (без утечек, ограничение по размеру).
+- Серверные функции остаются на `createServerFn` + `requireSupabaseAuth`; в контрактах фиксируем возвращаемый DTO (плоские объекты).
+- Порядок правок в UI: student → teacher → admin → community/diagnostic — чтобы регрессии ловились по частям.
 
-- `pcsDashboardCounts()` — счётчики.
-- `pcsPreviewImport({ json })` — парсит через Zod, резолвит существующие сущности по `pcs_key`, возвращает `{ ok, summary, willCreate, willUpdate, conflicts, errors }`. Ничего не пишет.
-- `pcsRunImport({ json, mode: 'update'|'new_version'|'skip' })` — в одной транзакции (через RPC `pcs_import`, plpgsql-функция) upsert-ит program → subject → section → topic → subtopic → LO, затем перезаписывает examples/task_patterns/sources/diagnostic (delete+insert внутри той же транзакции), пишет `content_imports`. Ошибка → rollback (RAISE EXCEPTION).
-- `pcsListImports({ limit=20 })`.
-- `pcsProgramTree()` — иерархия для дерева.
-- `pcsGetLearningObjective({ id })` — карточка LO с examples/patterns/sources/diagnostic.
-- `pcsListLearningObjectives({ filters })`.
+## Definition of Done
 
-Транзакцию делаю через RPC (`create function pcs_import(payload jsonb) returns jsonb language plpgsql security definer` с проверкой `has_role(auth.uid(),'admin')` внутри). Server fn просто вызывает RPC и логирует в `content_imports`.
+- Repository Layer покрывает 100% чтений/записей UI.
+- Все внешние данные проходят Zod.
+- В `src/routes/**` нет `Array.isArray`, `?? []` для массивов из RPC, `as any` на данных.
+- Локальные Section Boundaries на всех крупных блоках.
+- Playwright smoke зелёный, включая проверку отсутствия `is not a function` в консоли.
+- `docs/data-layer-audit.md` содержит финальную таблицу.
 
-## 5. UI
+## Что вне scope
 
-Роуты:
-- `src/routes/_authenticated.admin.content.tsx` — layout с admin-check + sidebar (Dashboard / Импорт / Программы / LO / История)
-- `_authenticated.admin.content.index.tsx` — Dashboard
-- `_authenticated.admin.content.import.tsx` — drag-drop + preview + commit
-- `_authenticated.admin.content.programs.tsx` — дерево (`Collapsible` из shadcn)
-- `_authenticated.admin.content.objectives.tsx` — список LO
-- `_authenticated.admin.content.objectives.$loId.tsx` — карточка (read-only)
-- `_authenticated.admin.content.history.tsx` — таблица импортов
-
-Пункт «Content Studio» появится в текущем `/admin` dashboard.
-
-## 6. Что НЕ делаю (по ТЗ)
-
-Ручной JSON-редактор, PDF/DOCX/URL импорт, Content Extractor, AI-генерация, редакторы теории/заданий.
-
-## 7. Порядок выполнения
-
-1. Прочитать актуальную схему `topics`/`learning_objectives`/`materials`/`subjects`/`subject_programs` в БД.
-2. Создать миграцию (новые таблицы + расширения + RPC `pcs_import` + `content_imports` + GRANT/RLS).
-3. Zod-схема PCS + server functions.
-4. Роуты и UI.
-5. Пример PCS JSON в `docs/pcs-example.json` для быстрого теста.
-6. Smoke-тест через Playwright: залогиниться под admin, залить пример, проверить дерево и карточку LO.
-
-Продолжать?
+- Изменения RLS/схемы БД (кроме случаев, где текущая функция возвращает откровенно неверный тип и это чинится на стороне SQL — фиксируем отдельным пунктом в аудите, не трогаем в этой задаче).
+- Редизайн экранов и новый функционал.
+- Замена React Query на другую библиотеку.

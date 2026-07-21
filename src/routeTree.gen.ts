@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthIndexRouteImport } from './routes/auth.index'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as DevNavigationRouteImport } from './routes/dev.navigation'
+import { Route as DevDataHealthRouteImport } from './routes/dev.data-health'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthenticatedTeacherRouteImport } from './routes/_authenticated.teacher'
 import { Route as AuthenticatedStudentRouteImport } from './routes/_authenticated.student'
@@ -90,6 +91,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
 const DevNavigationRoute = DevNavigationRouteImport.update({
   id: '/dev/navigation',
   path: '/dev/navigation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevDataHealthRoute = DevDataHealthRouteImport.update({
+  id: '/dev/data-health',
+  path: '/dev/data-health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -411,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/student': typeof AuthenticatedStudentRouteWithChildren
   '/teacher': typeof AuthenticatedTeacherRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/dev/data-health': typeof DevDataHealthRoute
   '/dev/navigation': typeof DevNavigationRoute
   '/auth/': typeof AuthIndexRoute
   '/admin/content': typeof AuthenticatedAdminContentRouteWithChildren
@@ -466,6 +473,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/dev/data-health': typeof DevDataHealthRoute
   '/dev/navigation': typeof DevNavigationRoute
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthIndexRoute
@@ -526,6 +534,7 @@ export interface FileRoutesById {
   '/_authenticated/student': typeof AuthenticatedStudentRouteWithChildren
   '/_authenticated/teacher': typeof AuthenticatedTeacherRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/dev/data-health': typeof DevDataHealthRoute
   '/dev/navigation': typeof DevNavigationRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -588,6 +597,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teacher'
     | '/auth/callback'
+    | '/dev/data-health'
     | '/dev/navigation'
     | '/auth/'
     | '/admin/content'
@@ -643,6 +653,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile'
     | '/auth/callback'
+    | '/dev/data-health'
     | '/dev/navigation'
     | '/'
     | '/auth'
@@ -702,6 +713,7 @@ export interface FileRouteTypes {
     | '/_authenticated/student'
     | '/_authenticated/teacher'
     | '/auth/callback'
+    | '/dev/data-health'
     | '/dev/navigation'
     | '/_authenticated/'
     | '/auth/'
@@ -758,6 +770,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  DevDataHealthRoute: typeof DevDataHealthRoute
   DevNavigationRoute: typeof DevNavigationRoute
   AuthIndexRoute: typeof AuthIndexRoute
 }
@@ -797,6 +810,13 @@ declare module '@tanstack/react-router' {
       path: '/dev/navigation'
       fullPath: '/dev/navigation'
       preLoaderRoute: typeof DevNavigationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev/data-health': {
+      id: '/dev/data-health'
+      path: '/dev/data-health'
+      fullPath: '/dev/data-health'
+      preLoaderRoute: typeof DevDataHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
@@ -1344,19 +1364,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  DevDataHealthRoute: DevDataHealthRoute,
   DevNavigationRoute: DevNavigationRoute,
   AuthIndexRoute: AuthIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

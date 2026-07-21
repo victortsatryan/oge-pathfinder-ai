@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-const forbiddenTexts = [/p\.map is not a function/i, /Something went wrong/i];
+const forbiddenTexts = [/is not a function/i, /Something went wrong/i];
+const forbiddenConsole = /is not a function|Something went wrong/i;
 
 async function expectStudentHomeStable(page: import("@playwright/test").Page) {
   const runtimeErrors: string[] = [];
@@ -15,7 +16,7 @@ async function expectStudentHomeStable(page: import("@playwright/test").Page) {
   for (const text of forbiddenTexts) {
     await expect(page.locator("body")).not.toContainText(text);
   }
-  expect(runtimeErrors.join("\n")).not.toMatch(/p\.map is not a function|Something went wrong/i);
+  expect(runtimeErrors.join("\n")).not.toMatch(forbiddenConsole);
 }
 
 test.describe("student home regression", () => {
