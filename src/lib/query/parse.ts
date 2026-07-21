@@ -1,4 +1,4 @@
-import type { ZodSchema } from "zod";
+import type { z } from "zod";
 
 import { logger } from "@/lib/logger";
 import { recordEntry } from "@/lib/query/registry";
@@ -27,11 +27,15 @@ function keysOf(sample: unknown): string[] {
  * Parse an unknown response into a validated array.
  * Never throws — logs and returns [] on failure so UI stays stable.
  */
-export function parseList<T>(scope: string, schema: ZodSchema<T>, raw: unknown): T[] {
+export function parseList<S extends z.ZodTypeAny>(
+  scope: string,
+  schema: S,
+  raw: unknown,
+): z.infer<S>[] {
   const source = unwrap(raw);
   const arr = Array.isArray(source) ? source : [];
   const issues: string[] = [];
-  const out: T[] = [];
+  const out: z.infer<S>[] = [];
 
   if (!Array.isArray(source)) {
     issues.push(`expected array, got ${typeof raw}`);
@@ -75,7 +79,11 @@ export function parseList<T>(scope: string, schema: ZodSchema<T>, raw: unknown):
  * Parse an unknown response into a validated single item or null.
  * Never throws.
  */
-export function parseOne<T>(scope: string, schema: ZodSchema<T>, raw: unknown): T | null {
+export function parseOne<S extends z.ZodTypeAny>(
+  scope: string,
+  schema: S,
+  raw: unknown,
+): z.infer<S> | null {
   if (raw == null) {
     recordEntry({
       key: `item:${scope}`,
