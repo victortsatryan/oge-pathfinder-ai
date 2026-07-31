@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useQueryClient, useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 
 import { addStudentSubject } from "@/lib/student-profile.functions";
-import { EMPTY_PROFILE_ANALYTICS, type SubjectProgram } from "@/lib/models/schemas";
+import { EMPTY_PROFILE_ANALYTICS, type Subject, type SubjectProgram } from "@/lib/models/schemas";
 import { itemQuery, listQuery } from "@/lib/query/defaults";
 import { studentRepo } from "@/lib/repositories/student.repository";
 
@@ -101,7 +101,7 @@ function StudentProfilePage() {
     onError: (e: any) => toast.error(e?.message ?? "Не удалось добавить"),
   });
 
-  const p = profile.data as any;
+  const p = profile.data;
   const displayName = p?.display_name || "Ученик";
 
   return (
@@ -384,7 +384,7 @@ function AddSubjectDialog({
   onAdd,
   loading,
 }: {
-  available: any[];
+  available: Subject[];
   onAdd: (data: {
     subject_id: string;
     program_id?: string | null;
