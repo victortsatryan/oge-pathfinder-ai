@@ -136,7 +136,7 @@ function StudentsPage() {
             mark="forest"
           />
           <ul>
-            {(avail?.students ?? []).map((s: { id: string; display_name?: string | null; grade?: string | null }) => (
+            {(avail?.students ?? []).map((s: { id: string; display_name?: string | null; grade?: string | null; learning_goal?: string | null; target_exam?: string | null; linked?: boolean }) => (
               <li
                 key={s.id}
                 className="py-3 grid grid-cols-[1fr,auto] gap-4 items-center"
@@ -244,11 +244,11 @@ function StudentsPage() {
                     border: "1px solid var(--pf-line-strong)",
                     color: "var(--pf-muted)",
                   }}
-                  value={s.status}
+                  value={s.status ?? "active"}
                   onChange={(e) =>
                     statusMut.mutate({
                       link_id: s.link_id,
-                      status: e.target.value as any,
+                      status: e.target.value as "active" | "paused" | "archived",
                     })
                   }
                 >

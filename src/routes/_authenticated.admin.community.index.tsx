@@ -87,7 +87,7 @@ function AdminCommunityQueue() {
                   {r.content_kind} · {r.material_type ?? "—"}
                 </div>
                 <div className="text-xs" style={{ color: "var(--pf-muted)" }}>
-                  {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString("ru") : new Date(r.created_at).toLocaleDateString("ru")}
+                  {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString("ru") : r.created_at ? new Date(r.created_at).toLocaleDateString("ru") : "—"}
                 </div>
                 <div className="text-xs font-mono uppercase tracking-wider">
                   {STATUS_LABEL[r.status] ?? r.status}
