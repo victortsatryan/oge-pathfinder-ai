@@ -301,13 +301,30 @@ export type Candidate = z.infer<typeof candidateSchema>;
 // -------- Teacher --------
 
 export const teacherStudentSchema = z.object({
-  link_id: z.string().optional(),
-  id: z.string(),
-  display_name: z.string().nullable().optional(),
-  grade: z.string().nullable().optional(),
+  link_id: z.string(),
   status: z.string().nullable().optional(),
-  subjects: z.array(z.string()).nullable().optional(),
-  avg_mastery: z.number().nullable().optional(),
-  weak_count: z.number().nullable().optional(),
+  started_at: z.string().nullable().optional(),
+  student: z
+    .object({
+      id: z.string(),
+      display_name: z.string().nullable().optional(),
+      grade: z.string().nullable().optional(),
+      learning_goal: z.string().nullable().optional(),
+      target_exam: z.string().nullable().optional(),
+    })
+    .nullable()
+    .default(null),
+  avg_mastery: z.number().default(0),
+  weak_count: z.number().default(0),
+  last_active: z.string().nullable().default(null),
+  needs_attention: z.boolean().nullable().default(false),
 });
 export type TeacherStudent = z.infer<typeof teacherStudentSchema>;
+
+export const adminCandidateSchema = candidateSchema.extend({
+  author_id: z.string().nullable().optional(),
+  author: z.object({ display_name: z.string().nullable().optional() }).nullable().default(null),
+  subjects: z.object({ name: z.string().nullable().optional() }).nullable().optional(),
+  topics: z.object({ title: z.string().nullable().optional() }).nullable().optional(),
+});
+export type AdminCandidate = z.infer<typeof adminCandidateSchema>;
