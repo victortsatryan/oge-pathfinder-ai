@@ -112,7 +112,7 @@ function LibraryHome() {
             rows.map((c) => (
               <div key={c.id} className="pf-library__item">
                 <div className="pf-library__kind">
-                  {KIND_LABEL[c.content_kind] ?? c.content_kind}
+                  {KIND_LABEL[c.content_kind ?? ""] ?? c.content_kind}
                   {c.subjects?.name ? ` · ${c.subjects.name}` : ""}
                   {c.topics?.title ? ` · ${c.topics.title}` : ""}
                 </div>
