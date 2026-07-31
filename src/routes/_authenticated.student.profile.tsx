@@ -27,17 +27,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import {
-  getMyStudentProfile,
-  listMyStudentSubjects,
-  listSubjects,
-  listSubjectPrograms,
-  addStudentSubject,
-  listTopicProgressBySubject,
-  listMyWeakTopics,
-  listMyRecentMistakes,
-  getStudentProfileAnalytics,
-} from "@/lib/student-profile.functions";
+import { addStudentSubject } from "@/lib/student-profile.functions";
+import { EMPTY_PROFILE_ANALYTICS, type SubjectProgram } from "@/lib/models/schemas";
+import { itemQuery, listQuery } from "@/lib/query/defaults";
+import { studentRepo } from "@/lib/repositories/student.repository";
 
 export const Route = createFileRoute("/_authenticated/student/profile")({
   component: StudentProfilePage,
@@ -66,53 +59,29 @@ const MISTAKE_LABEL: Record<string, string> = {
 
 function StudentProfilePage() {
   const qc = useQueryClient();
-  const getProfile = useServerFn(getMyStudentProfile);
-  const getSubjects = useServerFn(listMyStudentSubjects);
-  const getCatalog = useServerFn(listSubjects);
-  const getAnalytics = useServerFn(getStudentProfileAnalytics);
-  const getWeak = useServerFn(listMyWeakTopics);
-  const getMistakes = useServerFn(listMyRecentMistakes);
   const addSubject = useServerFn(addStudentSubject);
 
-  const profile = useSuspenseQuery({
-    queryKey: ["student-profile"],
-    queryFn: () => getProfile(),
-  });
-  const mySubjects = useQuery({
-    queryKey: ["student-subjects"],
-    queryFn: () => getSubjects(),
-  });
-  const catalog = useQuery({
-    queryKey: ["subjects-catalog"],
-    queryFn: () => getCatalog(),
-  });
+  const profile = useQuery(itemQuery(["student-profile"], () => studentRepo.profile()));
+  const mySubjects = useQuery(listQuery(["student-subjects"], () => studentRepo.subjects()));
+  const catalog = useQuery(listQuery(["subjects-catalog"], () => studentRepo.subjectCatalog()));
   const analytics = useQuery({
     queryKey: ["student-analytics"],
-    queryFn: () => getAnalytics(),
+    queryFn: () => studentRepo.profileAnalytics(),
+    initialData: EMPTY_PROFILE_ANALYTICS,
   });
-  const weak = useQuery({
-    queryKey: ["student-weak"],
-    queryFn: () => getWeak(),
-  });
-  const mistakes = useQuery({
-    queryKey: ["student-mistakes"],
-    queryFn: () => getMistakes(),
-  });
+  const weak = useQuery(listQuery(["student-weak"], () => studentRepo.weakTopics()));
+  const mistakes = useQuery(listQuery(["student-mistakes"], () => studentRepo.recentMistakes()));
 
-  const taken = new Set((mySubjects.data ?? []).map((s: any) => s.subject?.id));
-  const available = (catalog.data ?? []).filter((s: any) => !taken.has(s.id));
+  const taken = new Set(mySubjects.data.map((s) => s.subject?.id));
+  const available = catalog.data.filter((s) => !taken.has(s.id));
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const firstSubjectId =
-    selectedSubjectId ?? (mySubjects.data?.[0] as any)?.subject?.id ?? null;
+  const firstSubjectId = selectedSubjectId ?? mySubjects.data[0]?.subject?.id ?? null;
 
-  const getProgress = useServerFn(listTopicProgressBySubject);
   const topicProgress = useQuery({
-    queryKey: ["topic-progress-real", firstSubjectId],
-    queryFn: () =>
-      firstSubjectId
-        ? getProgress({ data: { subject_id: firstSubjectId } })
-        : Promise.resolve([]),
+    ...listQuery(["topic-progress-real", firstSubjectId], () =>
+      studentRepo.topicProgress(firstSubjectId!),
+    ),
     enabled: !!firstSubjectId,
   });
 
@@ -197,16 +166,16 @@ function StudentProfilePage() {
           />
           {mySubjects.isLoading ? (
             <p className="mt-6 text-sm text-[color:var(--pf-muted)]">Загрузка…</p>
-          ) : (mySubjects.data ?? []).length === 0 ? (
+          ) : mySubjects.data.length === 0 ? (
             <p className="mt-6 text-sm text-[color:var(--pf-muted)]">
               Пока ни одного предмета. Нажмите «Добавить предмет», чтобы начать
               формировать маршрут.
             </p>
           ) : (
             <ul className="mt-6 border-t border-[color:var(--pf-line-strong)]">
-              {(mySubjects.data as any[]).map((ss) => {
-                const stat = (analytics.data?.bySubject ?? []).find(
-                  (b: any) => b.subject_id === ss.subject?.id,
+              {mySubjects.data.map((ss) => {
+                const stat = analytics.data.bySubject.find(
+                  (b) => b.subject_id === ss.subject?.id,
                 );
                 const active = firstSubjectId === ss.subject?.id;
                 return (
@@ -216,7 +185,7 @@ function StudentProfilePage() {
                   >
                     <button
                       type="button"
-                      onClick={() => setSelectedSubjectId(ss.subject?.id)}
+                      onClick={() => setSelectedSubjectId(ss.subject?.id ?? null)}
                       className={`w-full text-left grid grid-cols-[40px,1fr,220px,160px] items-center gap-6 py-5 px-2 -mx-2 transition-colors hover:bg-[color:color-mix(in_oklab,var(--pf-line)_25%,transparent)] ${
                         active ? "bg-[color:color-mix(in_oklab,var(--pf-mustard)_10%,transparent)]" : ""
                       }`}
@@ -259,7 +228,7 @@ function StudentProfilePage() {
                       </div>
                       <Link
                         to="/student/subjects/$subjectId"
-                        params={{ subjectId: ss.subject?.id }}
+                        params={{ subjectId: ss.subject?.id ?? "" }}
                         className="justify-self-end text-[12px] font-mono underline underline-offset-4"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -279,13 +248,13 @@ function StudentProfilePage() {
             <SectionEyebrow section="карта тем" sub="темы и освоение" />
             {topicProgress.isLoading ? (
               <p className="mt-6 text-sm text-[color:var(--pf-muted)]">Загрузка…</p>
-            ) : (topicProgress.data ?? []).length === 0 ? (
+            ) : topicProgress.data.length === 0 ? (
               <p className="mt-6 text-sm text-[color:var(--pf-muted)]">
                 Темы для этого предмета ещё не загружены.
               </p>
             ) : (
               <ul className="mt-6 border-t border-[color:var(--pf-line-strong)]">
-                {(topicProgress.data as any[]).map((row) => (
+                {topicProgress.data.map((row) => (
                   <li
                     key={row.id}
                     className="grid grid-cols-[1fr,80px,160px] items-center gap-6 py-3 border-b border-[color:var(--pf-line)]"
@@ -307,13 +276,13 @@ function StudentProfilePage() {
         {/* Слабые темы */}
         <section className="mb-16">
           <SectionEyebrow section="внимание" sub="слабые зоны" mark="cinnabar" />
-          {(weak.data ?? []).length === 0 ? (
+          {weak.data.length === 0 ? (
             <p className="mt-6 text-sm text-[color:var(--pf-muted)]">
               Слабых тем нет. Пройдите диагностику, чтобы получить срез.
             </p>
           ) : (
             <ul className="mt-6 border-t border-[color:var(--pf-line-strong)]">
-              {(weak.data as any[]).map((w) => (
+              {weak.data.map((w) => (
                 <li
                   key={w.id}
                   className="grid grid-cols-[16px,1fr,200px,80px] items-center gap-4 py-3 border-b border-[color:var(--pf-line)]"
@@ -339,13 +308,13 @@ function StudentProfilePage() {
         {/* Ошибки */}
         <section className="mb-16">
           <SectionEyebrow section="журнал" sub="последние ошибки" />
-          {(mistakes.data ?? []).length === 0 ? (
+          {mistakes.data.length === 0 ? (
             <p className="mt-6 text-sm text-[color:var(--pf-muted)]">
               Пока пусто. Ошибки будут появляться по мере выполнения заданий.
             </p>
           ) : (
             <ul className="mt-6 border-t border-[color:var(--pf-line-strong)]">
-              {(mistakes.data as any[]).map((m) => (
+              {mistakes.data.map((m) => (
                 <li
                   key={m.id}
                   className="grid grid-cols-[160px,1fr,120px] gap-4 py-3 border-b border-[color:var(--pf-line)]"
@@ -529,7 +498,7 @@ function AddSubjectDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Без программы</SelectItem>
-                  {(programs.data as any[]).map((p) => (
+                  {programs.data.map((p: SubjectProgram) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.title}
                     </SelectItem>
