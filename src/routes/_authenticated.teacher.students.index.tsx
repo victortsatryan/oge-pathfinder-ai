@@ -6,11 +6,12 @@ import { toast } from "sonner";
 
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 import {
-  listMyTeacherStudents,
   linkStudent,
   updateLinkStatus,
   listAvailableStudents,
 } from "@/lib/teacher.functions";
+import { listQuery } from "@/lib/query/defaults";
+import { teacherRepo } from "@/lib/repositories/teacher.repository";
 import { isDevOpenAccess } from "@/lib/admin-access";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/")({
