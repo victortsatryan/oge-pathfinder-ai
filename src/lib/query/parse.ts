@@ -12,6 +12,9 @@ function unwrap(raw: unknown): unknown {
     for (const key of ["data", "items", "rows", "results", "events", "list"]) {
       if (Array.isArray(obj[key])) return obj[key];
     }
+    // Domain envelopes: { candidates: [...] }, { students: [...] }, { paths: [...] }.
+    const arrays = Object.values(obj).filter(Array.isArray);
+    if (arrays.length === 1) return arrays[0];
   }
   return raw;
 }
