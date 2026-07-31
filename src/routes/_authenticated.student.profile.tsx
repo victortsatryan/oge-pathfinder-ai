@@ -98,7 +98,7 @@ function StudentProfilePage() {
       qc.invalidateQueries({ queryKey: ["student-analytics"] });
       qc.invalidateQueries({ queryKey: ["topic-progress-real"] });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Не удалось добавить"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Не удалось добавить"),
   });
 
   const p = profile.data;
