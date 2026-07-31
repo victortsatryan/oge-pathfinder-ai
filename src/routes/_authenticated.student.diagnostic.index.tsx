@@ -15,12 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import {
-  listAvailableDiagnostics,
-  startDiagnosticSession,
-  listMyDiagnosticHistory,
-} from "@/lib/diagnostic.functions";
-import { listSubjects } from "@/lib/student-profile.functions";
+import { startDiagnosticSession } from "@/lib/diagnostic.functions";
+import type { DiagnosticHistoryRow, DiagnosticTest, Subject } from "@/lib/models/schemas";
+import { listQuery } from "@/lib/query/defaults";
+import { diagnosticRepo } from "@/lib/repositories/diagnostic.repository";
+import { studentRepo } from "@/lib/repositories/student.repository";
 
 export const Route = createFileRoute("/_authenticated/student/diagnostic/")({
   component: DiagnosticHub,
@@ -39,39 +38,35 @@ function DiagnosticHub() {
   const [subjectId, setSubjectId] = useState<string>("all");
   const [type, setType] = useState<string>("all");
 
-  const getTests = useServerFn(listAvailableDiagnostics);
-  const getSubjects = useServerFn(listSubjects);
-  const getHistory = useServerFn(listMyDiagnosticHistory);
   const startFn = useServerFn(startDiagnosticSession);
 
-  const subjects = useQuery({
-    queryKey: ["subjects-catalog"],
-    queryFn: () => getSubjects(),
-  });
-  const tests = useQuery({
-    queryKey: ["diagnostic-tests", subjectId, type],
-    queryFn: () =>
-      getTests({
-        data: {
-          subject_id: subjectId !== "all" ? subjectId : undefined,
-          diagnostic_type: type !== "all" ? type : undefined,
-        },
+  const subjects = useQuery(
+    listQuery<Subject>(["subjects-catalog"], () => studentRepo.subjectCatalog()),
+  );
+  const tests = useQuery(
+    listQuery<DiagnosticTest>(["diagnostic-tests", subjectId, type], () =>
+      diagnosticRepo.available({
+        subject_id: subjectId !== "all" ? subjectId : undefined,
+        diagnostic_type: type !== "all" ? type : undefined,
       }),
-  });
-  const history = useQuery({
-    queryKey: ["diagnostic-history"],
-    queryFn: () => getHistory(),
-  });
+    ),
+  );
+  const history = useQuery(
+    listQuery<DiagnosticHistoryRow>(["diagnostic-history"], () => diagnosticRepo.history()),
+  );
 
   const startMut = useMutation({
     mutationFn: (data: { diagnostic_test_id: string }) => startFn({ data }),
-    onSuccess: (res: any) => {
+    onSuccess: (res) => {
+      const sessionId = (res as { session_id?: string } | null)?.session_id;
+      if (!sessionId) return;
       navigate({
         to: "/student/diagnostic/$sessionId",
-        params: { sessionId: res.session_id },
+        params: { sessionId },
       });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Не удалось начать"),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Не удалось начать"),
   });
 
   return (
@@ -99,7 +94,7 @@ function DiagnosticHub() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Все предметы</SelectItem>
-                  {(subjects.data ?? []).map((s: any) => (
+                  {subjects.data.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
                     </SelectItem>
@@ -128,16 +123,16 @@ function DiagnosticHub() {
 
           {tests.isLoading ? (
             <p className="text-sm text-[color:var(--pf-muted)]">Загрузка…</p>
-          ) : (tests.data ?? []).length === 0 ? (
+          ) : tests.data.length === 0 ? (
             <p className="text-sm text-[color:var(--pf-muted)]">
               По заданным фильтрам диагностик пока нет.
             </p>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
-              {(tests.data as any[]).map((t) => (
+              {tests.data.map((t) => (
                 <div key={t.id} className="pf-role-tile">
                   <p className="pf-eyebrow">
-                    {TYPE_LABEL[t.diagnostic_type] ?? t.diagnostic_type}
+                    {TYPE_LABEL[t.diagnostic_type ?? ""] ?? t.diagnostic_type}
                     {t.subject?.name ? ` · ${t.subject.name}` : ""}
                     {t.program?.title ? ` · ${t.program.title}` : ""}
                   </p>
@@ -167,13 +162,13 @@ function DiagnosticHub() {
         <section className="pf-block">
           <p className="pf-eyebrow mb-2">журнал</p>
           <h2 className="pf-h2 mb-6">История попыток</h2>
-          {(history.data ?? []).length === 0 ? (
+          {history.data.length === 0 ? (
             <p className="text-sm text-[color:var(--pf-muted)]">
               Пока попыток нет. После прохождения диагностики результаты появятся здесь.
             </p>
           ) : (
             <ul className="grid gap-2">
-              {(history.data as any[]).map((h) => (
+              {history.data.map((h) => (
                 <li
                   key={h.id}
                   className="grid grid-cols-[1fr,90px,140px] gap-4 py-2 border-b border-[color:var(--pf-divider)] items-center"
@@ -183,7 +178,7 @@ function DiagnosticHub() {
                       {h.diagnostic_test?.title ?? "Диагностика"}
                     </div>
                     <div className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--pf-muted)]">
-                      {h.subject?.name ?? ""} · {TYPE_LABEL[h.diagnostic_type] ?? h.diagnostic_type} · {h.status}
+                      {h.subject?.name ?? ""} · {TYPE_LABEL[h.diagnostic_type ?? ""] ?? h.diagnostic_type} · {h.status}
                     </div>
                   </div>
                   <div className="font-mono text-[13px] text-right">

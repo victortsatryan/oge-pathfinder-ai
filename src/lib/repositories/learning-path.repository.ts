@@ -1,10 +1,37 @@
-import { calendarEventSchema, type CalendarEvent } from "@/lib/models/schemas";
-import { parseList } from "@/lib/query/parse";
-import { listCalendarEvents } from "@/lib/learning-path.functions";
+import {
+  learningPathItemSchema,
+  learningPathSchema,
+  calendarEventSchema,
+  type CalendarEvent,
+  type LearningPath,
+  type LearningPathItem,
+} from "@/lib/models/schemas";
+import { parseList, parseOne } from "@/lib/query/parse";
+import {
+  getLearningPath,
+  listCalendarEvents,
+  listMyLearningPaths,
+} from "@/lib/learning-path.functions";
 
 export const learningPathRepo = {
   async calendarEvents(range: { from?: string; to?: string } = {}): Promise<CalendarEvent[]> {
     const raw = await listCalendarEvents({ data: range });
     return parseList("learningPath.calendarEvents", calendarEventSchema, raw);
+  },
+
+  async paths(): Promise<LearningPath[]> {
+    const raw = await listMyLearningPaths();
+    return parseList("learningPath.paths", learningPathSchema, raw);
+  },
+
+  async detail(
+    pathId: string,
+  ): Promise<{ path: LearningPath | null; items: LearningPathItem[] }> {
+    const raw: unknown = await getLearningPath({ data: { path_id: pathId } });
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    return {
+      path: parseOne("learningPath.detail", learningPathSchema, obj.path ?? null),
+      items: parseList("learningPath.items", learningPathItemSchema, obj.items ?? []),
+    };
   },
 };

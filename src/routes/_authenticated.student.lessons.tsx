@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/oge/page-header";
-import { listCalendarEvents } from "@/lib/learning-path.functions";
+import type { CalendarEvent } from "@/lib/models/schemas";
+import { listQuery } from "@/lib/query/defaults";
+import { learningPathRepo } from "@/lib/repositories/learning-path.repository";
 
 export const Route = createFileRoute("/_authenticated/student/lessons")({
   component: LessonsList,
@@ -16,25 +17,10 @@ const STATUS_LABEL: Record<string, string> = {
   skipped: "пропущено",
 };
 
-type CalendarEvent = {
-  id: string;
-  event_type: string;
-  title: string | null;
-  event_date: string;
-  status: string;
-  lesson_id: string | null;
-  subjects: { name: string | null } | null;
-  topics: { title: string | null } | null;
-};
-
 function LessonsList() {
-  const fetchEvents = useServerFn(listCalendarEvents);
-  const q = useQuery({
-    queryKey: ["student-lessons"],
-    queryFn: () => fetchEvents({ data: {} }),
-  });
+  const q = useQuery(listQuery<CalendarEvent>(["student-lessons"], () => learningPathRepo.calendarEvents()));
 
-  const events: CalendarEvent[] = Array.isArray(q.data) ? q.data : [];
+  const events = q.data;
   const lessons = events.filter((e) => e.event_type === "lesson" && e.lesson_id);
 
   return (

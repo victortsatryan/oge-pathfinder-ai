@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
-import { listCalendarEvents } from "@/lib/learning-path.functions";
+import { SectionBoundary } from "@/components/section-boundary";
+import type { CalendarEvent } from "@/lib/models/schemas";
+import { listQuery } from "@/lib/query/defaults";
+import { learningPathRepo } from "@/lib/repositories/learning-path.repository";
 
 export const Route = createFileRoute("/_authenticated/student/calendar")({
   component: CalendarRoute,
@@ -17,35 +19,15 @@ const STATUS_LABEL: Record<string, string> = {
   rescheduled: "перенесено",
 };
 
-type CalendarEvent = {
-  id: string;
-  event_type: string;
-  title: string | null;
-  event_date: string;
-  start_time: string | null;
-  duration_minutes: number | null;
-  status: string;
-  lesson_id: string | null;
-  diagnostic_session_id: string | null;
-  subject_id: string | null;
-  topic_id: string | null;
-  subjects: { name: string | null } | null;
-  topics: { title: string | null } | null;
-};
-
 function isToday(dateStr: string) {
   const today = new Date().toISOString().slice(0, 10);
   return dateStr === today;
 }
 
 function CalendarRoute() {
-  const fetchEvents = useServerFn(listCalendarEvents);
-  const q = useQuery({
-    queryKey: ["calendar-events"],
-    queryFn: () => fetchEvents({ data: {} }),
-  });
+  const q = useQuery(listQuery<CalendarEvent>(["calendar-events"], () => learningPathRepo.calendarEvents()));
 
-  const events = Array.isArray(q.data) ? q.data : [];
+  const events = q.data;
   const grouped = events.reduce<Record<string, CalendarEvent[]>>((acc, e) => {
     (acc[e.event_date] ??= []).push(e);
     return acc;

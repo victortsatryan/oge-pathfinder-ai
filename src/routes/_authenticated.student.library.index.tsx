@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/oge/page-header";
-import {
-  listMyCandidates,
-  deleteMyCandidate,
-} from "@/lib/community-library.functions";
+import { deleteMyCandidate } from "@/lib/community-library.functions";
+import type { Candidate } from "@/lib/models/schemas";
+import { listQuery } from "@/lib/query/defaults";
+import { communityRepo } from "@/lib/repositories/community.repository";
 
 export const Route = createFileRoute("/_authenticated/student/library/")({
   component: LibraryHome,
@@ -35,13 +35,11 @@ const KIND_LABEL: Record<string, string> = {
 
 function LibraryHome() {
   const [tab, setTab] = useState<"mine" | "public">("mine");
-  const fetchMine = useServerFn(listMyCandidates);
   const removeFn = useServerFn(deleteMyCandidate);
   const qc = useQueryClient();
 
   const mine = useQuery({
-    queryKey: ["my-candidates"],
-    queryFn: () => fetchMine(),
+    ...listQuery<Candidate>(["my-candidates"], () => communityRepo.myCandidates()),
     enabled: tab === "mine",
   });
 
@@ -51,10 +49,10 @@ function LibraryHome() {
       toast.success("Удалено");
       qc.invalidateQueries({ queryKey: ["my-candidates"] });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Ошибка удаления"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка удаления"),
   });
 
-  const rows = mine.data?.candidates ?? [];
+  const rows = mine.data;
 
   return (
     <>
@@ -111,10 +109,10 @@ function LibraryHome() {
               У вас пока нет материалов. Нажмите «Предложить материал», чтобы добавить первый.
             </div>
           ) : (
-            rows.map((c: any) => (
+            rows.map((c) => (
               <div key={c.id} className="pf-library__item">
                 <div className="pf-library__kind">
-                  {KIND_LABEL[c.content_kind] ?? c.content_kind}
+                  {KIND_LABEL[c.content_kind ?? ""] ?? c.content_kind}
                   {c.subjects?.name ? ` · ${c.subjects.name}` : ""}
                   {c.topics?.title ? ` · ${c.topics.title}` : ""}
                 </div>

@@ -6,10 +6,11 @@ import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 import {
   generateLearningPath,
   generateCalendarFromLearningPath,
-  getLearningPath,
-  listMyLearningPaths,
 } from "@/lib/learning-path.functions";
 import { buildLessonFromPathItem } from "@/lib/lesson.functions";
+import type { LearningPathItem } from "@/lib/models/schemas";
+import { listQuery } from "@/lib/query/defaults";
+import { learningPathRepo } from "@/lib/repositories/learning-path.repository";
 
 export const Route = createFileRoute("/_authenticated/student/path")({
   component: PathPage,
@@ -22,9 +23,8 @@ const PRIORITY_LABEL: Record<number, string> = {
   1: "низкий",
 };
 
-function nodeVariant(item: any, isNext: boolean): string {
-  const lesson = Array.isArray(item.lessons) ? item.lessons[0] : item.lessons;
-  if (lesson?.status === "completed") return "pf-timeline__node--done";
+function nodeVariant(item: LearningPathItem, isNext: boolean): string {
+  if (item.lessons?.status === "completed") return "pf-timeline__node--done";
   if (isNext) return "pf-timeline__node--next";
   if (item.priority >= 4) return "pf-timeline__node--critical";
   return "";
@@ -32,25 +32,23 @@ function nodeVariant(item: any, isNext: boolean): string {
 
 function PathPage() {
   const router = useRouter();
-  const fetchList = useServerFn(listMyLearningPaths);
-  const fetchPath = useServerFn(getLearningPath);
   const genPath = useServerFn(generateLearningPath);
   const genCal = useServerFn(generateCalendarFromLearningPath);
   const buildLesson = useServerFn(buildLessonFromPathItem);
 
-  const list = useQuery({ queryKey: ["learning-paths"], queryFn: () => fetchList() });
-  const activeId = list.data?.paths[0]?.id as string | undefined;
+  const list = useQuery(listQuery(["learning-paths"], () => learningPathRepo.paths()));
+  const activeId = list.data[0]?.id;
 
   const detail = useQuery({
     queryKey: ["learning-path", activeId],
-    queryFn: () => fetchPath({ data: { path_id: activeId! } }),
+    queryFn: () => learningPathRepo.detail(activeId!),
     enabled: !!activeId,
   });
 
   const generate = useMutation({
     mutationFn: () => genPath({ data: { weeks: 4 } }),
-    onSuccess: (res: any) => {
-      if (res?.ok) router.invalidate();
+    onSuccess: (res) => {
+      if ((res as { ok?: boolean } | null)?.ok) router.invalidate();
     },
   });
 
@@ -61,32 +59,27 @@ function PathPage() {
 
   const openLesson = useMutation({
     mutationFn: (itemId: string) => buildLesson({ data: { path_item_id: itemId } }),
-    onSuccess: (res: any) => {
-      if (res?.lesson_id)
+    onSuccess: (res) => {
+      const lessonId = (res as { lesson_id?: string } | null)?.lesson_id;
+      if (lessonId)
         router.navigate({
           to: "/student/lesson/$lessonId",
-          params: { lessonId: res.lesson_id },
+          params: { lessonId },
         });
     },
   });
 
+  const generated = generate.data as { ok?: boolean; message?: string } | undefined;
   const generateNotice =
-    generate.data && !(generate.data as any).ok
-      ? (generate.data as any).message
+    generated && !generated.ok
+      ? (generated.message ?? null)
       : generate.error
         ? (generate.error as Error).message
         : null;
 
-  const items = (detail.data?.items ?? []) as any[];
-  const nextItem = items.find((it) => {
-    const lesson = Array.isArray(it.lessons) ? it.lessons[0] : it.lessons;
-    return !lesson || lesson.status !== "completed";
-  });
-  const nextLessonId = nextItem
-    ? Array.isArray(nextItem.lessons)
-      ? nextItem.lessons[0]?.id
-      : nextItem.lessons?.id
-    : null;
+  const items = detail.data?.items ?? [];
+  const nextItem = items.find((it) => it.lessons?.status !== "completed");
+  const nextLessonId = nextItem?.lessons?.id ?? null;
 
   return (
     <article className="pf-reader-wide pf-rise">
@@ -160,18 +153,18 @@ function PathPage() {
       {activeId && detail.data && (
         <section>
           <SectionEyebrow
-            section={detail.data.path.title || "Маршрут"}
-            sub={`${detail.data.items.length} шагов`}
+            section={detail.data.path?.title || "Маршрут"}
+            sub={`${items.length} шагов`}
             mark="mustard"
             right={
               <span className="pf-section-eyebrow__label">
-                {detail.data.path.start_date} → {detail.data.path.end_date}
+                {detail.data.path?.start_date} → {detail.data.path?.end_date}
               </span>
             }
           />
 
           <ol className="pf-timeline">
-            {items.map((it: any) => {
+            {items.map((it) => {
               const isNext = nextItem?.id === it.id;
               return (
                 <li
