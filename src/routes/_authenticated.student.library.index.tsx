@@ -49,7 +49,7 @@ function LibraryHome() {
       toast.success("Удалено");
       qc.invalidateQueries({ queryKey: ["my-candidates"] });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Ошибка удаления"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка удаления"),
   });
 
   const rows = mine.data;
@@ -109,7 +109,7 @@ function LibraryHome() {
               У вас пока нет материалов. Нажмите «Предложить материал», чтобы добавить первый.
             </div>
           ) : (
-            rows.map((c: any) => (
+            rows.map((c) => (
               <div key={c.id} className="pf-library__item">
                 <div className="pf-library__kind">
                   {KIND_LABEL[c.content_kind] ?? c.content_kind}
