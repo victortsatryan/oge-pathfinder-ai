@@ -25,10 +25,18 @@ export const communityRepo = {
     return parseList("community.subjects", subjectSchema, raw);
   },
 
-  async adminCandidates(
+  async adminQueue(
     status: "all" | "draft" | "submitted" | "in_review" | "approved" | "published" | "rejected" = "all",
-  ): Promise<AdminCandidate[]> {
-    const raw = await adminListCandidates({ data: { status } });
-    return parseList("community.adminCandidates", adminCandidateSchema, raw);
+  ): Promise<{ candidates: AdminCandidate[]; counts: Record<string, number> }> {
+    const raw: unknown = await adminListCandidates({ data: { status } });
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    const counts =
+      obj.counts && typeof obj.counts === "object"
+        ? (obj.counts as Record<string, number>)
+        : {};
+    return {
+      candidates: parseList("community.adminCandidates", adminCandidateSchema, obj.candidates ?? []),
+      counts,
+    };
   },
 };

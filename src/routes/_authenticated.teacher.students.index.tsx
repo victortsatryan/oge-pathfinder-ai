@@ -26,16 +26,14 @@ type FilterKey = (typeof FILTERS)[number]["key"];
 
 function StudentsPage() {
   const qc = useQueryClient();
-  const listFn = useServerFn(listMyTeacherStudents);
   const linkFn = useServerFn(linkStudent);
   const statusFn = useServerFn(updateLinkStatus);
   const availFn = useServerFn(listAvailableStudents);
 
   const devMode = typeof window !== "undefined" && isDevOpenAccess();
-  const { data } = useQuery({
-    queryKey: ["teacher", "students"],
-    queryFn: () => listFn(),
-  });
+  const { data: students } = useQuery(
+    listQuery(["teacher", "students"], () => teacherRepo.students()),
+  );
   const { data: avail } = useQuery({
     queryKey: ["teacher", "available-students"],
     queryFn: () => availFn(),
@@ -55,8 +53,8 @@ function StudentsPage() {
       qc.invalidateQueries({ queryKey: ["teacher", "students"] });
       qc.invalidateQueries({ queryKey: ["teacher", "available-students"] });
     },
-    onError: (e: any) => {
-      const msg = e?.message ?? "Не удалось привязать ученика.";
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Не удалось привязать ученика.";
       setErr(msg);
       toast.error(msg);
     },
@@ -70,7 +68,6 @@ function StudentsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher", "students"] }),
   });
 
-  const students = (data?.students ?? []) as any[];
   const filtered = students.filter((s) => {
     if (filter === "active") return s.status === "active";
     if (filter === "attention") return s.needs_attention;
@@ -138,7 +135,7 @@ function StudentsPage() {
             mark="forest"
           />
           <ul>
-            {(avail?.students ?? []).map((s: any) => (
+            {(avail?.students ?? []).map((s: { id: string; display_name?: string | null; grade?: string | null }) => (
               <li
                 key={s.id}
                 className="py-3 grid grid-cols-[1fr,auto] gap-4 items-center"
@@ -209,7 +206,7 @@ function StudentsPage() {
           </p>
         ) : (
           <div>
-            {filtered.map((s: any) => (
+            {filtered.map((s) => (
               <div key={s.link_id} className="pf-student-row">
                 <Link
                   to="/teacher/students/$studentId"

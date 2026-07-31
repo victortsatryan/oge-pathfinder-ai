@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
-import { adminListCandidates } from "@/lib/community-library.functions";
+import { communityRepo } from "@/lib/repositories/community.repository";
 
 export const Route = createFileRoute("/_authenticated/admin/community/")({
   component: AdminCommunityQueue,
@@ -29,14 +28,14 @@ const STATUS_LABEL: Record<string, string> = {
 
 function AdminCommunityQueue() {
   const [status, setStatus] = useState<string>("submitted");
-  const fetchList = useServerFn(adminListCandidates);
   const { data, isLoading } = useQuery({
     queryKey: ["admin-candidates", status],
-    queryFn: () => fetchList({ data: { status: status as any } }),
+    queryFn: () => communityRepo.adminQueue(status as Parameters<typeof communityRepo.adminQueue>[0]),
+    initialData: { candidates: [], counts: {} },
   });
 
-  const rows = data?.candidates ?? [];
-  const counts = data?.counts ?? {};
+  const rows = data.candidates;
+  const counts = data.counts;
 
   return (
     <section>
@@ -69,7 +68,7 @@ function AdminCommunityQueue() {
         <p className="text-sm" style={{ color: "var(--pf-muted)" }}>Материалов нет.</p>
       ) : (
         <ul className="grid gap-0" style={{ borderTop: "1px solid var(--pf-line-strong)" }}>
-          {rows.map((r: any) => (
+          {rows.map((r) => (
             <li key={r.id} style={{ borderBottom: "1px solid var(--pf-line-strong)" }}>
               <Link
                 to="/admin/community/$id"
