@@ -400,13 +400,8 @@ function AddSubjectDialog({
   const [targetScore, setTargetScore] = useState("");
   const [filter, setFilter] = useState("");
 
-  const getPrograms = useServerFn(listSubjectPrograms);
   const programs = useQuery({
-    queryKey: ["subject-programs", subjectId],
-    queryFn: () =>
-      subjectId
-        ? getPrograms({ data: { subject_id: subjectId } })
-        : Promise.resolve([]),
+    ...listQuery(["subject-programs", subjectId], () => studentRepo.programs(subjectId)),
     enabled: !!subjectId,
   });
 

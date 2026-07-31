@@ -90,6 +90,7 @@ export const subjectSchema = z.object({
   id: z.string(),
   slug: z.string().nullable().optional(),
   name: z.string().default("—"),
+  category: z.string().nullable().optional(),
   exam_type: z.string().nullable().optional(),
 });
 export type Subject = z.infer<typeof subjectSchema>;
