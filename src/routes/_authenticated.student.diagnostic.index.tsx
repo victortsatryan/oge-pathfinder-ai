@@ -132,7 +132,7 @@ function DiagnosticHub() {
               {tests.data.map((t) => (
                 <div key={t.id} className="pf-role-tile">
                   <p className="pf-eyebrow">
-                    {TYPE_LABEL[t.diagnostic_type] ?? t.diagnostic_type}
+                    {TYPE_LABEL[t.diagnostic_type ?? ""] ?? t.diagnostic_type}
                     {t.subject?.name ? ` · ${t.subject.name}` : ""}
                     {t.program?.title ? ` · ${t.program.title}` : ""}
                   </p>
@@ -178,7 +178,7 @@ function DiagnosticHub() {
                       {h.diagnostic_test?.title ?? "Диагностика"}
                     </div>
                     <div className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--pf-muted)]">
-                      {h.subject?.name ?? ""} · {TYPE_LABEL[h.diagnostic_type] ?? h.diagnostic_type} · {h.status}
+                      {h.subject?.name ?? ""} · {TYPE_LABEL[h.diagnostic_type ?? ""] ?? h.diagnostic_type} · {h.status}
                     </div>
                   </div>
                   <div className="font-mono text-[13px] text-right">

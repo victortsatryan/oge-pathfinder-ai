@@ -295,6 +295,8 @@ export const candidateSchema = z.object({
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
   submitted_at: z.string().nullable().optional(),
+  subjects: z.object({ name: z.string().nullable().optional() }).nullable().optional(),
+  topics: z.object({ title: z.string().nullable().optional() }).nullable().optional(),
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 
