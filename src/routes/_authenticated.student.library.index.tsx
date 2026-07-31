@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/oge/page-header";
-import {
-  listMyCandidates,
-  deleteMyCandidate,
-} from "@/lib/community-library.functions";
+import { deleteMyCandidate } from "@/lib/community-library.functions";
+import type { Candidate } from "@/lib/models/schemas";
+import { listQuery } from "@/lib/query/defaults";
+import { communityRepo } from "@/lib/repositories/community.repository";
 
 export const Route = createFileRoute("/_authenticated/student/library/")({
   component: LibraryHome,
@@ -35,13 +35,11 @@ const KIND_LABEL: Record<string, string> = {
 
 function LibraryHome() {
   const [tab, setTab] = useState<"mine" | "public">("mine");
-  const fetchMine = useServerFn(listMyCandidates);
   const removeFn = useServerFn(deleteMyCandidate);
   const qc = useQueryClient();
 
   const mine = useQuery({
-    queryKey: ["my-candidates"],
-    queryFn: () => fetchMine(),
+    ...listQuery<Candidate>(["my-candidates"], () => communityRepo.myCandidates()),
     enabled: tab === "mine",
   });
 
@@ -54,7 +52,7 @@ function LibraryHome() {
     onError: (e: any) => toast.error(e?.message ?? "Ошибка удаления"),
   });
 
-  const rows = mine.data?.candidates ?? [];
+  const rows = mine.data;
 
   return (
     <>
