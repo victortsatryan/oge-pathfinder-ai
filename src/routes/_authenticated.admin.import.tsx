@@ -16,7 +16,27 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 });
 
 type Row = Record<string, string>;
-type Preview = { total: number; created: number; updated: number; skipped: number; errors: { row: number; message: string }[]; sample: Row[] };
+type PreviewError = { row: number; message: string };
+type Preview = { total: number; created: number; updated: number; skipped: number; errors: PreviewError[]; sample: Row[] };
+
+const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(s(v)) || 0);
+
+function normalizePreview(res: unknown): Preview {
+  const r = (res ?? {}) as Record<string, unknown>;
+  const rawErrors = Array.isArray(r.errors) ? r.errors : [];
+  return {
+    total: n(r.total),
+    created: n(r.created),
+    updated: n(r.updated),
+    skipped: n(r.skipped),
+    sample: Array.isArray(r.sample) ? (r.sample as Row[]) : [],
+    errors: rawErrors.map((e, i) => {
+      const obj = (e ?? {}) as Record<string, unknown>;
+      return { row: n(obj.row) || i + 1, message: s(obj.message) || "Неизвестная ошибка" };
+    }),
+  };
+}
 
 const EXPECTED_HEADERS = [
   "subject_title", "grade", "program_title", "topic_title", "subtopic_title",
@@ -39,45 +59,76 @@ function ImportPage() {
   const logsQ = useQuery({ queryKey: ["import-logs"], queryFn: () => listLogs() });
 
   const previewMut = useMutation({
-    mutationFn: () => previewFn({ data: { rows, fileName, format } }),
-    onSuccess: (res) => setPreview(res as Preview),
-    onError: (e: any) => toast.error(e?.message ?? "Ошибка предпросмотра"),
+    mutationFn: async () => {
+      const res: unknown = await previewFn({ data: { rows, fileName, format } });
+      const r = (res ?? {}) as Record<string, unknown>;
+      if (!Array.isArray(r.errors)) {
+        const msg = s((r.error as Record<string, unknown> | undefined)?.message ?? r.message);
+        throw new Error(msg || "Сервер вернул неожиданный ответ (проверьте права администратора)");
+      }
+      return res;
+    },
+    onSuccess: (res) => setPreview(normalizePreview(res)),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка предпросмотра"),
   });
+
 
   const importMut = useMutation({
     mutationFn: () => importFn({ data: { rows, fileName, format } }),
-    onSuccess: (res) => {
+    onSuccess: (raw) => {
+      const res = normalizePreview(raw);
       toast.success(`Импорт завершён: создано ${res.created}, обновлено ${res.updated}, пропущено ${res.skipped}, ошибок ${res.errors.length}`);
       qc.invalidateQueries({ queryKey: ["import-logs"] });
       setPreview(null);
       setRows([]);
       setFileName("");
     },
-    onError: (e: any) => toast.error(e?.message ?? "Ошибка импорта"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка импорта"),
   });
+
 
   function handleFile(file: File) {
     setFileName(file.name);
     setPreview(null);
     const reader = new FileReader();
     reader.onload = () => {
-      const text = String(reader.result ?? "");
+      const text = s(reader.result);
       if (file.name.toLowerCase().endsWith(".json")) {
         try {
-          const parsed = JSON.parse(text);
-          const arr = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.materials) ? parsed.materials : [];
-          setRows(arr as Row[]);
+          const parsed: unknown = JSON.parse(text);
+          const arr = Array.isArray(parsed)
+            ? parsed
+            : Array.isArray((parsed as { materials?: unknown })?.materials)
+              ? ((parsed as { materials: unknown[] }).materials)
+              : [];
+          setRows(arr.map((r) => {
+            const obj: Row = {};
+            for (const [k, v] of Object.entries((r ?? {}) as Record<string, unknown>)) obj[k] = s(v);
+            return obj;
+          }));
           setFormat("json");
-        } catch (e: any) {
-          toast.error("Неверный JSON: " + (e?.message ?? ""));
+        } catch (e: unknown) {
+          toast.error("Неверный JSON: " + (e instanceof Error ? e.message : ""));
         }
       } else {
-        const result = Papa.parse<Row>(text, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
-        if (result.errors.length) toast.error(`CSV: ${result.errors[0]!.message}`);
-        setRows(result.data.filter((r) => Object.values(r).some((v) => v !== "" && v != null)));
+        const result = Papa.parse<Record<string, unknown>>(text, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (h) => s(h).trim(),
+        });
+        const parseErrors = Array.isArray(result.errors) ? result.errors : [];
+        if (parseErrors.length > 0) toast.error(`CSV: ${s(parseErrors[0]?.message) || "ошибка разбора"}`);
+        const data = Array.isArray(result.data) ? result.data : [];
+        const normalized = data.map((r) => {
+          const obj: Row = {};
+          for (const [k, v] of Object.entries((r ?? {}) as Record<string, unknown>)) obj[s(k).trim()] = s(v);
+          return obj;
+        });
+        setRows(normalized.filter((r) => Object.values(r).some((v) => s(v).trim() !== "")));
         setFormat("csv");
       }
     };
+
     reader.readAsText(file);
   }
 
@@ -113,11 +164,11 @@ function ImportPage() {
                     <TableBody>
                       {rows.slice(0, 10).map((r, i) => (
                         <TableRow key={i}>
-                          <TableCell>{r.subject_title}</TableCell>
-                          <TableCell>{r.topic_title}{r.subtopic_title ? ` / ${r.subtopic_title}` : ""}</TableCell>
-                          <TableCell>{r.material_type}</TableCell>
-                          <TableCell className="max-w-xs truncate">{r.title}</TableCell>
-                          <TableCell>{r.status ?? "draft"}</TableCell>
+                          <TableCell>{s(r.subject_title)}</TableCell>
+                          <TableCell>{s(r.topic_title)}{s(r.subtopic_title) ? ` / ${s(r.subtopic_title)}` : ""}</TableCell>
+                          <TableCell>{s(r.material_type)}</TableCell>
+                          <TableCell className="max-w-xs truncate">{s(r.title)}</TableCell>
+                          <TableCell>{s(r.status) || "draft"}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -136,22 +187,26 @@ function ImportPage() {
 
               {preview && (
                 <div className="rounded-md border p-4 text-sm space-y-1 bg-muted/50">
+                  <div>Всего строк: <strong>{preview.total}</strong></div>
                   <div>Будет создано: <strong>{preview.created}</strong></div>
                   <div>Будет обновлено: <strong>{preview.updated}</strong></div>
                   <div>Будет пропущено: <strong>{preview.skipped}</strong></div>
-                  <div>Ошибки: <strong>{preview.errors.length}</strong></div>
-                  {preview.errors.length > 0 && (
-                    <details className="mt-2">
+                  <div>Ошибки: <strong>{(preview.errors ?? []).length}</strong></div>
+                  {(preview.errors ?? []).length > 0 && (
+                    <details className="mt-2" open>
                       <summary className="cursor-pointer">Показать ошибки</summary>
                       <ul className="mt-2 space-y-1">
-                        {preview.errors.slice(0, 20).map((e) => (
-                          <li key={e.row} className="text-destructive">Строка {e.row}: {e.message}</li>
+                        {(preview.errors ?? []).slice(0, 50).map((e, i) => (
+                          <li key={`${e.row}-${i}`} className="text-destructive">
+                            Строка {e.row}: {s(e.message)}
+                          </li>
                         ))}
                       </ul>
                     </details>
                   )}
                 </div>
               )}
+
             </>
           )}
         </CardContent>
@@ -178,18 +233,24 @@ function ImportPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(logsQ.data?.logs ?? []).map((log: any) => (
-                    <TableRow key={log.id}>
-                      <TableCell>{new Date(log.created_at).toLocaleString("ru-RU")}</TableCell>
-                      <TableCell>{log.file_name ?? "—"}</TableCell>
-                      <TableCell>{log.status}</TableCell>
-                      <TableCell>{log.total_rows}</TableCell>
-                      <TableCell>{log.created_count}</TableCell>
-                      <TableCell>{log.updated_count}</TableCell>
-                      <TableCell>{log.skipped_count}</TableCell>
-                      <TableCell>{log.error_count}</TableCell>
-                    </TableRow>
-                  ))}
+                  {(Array.isArray(logsQ.data?.logs) ? logsQ.data.logs : []).map((raw: unknown, i: number) => {
+                    const log = (raw ?? {}) as Record<string, unknown>;
+                    const created = s(log.created_at);
+                    const date = created ? new Date(created) : null;
+                    return (
+                      <TableRow key={s(log.id) || i}>
+                        <TableCell>{date && !Number.isNaN(date.getTime()) ? date.toLocaleString("ru-RU") : "—"}</TableCell>
+                        <TableCell>{s(log.file_name) || "—"}</TableCell>
+                        <TableCell>{s(log.status)}</TableCell>
+                        <TableCell>{n(log.total_rows)}</TableCell>
+                        <TableCell>{n(log.created_count)}</TableCell>
+                        <TableCell>{n(log.updated_count)}</TableCell>
+                        <TableCell>{n(log.skipped_count)}</TableCell>
+                        <TableCell>{n(log.error_count)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+
                 </TableBody>
               </Table>
             </div>

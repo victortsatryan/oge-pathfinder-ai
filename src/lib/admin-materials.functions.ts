@@ -2,53 +2,23 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  MATERIAL_TYPES,
+  STATUSES,
+  formatRowIssues,
+  normalizeRow,
+  str,
+  type NormalizedRow,
+} from "@/lib/admin-import-normalize";
 
-const MATERIAL_TYPES = [
-  "theory",
-  "textbook_paragraph",
-  "video",
-  "article",
-  "scheme",
-  "infographic",
-  "exercise_set",
-  "task",
-  "test",
-  "task_solution",
-  "reference",
-  "scientific_material",
-] as const;
-
-const STATUSES = ["draft", "reviewed", "published", "archived"] as const;
-
-const rowSchema = z.object({
-  subject_title: z.string().trim().min(1),
-  grade: z.string().trim().optional().default(""),
-  program_title: z.string().trim().optional().default(""),
-  topic_title: z.string().trim().optional().default(""),
-  subtopic_title: z.string().trim().optional().default(""),
-  learning_objective_title: z.string().trim().optional().default(""),
-  material_type: z.enum(MATERIAL_TYPES),
-  title: z.string().trim().min(1).max(500),
-  description: z.string().optional().default(""),
-  source_name: z.string().optional().default(""),
-  source_url: z.string().optional().default(""),
-  content_text: z.string().optional().default(""),
-  video_url: z.string().optional().default(""),
-  file_url: z.string().optional().default(""),
-  image_url: z.string().optional().default(""),
-  difficulty: z.coerce.number().int().min(1).max(5).optional().default(1),
-  estimated_time_minutes: z.coerce.number().int().min(0).max(600).optional().nullable(),
-  license_note: z.string().optional().default(""),
-  status: z.enum(STATUSES).optional().default("draft"),
-});
-
-export type ImportRow = z.infer<typeof rowSchema>;
+export type ImportRow = NormalizedRow;
 
 const rowsSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).max(2000),
   fileName: z.string().optional(),
   format: z.enum(["csv", "json"]).optional(),
 });
+
 
 async function requireAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
@@ -151,7 +121,13 @@ async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: 
 
   for (let i = 0; i < rawRows.length; i++) {
     try {
-      const row = rowSchema.parse(rawRows[i]);
+      const normalized = normalizeRow(rawRows[i]);
+      if (!normalized.ok) {
+        outcome.errors.push({ row: i + 1, message: `Строка ${i + 1}: ${formatRowIssues(normalized.issues)}` });
+        continue;
+      }
+      const row = normalized.row;
+
       const subjectId = await upsertSubject(sb, row.subject_title);
       const programId = await upsertProgram(sb, subjectId, row.program_title, row.grade);
       const topicId = await upsertTopic(sb, subjectId, row.topic_title, null, 1);
@@ -220,9 +196,11 @@ async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: 
         }
         outcome.created++;
       }
-    } catch (e: any) {
-      outcome.errors.push({ row: i + 1, message: e?.message ?? String(e) });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : str(e) || "неизвестная ошибка";
+      outcome.errors.push({ row: i + 1, message: `Строка ${i + 1}: ${message}` });
     }
+
   }
   return outcome;
 }
@@ -245,9 +223,10 @@ export const previewImport = createServerFn({ method: "POST" })
     const outcome = await processRows(context.supabase, context.userId, data.rows, true);
     const sample = data.rows.slice(0, 10).map((r) => {
       const obj: Record<string, string> = {};
-      for (const [k, v] of Object.entries(r)) obj[k] = v == null ? "" : String(v);
+      for (const [k, v] of Object.entries(r ?? {})) obj[k] = str(v);
       return obj;
     });
+
     return { ...outcome, sample };
   });
 
@@ -317,7 +296,28 @@ export const listImportLogs = createServerFn({ method: "GET" })
     return { logs: data ?? [] };
   });
 
-const manualSchema = rowSchema;
+const manualSchema = z.object({
+  subject_title: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(500),
+  material_type: z.enum(MATERIAL_TYPES),
+  status: z.enum(STATUSES).optional(),
+  grade: z.string().optional(),
+  program_title: z.string().optional(),
+  topic_title: z.string().optional(),
+  subtopic_title: z.string().optional(),
+  learning_objective_title: z.string().optional(),
+  description: z.string().optional(),
+  source_name: z.string().optional(),
+  source_url: z.string().optional(),
+  content_text: z.string().optional(),
+  video_url: z.string().optional(),
+  file_url: z.string().optional(),
+  image_url: z.string().optional(),
+  difficulty: z.union([z.string(), z.number()]).optional(),
+  license_note: z.string().optional(),
+  estimated_time_minutes: z.union([z.string(), z.number()]).optional().nullable(),
+});
+
 
 export const createMaterialManual = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
