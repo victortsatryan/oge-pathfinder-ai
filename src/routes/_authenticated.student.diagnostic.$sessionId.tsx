@@ -157,36 +157,54 @@ function DiagnosticSessionPage() {
               {tasks.map((t: any, idx: number) => {
                 const opts: any[] = Array.isArray(t.options) ? t.options : [];
                 const current = answers[t.id] ?? "";
+                const num = t.exam_task_number ?? idx + 1;
                 return (
                   <div key={t.id} className="pf-block">
                     <p className="pf-eyebrow mb-2">
-                      задание {idx + 1}
+                      задание {num}
                       {t.topic?.title ? ` · ${t.topic.title}` : ""}
                     </p>
-                    <p className="text-[15px] font-medium mb-4">{t.prompt}</p>
-                    <RadioGroup
-                      value={current}
-                      onValueChange={(v) =>
-                        setAnswers((prev) => ({ ...prev, [t.id]: v }))
-                      }
-                    >
-                      <div className="grid gap-2">
-                        {opts.map((opt, i) => {
-                          const val = typeof opt === "string" ? opt : String(opt?.value ?? opt);
-                          const id = `${t.id}-${i}`;
-                          return (
-                            <Label
-                              key={id}
-                              htmlFor={id}
-                              className="flex items-center gap-3 py-1 cursor-pointer font-normal"
-                            >
-                              <RadioGroupItem id={id} value={val} />
-                              <span>{val}</span>
-                            </Label>
-                          );
-                        })}
+                    <p className="text-[15px] whitespace-pre-line mb-4">{t.prompt}</p>
+                    {opts.length > 0 ? (
+                      <RadioGroup
+                        value={current}
+                        onValueChange={(v) =>
+                          setAnswers((prev) => ({ ...prev, [t.id]: v }))
+                        }
+                      >
+                        <div className="grid gap-2">
+                          {opts.map((opt, i) => {
+                            const val = typeof opt === "string" ? opt : String(opt?.value ?? opt);
+                            const id = `${t.id}-${i}`;
+                            return (
+                              <Label
+                                key={id}
+                                htmlFor={id}
+                                className="flex items-center gap-3 py-1 cursor-pointer font-normal"
+                              >
+                                <RadioGroupItem id={id} value={val} />
+                                <span>{val}</span>
+                              </Label>
+                            );
+                          })}
+                        </div>
+                      </RadioGroup>
+                    ) : (
+                      <div className="max-w-sm">
+                        <Label htmlFor={`ans-${t.id}`} className="pf-eyebrow mb-2 block">
+                          ваш ответ
+                        </Label>
+                        <Input
+                          id={`ans-${t.id}`}
+                          value={current}
+                          autoComplete="off"
+                          placeholder="например: 13"
+                          onChange={(e) =>
+                            setAnswers((prev) => ({ ...prev, [t.id]: e.target.value }))
+                          }
+                        />
                       </div>
-                    </RadioGroup>
+                    )}
                   </div>
                 );
               })}
