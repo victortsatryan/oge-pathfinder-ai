@@ -25,8 +25,17 @@ function AdminLayout() {
   const check = useServerFn(amIAdmin);
   const { data, isLoading } = useQuery({
     queryKey: ["am-i-admin"],
-    queryFn: () => check(),
+    retry: false,
+    queryFn: async () => {
+      try {
+        return await check();
+      } catch {
+        // 401/403 (нет сессии или нет прав) — не роняем страницу
+        return { isAdmin: false } as { isAdmin: boolean };
+      }
+    },
   });
+
   const { user } = useAuth();
   const devOpen = isDevOpenAccess();
   const mode = getAccessMode();
