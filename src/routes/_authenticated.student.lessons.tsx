@@ -21,7 +21,10 @@ function LessonsList() {
   const q = useQuery(listQuery<CalendarEvent>(["student-lessons"], () => learningPathRepo.calendarEvents()));
 
   const events = q.data;
-  const lessons = events.filter((e) => e.event_type === "lesson" && e.lesson_id);
+  const lessons = events.flatMap((e) =>
+    e.event_type === "lesson" && e.lesson_id ? [{ ...e, lesson_id: e.lesson_id }] : [],
+  );
+
 
   return (
     <>
