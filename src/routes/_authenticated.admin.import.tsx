@@ -155,11 +155,11 @@ function ImportPage() {
                     <TableBody>
                       {rows.slice(0, 10).map((r, i) => (
                         <TableRow key={i}>
-                          <TableCell>{r.subject_title}</TableCell>
-                          <TableCell>{r.topic_title}{r.subtopic_title ? ` / ${r.subtopic_title}` : ""}</TableCell>
-                          <TableCell>{r.material_type}</TableCell>
-                          <TableCell className="max-w-xs truncate">{r.title}</TableCell>
-                          <TableCell>{r.status ?? "draft"}</TableCell>
+                          <TableCell>{s(r.subject_title)}</TableCell>
+                          <TableCell>{s(r.topic_title)}{s(r.subtopic_title) ? ` / ${s(r.subtopic_title)}` : ""}</TableCell>
+                          <TableCell>{s(r.material_type)}</TableCell>
+                          <TableCell className="max-w-xs truncate">{s(r.title)}</TableCell>
+                          <TableCell>{s(r.status) || "draft"}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -178,22 +178,26 @@ function ImportPage() {
 
               {preview && (
                 <div className="rounded-md border p-4 text-sm space-y-1 bg-muted/50">
+                  <div>Всего строк: <strong>{preview.total}</strong></div>
                   <div>Будет создано: <strong>{preview.created}</strong></div>
                   <div>Будет обновлено: <strong>{preview.updated}</strong></div>
                   <div>Будет пропущено: <strong>{preview.skipped}</strong></div>
-                  <div>Ошибки: <strong>{preview.errors.length}</strong></div>
-                  {preview.errors.length > 0 && (
-                    <details className="mt-2">
+                  <div>Ошибки: <strong>{(preview.errors ?? []).length}</strong></div>
+                  {(preview.errors ?? []).length > 0 && (
+                    <details className="mt-2" open>
                       <summary className="cursor-pointer">Показать ошибки</summary>
                       <ul className="mt-2 space-y-1">
-                        {preview.errors.slice(0, 20).map((e) => (
-                          <li key={e.row} className="text-destructive">Строка {e.row}: {e.message}</li>
+                        {(preview.errors ?? []).slice(0, 50).map((e, i) => (
+                          <li key={`${e.row}-${i}`} className="text-destructive">
+                            Строка {e.row}: {s(e.message)}
+                          </li>
                         ))}
                       </ul>
                     </details>
                   )}
                 </div>
               )}
+
             </>
           )}
         </CardContent>
