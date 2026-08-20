@@ -210,6 +210,8 @@ export const listSubjects = createServerFn({ method: "GET" })
       .select(
         "id, slug, name, description, category, exam_type, is_school_subject, subject_type, language",
       )
+      // Pre-release: only the shipped program is selectable.
+      .in("id", RELEASE_SUBJECT_IDS)
       .order("sort_order");
     if (error) throw error;
     return data ?? [];
@@ -230,6 +232,7 @@ export const listSubjectPrograms = createServerFn({ method: "POST" })
         "id, slug, title, description, program_type, exam_type, grade, language, is_public",
       )
       .eq("subject_id", data.subject_id)
+      .in("id", RELEASE_PROGRAM_IDS)
       .order("sort_order");
     if (error) throw error;
     return rows ?? [];
