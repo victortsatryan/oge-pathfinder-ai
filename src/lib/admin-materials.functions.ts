@@ -223,9 +223,10 @@ export const previewImport = createServerFn({ method: "POST" })
     const outcome = await processRows(context.supabase, context.userId, data.rows, true);
     const sample = data.rows.slice(0, 10).map((r) => {
       const obj: Record<string, string> = {};
-      for (const [k, v] of Object.entries(r)) obj[k] = v == null ? "" : String(v);
+      for (const [k, v] of Object.entries(r ?? {})) obj[k] = str(v);
       return obj;
     });
+
     return { ...outcome, sample };
   });
 
