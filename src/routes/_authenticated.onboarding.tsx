@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { setMyRole, getMyAccess } from "@/lib/role.functions";
 import { destinationForAccess } from "@/lib/post-login-route";
 import { PathyLogo } from "@/components/oge/logo";
+import { RELEASE_GRADE, RELEASE_PROGRAM_ID, RELEASE_SUBJECT_ID } from "@/lib/release-scope";
 import {
   listSubjects,
   completeStudentOnboarding,
