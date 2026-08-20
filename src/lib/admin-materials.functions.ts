@@ -10,6 +10,11 @@ import {
   str,
   type NormalizedRow,
 } from "@/lib/admin-import-normalize";
+import {
+  isDiagnosticRow,
+  normalizeDiagnosticRow,
+  type DiagnosticRow,
+} from "@/lib/admin-import-diagnostic";
 
 export type ImportRow = NormalizedRow;
 
