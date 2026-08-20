@@ -16,7 +16,27 @@ export const Route = createFileRoute("/_authenticated/admin/import")({
 });
 
 type Row = Record<string, string>;
-type Preview = { total: number; created: number; updated: number; skipped: number; errors: { row: number; message: string }[]; sample: Row[] };
+type PreviewError = { row: number; message: string };
+type Preview = { total: number; created: number; updated: number; skipped: number; errors: PreviewError[]; sample: Row[] };
+
+const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(s(v)) || 0);
+
+function normalizePreview(res: unknown): Preview {
+  const r = (res ?? {}) as Record<string, unknown>;
+  const rawErrors = Array.isArray(r.errors) ? r.errors : [];
+  return {
+    total: n(r.total),
+    created: n(r.created),
+    updated: n(r.updated),
+    skipped: n(r.skipped),
+    sample: Array.isArray(r.sample) ? (r.sample as Row[]) : [],
+    errors: rawErrors.map((e, i) => {
+      const obj = (e ?? {}) as Record<string, unknown>;
+      return { row: n(obj.row) || i + 1, message: s(obj.message) || "Неизвестная ошибка" };
+    }),
+  };
+}
 
 const EXPECTED_HEADERS = [
   "subject_title", "grade", "program_title", "topic_title", "subtopic_title",
@@ -40,21 +60,23 @@ function ImportPage() {
 
   const previewMut = useMutation({
     mutationFn: () => previewFn({ data: { rows, fileName, format } }),
-    onSuccess: (res) => setPreview(res as Preview),
-    onError: (e: any) => toast.error(e?.message ?? "Ошибка предпросмотра"),
+    onSuccess: (res) => setPreview(normalizePreview(res)),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка предпросмотра"),
   });
 
   const importMut = useMutation({
     mutationFn: () => importFn({ data: { rows, fileName, format } }),
-    onSuccess: (res) => {
+    onSuccess: (raw) => {
+      const res = normalizePreview(raw);
       toast.success(`Импорт завершён: создано ${res.created}, обновлено ${res.updated}, пропущено ${res.skipped}, ошибок ${res.errors.length}`);
       qc.invalidateQueries({ queryKey: ["import-logs"] });
       setPreview(null);
       setRows([]);
       setFileName("");
     },
-    onError: (e: any) => toast.error(e?.message ?? "Ошибка импорта"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка импорта"),
   });
+
 
   function handleFile(file: File) {
     setFileName(file.name);
