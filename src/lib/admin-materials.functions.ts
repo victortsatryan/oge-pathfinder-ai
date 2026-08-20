@@ -293,7 +293,28 @@ export const listImportLogs = createServerFn({ method: "GET" })
     return { logs: data ?? [] };
   });
 
-const manualSchema = rowSchema;
+const manualSchema = z.object({
+  subject_title: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(500),
+  material_type: z.enum(MATERIAL_TYPES),
+  status: z.enum(STATUSES).optional(),
+  grade: z.string().optional(),
+  program_title: z.string().optional(),
+  topic_title: z.string().optional(),
+  subtopic_title: z.string().optional(),
+  learning_objective_title: z.string().optional(),
+  description: z.string().optional(),
+  source_name: z.string().optional(),
+  source_url: z.string().optional(),
+  content_text: z.string().optional(),
+  video_url: z.string().optional(),
+  file_url: z.string().optional(),
+  image_url: z.string().optional(),
+  difficulty: z.union([z.string(), z.number()]).optional(),
+  license_note: z.string().optional(),
+  estimated_time_minutes: z.union([z.string(), z.number()]).optional().nullable(),
+});
+
 
 export const createMaterialManual = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
