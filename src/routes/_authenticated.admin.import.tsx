@@ -56,7 +56,20 @@ function ImportPage() {
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [preview, setPreview] = useState<Preview | null>(null);
 
-  const logsQ = useQuery({ queryKey: ["import-logs"], queryFn: () => listLogs() });
+  const logsQ = useQuery({
+    queryKey: ["import-logs"],
+    retry: false,
+    queryFn: async () => {
+      try {
+        const res: unknown = await listLogs();
+        return Array.isArray(res) ? res : [];
+      } catch {
+        // нет сессии/прав — показываем пустой журнал вместо падения
+        return [];
+      }
+    },
+  });
+
 
   const previewMut = useMutation({
     mutationFn: async () => {
