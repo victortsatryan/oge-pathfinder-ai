@@ -217,6 +217,24 @@ function ImportPage() {
     reader.readAsText(file);
   }
 
+  const invalidRows = (preview?.errors ?? []).length;
+  const validRows = preview ? Math.max(preview.total - invalidRows, 0) : 0;
+  const validationPassed = Boolean(preview) && invalidRows === 0;
+  const isAdmin = Boolean(adminQ.data?.isAdmin);
+  const canImport = validationPassed && Boolean(user) && isAdmin;
+
+  const blockReason = !preview
+    ? "Сначала нажмите «Проверить»."
+    : !validationPassed
+      ? `Файл содержит ошибки: ${invalidRows}. Исправьте их и проверьте снова.`
+      : !user
+        ? "Войдите в аккаунт администратора."
+        : adminQ.isLoading
+          ? "Проверяем роль аккаунта…"
+          : !isAdmin
+            ? "У этого аккаунта нет роли admin."
+            : null;
+
   return (
     <div className="space-y-6">
       <Card>
