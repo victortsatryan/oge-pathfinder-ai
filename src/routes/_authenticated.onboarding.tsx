@@ -760,28 +760,21 @@ function StepSummary({ answers }: { answers: Answers }) {
     },
   });
 
-  // Resolve subject names — from DB when uuid, from fallback slug otherwise.
+  // Resolve subject names strictly from DB rows the user actually selected.
   const { subjectNames, dbSubjectIds } = useMemo(() => {
     const all = Array.isArray(subjectsQ.data) ? (subjectsQ.data as any[]) : [];
     const selected = Array.isArray(answers.subjects) ? answers.subjects : [];
-    const fallback = answers.grade ? FALLBACK_SUBJECTS[answers.grade] ?? [] : [];
     const names: string[] = [];
     const dbIds: string[] = [];
     for (const id of selected) {
-      if (id.startsWith("slug:")) {
-        const slug = id.slice(5);
-        const f = fallback.find((x) => x.slug === slug);
-        if (f) names.push(f.name);
-      } else {
-        const s = all.find((x) => x.id === id);
-        if (s) {
-          names.push(s.name);
-          dbIds.push(s.id);
-        }
+      const s = all.find((x) => x.id === id);
+      if (s) {
+        names.push(s.name);
+        dbIds.push(s.id);
       }
     }
     return { subjectNames: names, dbSubjectIds: dbIds };
-  }, [subjectsQ.data, answers.subjects, answers.grade]);
+  }, [subjectsQ.data, answers.subjects]);
 
   const summaryParagraphs = useMemo(
     () => buildSummary(answers, subjectNames),
