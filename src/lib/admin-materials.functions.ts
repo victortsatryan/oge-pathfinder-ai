@@ -334,6 +334,27 @@ async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: 
     }
 
   }
+
+  // A diagnostic file is authoritative: drop links to tasks it no longer contains,
+  // so the test always holds exactly the imported set.
+  for (const [testId, taskIds] of diagnosticTouched) {
+    const keep = Array.from(taskIds);
+    const { data: links } = await sb
+      .from("diagnostic_test_tasks")
+      .select("task_id")
+      .eq("diagnostic_test_id", testId);
+    const stale = ((links ?? []) as { task_id: string }[])
+      .map((l) => l.task_id)
+      .filter((id) => !keep.includes(id));
+    if (stale.length > 0) {
+      await sb
+        .from("diagnostic_test_tasks")
+        .delete()
+        .eq("diagnostic_test_id", testId)
+        .in("task_id", stale);
+    }
+  }
+
   return outcome;
 }
 
