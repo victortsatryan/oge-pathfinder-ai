@@ -544,33 +544,16 @@ function StepSubjects({ answers, setAnswers, onNext, canNext }: StepProps) {
     },
   });
 
-  // Match DB subjects to grade via exam_type (OGE/EGE); fallback to grade list.
+  // Only real, released subjects from the DB — no local fallback lists,
+  // otherwise a chosen subject could resolve to a different program.
   const items = useMemo(() => {
     const all = Array.isArray(subjectsQ.data) ? (subjectsQ.data as any[]) : [];
-    const grade = answers.grade;
-    const examWanted = grade === "9" ? "OGE" : grade === "11" ? "EGE" : null;
-
-    let matched: { id: string; name: string; sub?: string }[] = [];
-    if (examWanted) {
-      matched = all
-        .filter((s) => (s?.exam_type ?? "").toString().toUpperCase() === examWanted)
-        .map((s) => ({ id: s.id, name: s.name, sub: s.description ?? undefined }));
-    }
-
-    if (matched.length === 0 && grade && FALLBACK_SUBJECTS[grade]) {
-      // Try to map fallback slugs to real DB subjects; if not found, use slug token.
-      matched = FALLBACK_SUBJECTS[grade].map((f) => {
-        const dbMatch = all.find(
-          (s) => (s?.slug ?? "") === f.slug || (s?.name ?? "") === f.name,
-        );
-        return dbMatch
-          ? { id: dbMatch.id, name: dbMatch.name }
-          : { id: `slug:${f.slug}`, name: f.name };
-      });
-    }
-
-    return matched;
-  }, [subjectsQ.data, answers.grade]);
+    return all.map((s) => ({
+      id: s.id as string,
+      name: s.name as string,
+      sub: (s.description as string | null) ?? undefined,
+    }));
+  }, [subjectsQ.data]);
 
   const toggle = (id: string) => {
     const cur = Array.isArray(answers.subjects) ? answers.subjects : [];
