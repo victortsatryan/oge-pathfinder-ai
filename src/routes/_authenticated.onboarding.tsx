@@ -787,7 +787,9 @@ function StepSummary({ answers }: { answers: Answers }) {
         data: {
           subjects: dbSubjectIds.map((subject_id) => ({
             subject_id,
-            program_id: null,
+            // Released program is bound explicitly so progress/library/route
+            // all resolve to the same program the student picked.
+            program_id: subject_id === RELEASE_SUBJECT_ID ? RELEASE_PROGRAM_ID : null,
           })),
           education_system: answers.educationSystem,
           grade: answers.grade,
