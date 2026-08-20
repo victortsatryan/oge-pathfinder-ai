@@ -459,15 +459,51 @@ export const getDiagnosticResults = createServerFn({ method: "POST" })
       .eq("diagnostic_session_id", data.session_id)
       .order("score_percent");
 
-    const { data: mistakes } = await sb
+    const { data: answers } = await sb
       .from("diagnostic_answers")
-      .select("mistake_type, task:tasks(prompt, topic:topics(title))")
-      .eq("diagnostic_session_id", data.session_id)
-      .eq("is_correct", false);
+      .select(
+        "task_id, student_answer, is_correct, mistake_type, points_awarded, max_points, task:tasks(prompt, exam_task_number, correct_answer, topic:topics(id, title))",
+      )
+      .eq("diagnostic_session_id", data.session_id);
 
+    const taskResults = ((answers ?? []) as any[])
+      .map((a) => ({
+        task_id: a.task_id as string,
+        exam_task_number: (a.task?.exam_task_number ?? null) as number | null,
+        prompt: (a.task?.prompt ?? "") as string,
+        topic_title: (a.task?.topic?.title ?? null) as string | null,
+        student_answer: (a.student_answer ?? null) as string | null,
+        correct_answer:
+          typeof a.task?.correct_answer === "string"
+            ? (a.task.correct_answer as string)
+            : a.task?.correct_answer != null
+              ? JSON.stringify(a.task.correct_answer)
+              : null,
+        is_correct: (a.is_correct ?? null) as boolean | null,
+      }))
+      .sort((x, y) => (x.exam_task_number ?? 999) - (y.exam_task_number ?? 999));
+
+    const strongNumbers = taskResults
+      .filter((t) => t.is_correct === true && t.exam_task_number != null)
+      .map((t) => t.exam_task_number as number);
+    const weakNumbers = taskResults
+      .filter((t) => t.is_correct !== true && t.exam_task_number != null)
+      .map((t) => t.exam_task_number as number);
+
+    const mistakes = ((answers ?? []) as any[]).filter((a) => a.is_correct === false);
     const weak = (topicResults ?? []).filter((r: any) => r.score_percent < 50);
 
-    return { session, topicResults: topicResults ?? [], mistakes: mistakes ?? [], weak };
+    return {
+      session,
+      topicResults: topicResults ?? [],
+      taskResults,
+      strongNumbers,
+      weakNumbers,
+      correctCount: taskResults.filter((t) => t.is_correct === true).length,
+      totalCount: taskResults.length,
+      mistakes,
+      weak,
+    };
   });
 
 export const listMyDiagnosticHistory = createServerFn({ method: "GET" })
