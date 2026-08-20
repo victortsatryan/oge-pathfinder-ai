@@ -265,16 +265,32 @@ function ImportPage() {
                 <Button onClick={() => previewMut.mutate()} disabled={previewMut.isPending} variant="outline">
                   Проверить
                 </Button>
-                <Button onClick={() => importMut.mutate()} disabled={importMut.isPending || !preview || !user}>
+                <Button onClick={() => importMut.mutate()} disabled={importMut.isPending || !canImport}>
                   Импортировать материалы
                 </Button>
               </div>
+
+              {blockReason ? (
+                <p className="text-sm text-destructive">{blockReason}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Проверка пройдена — импорт доступен.</p>
+              )}
 
               {!user && devOpen ? (
                 <p className="text-sm text-muted-foreground">
                   В режиме предпросмотра «Проверить» выполняет безопасную локальную валидацию. Для импорта и проверки дубликатов войдите как администратор.
                 </p>
               ) : null}
+
+              <div className="rounded-md border p-3 text-xs font-mono space-y-0.5 text-muted-foreground">
+                <div>session exists: {String(Boolean(user))}</div>
+                <div>user id: {user?.id ?? "—"}</div>
+                <div>role: {!user ? "—" : adminQ.isLoading ? "загрузка…" : adminQ.data?.isAdmin ? "admin" : "не admin"}</div>
+                <div>validationPassed: {String(validationPassed)}</div>
+                <div>validRows: {preview ? validRows : "—"}</div>
+                <div>invalidRows: {preview ? invalidRows : "—"}</div>
+              </div>
+
 
               {preview && (
                 <div className="rounded-md border p-4 text-sm space-y-1 bg-muted/50">
