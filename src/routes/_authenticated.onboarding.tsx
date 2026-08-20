@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { setMyRole, getMyAccess } from "@/lib/role.functions";
 import { destinationForAccess } from "@/lib/post-login-route";
 import { PathyLogo } from "@/components/oge/logo";
+import { RELEASE_GRADE, RELEASE_PROGRAM_ID, RELEASE_SUBJECT_ID } from "@/lib/release-scope";
 import {
   listSubjects,
   completeStudentOnboarding,
@@ -36,43 +37,15 @@ const EDUCATION_SYSTEMS: {
 
 const RU_GRADES = Array.from({ length: 11 }, (_, i) => {
   const n = i + 1;
+  const enabled = String(n) === RELEASE_GRADE;
   return {
     id: String(n),
     label: `${n} класс`,
-    disabled: n !== 9 && n !== 11,
-    hint: n !== 9 && n !== 11 ? "скоро появится" : undefined,
+    disabled: !enabled,
+    hint: enabled ? undefined : "скоро появится",
   };
 });
 
-// Fallback subject lists by grade (used when DB doesn't return matching subjects).
-const FALLBACK_SUBJECTS: Record<string, { slug: string; name: string }[]> = {
-  "9": [
-    { slug: "russian", name: "Русский язык" },
-    { slug: "mathematics", name: "Математика" },
-    { slug: "english", name: "Английский язык" },
-    { slug: "biology", name: "Биология" },
-    { slug: "physics", name: "Физика" },
-    { slug: "chemistry", name: "Химия" },
-    { slug: "informatics", name: "Информатика" },
-    { slug: "history", name: "История" },
-    { slug: "social_studies", name: "Обществознание" },
-    { slug: "geography", name: "География" },
-    { slug: "literature", name: "Литература" },
-  ],
-  "11": [
-    { slug: "russian", name: "Русский язык" },
-    { slug: "mathematics", name: "Математика" },
-    { slug: "english", name: "Английский язык" },
-    { slug: "biology", name: "Биология" },
-    { slug: "physics", name: "Физика" },
-    { slug: "chemistry", name: "Химия" },
-    { slug: "informatics", name: "Информатика" },
-    { slug: "history", name: "История" },
-    { slug: "social_studies", name: "Обществознание" },
-    { slug: "geography", name: "География" },
-    { slug: "literature", name: "Литература" },
-  ],
-};
 
 const GOAL_OPTIONS_BASE = [
   { id: "school", label: "Подтянуть школьную программу" },
@@ -542,33 +515,16 @@ function StepSubjects({ answers, setAnswers, onNext, canNext }: StepProps) {
     },
   });
 
-  // Match DB subjects to grade via exam_type (OGE/EGE); fallback to grade list.
+  // Only real, released subjects from the DB — no local fallback lists,
+  // otherwise a chosen subject could resolve to a different program.
   const items = useMemo(() => {
     const all = Array.isArray(subjectsQ.data) ? (subjectsQ.data as any[]) : [];
-    const grade = answers.grade;
-    const examWanted = grade === "9" ? "OGE" : grade === "11" ? "EGE" : null;
-
-    let matched: { id: string; name: string; sub?: string }[] = [];
-    if (examWanted) {
-      matched = all
-        .filter((s) => (s?.exam_type ?? "").toString().toUpperCase() === examWanted)
-        .map((s) => ({ id: s.id, name: s.name, sub: s.description ?? undefined }));
-    }
-
-    if (matched.length === 0 && grade && FALLBACK_SUBJECTS[grade]) {
-      // Try to map fallback slugs to real DB subjects; if not found, use slug token.
-      matched = FALLBACK_SUBJECTS[grade].map((f) => {
-        const dbMatch = all.find(
-          (s) => (s?.slug ?? "") === f.slug || (s?.name ?? "") === f.name,
-        );
-        return dbMatch
-          ? { id: dbMatch.id, name: dbMatch.name }
-          : { id: `slug:${f.slug}`, name: f.name };
-      });
-    }
-
-    return matched;
-  }, [subjectsQ.data, answers.grade]);
+    return all.map((s) => ({
+      id: s.id as string,
+      name: s.name as string,
+      sub: (s.description as string | null) ?? undefined,
+    }));
+  }, [subjectsQ.data]);
 
   const toggle = (id: string) => {
     const cur = Array.isArray(answers.subjects) ? answers.subjects : [];
@@ -775,28 +731,21 @@ function StepSummary({ answers }: { answers: Answers }) {
     },
   });
 
-  // Resolve subject names — from DB when uuid, from fallback slug otherwise.
+  // Resolve subject names strictly from DB rows the user actually selected.
   const { subjectNames, dbSubjectIds } = useMemo(() => {
     const all = Array.isArray(subjectsQ.data) ? (subjectsQ.data as any[]) : [];
     const selected = Array.isArray(answers.subjects) ? answers.subjects : [];
-    const fallback = answers.grade ? FALLBACK_SUBJECTS[answers.grade] ?? [] : [];
     const names: string[] = [];
     const dbIds: string[] = [];
     for (const id of selected) {
-      if (id.startsWith("slug:")) {
-        const slug = id.slice(5);
-        const f = fallback.find((x) => x.slug === slug);
-        if (f) names.push(f.name);
-      } else {
-        const s = all.find((x) => x.id === id);
-        if (s) {
-          names.push(s.name);
-          dbIds.push(s.id);
-        }
+      const s = all.find((x) => x.id === id);
+      if (s) {
+        names.push(s.name);
+        dbIds.push(s.id);
       }
     }
     return { subjectNames: names, dbSubjectIds: dbIds };
-  }, [subjectsQ.data, answers.subjects, answers.grade]);
+  }, [subjectsQ.data, answers.subjects]);
 
   const summaryParagraphs = useMemo(
     () => buildSummary(answers, subjectNames),
@@ -838,7 +787,9 @@ function StepSummary({ answers }: { answers: Answers }) {
         data: {
           subjects: dbSubjectIds.map((subject_id) => ({
             subject_id,
-            program_id: null,
+            // Released program is bound explicitly so progress/library/route
+            // all resolve to the same program the student picked.
+            program_id: subject_id === RELEASE_SUBJECT_ID ? RELEASE_PROGRAM_ID : null,
           })),
           education_system: answers.educationSystem,
           grade: answers.grade,

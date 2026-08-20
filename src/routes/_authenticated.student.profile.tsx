@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useAuth } from "@/hooks/use-auth";
 import { addStudentSubject } from "@/lib/student-profile.functions";
 import { EMPTY_PROFILE_ANALYTICS, type Subject, type SubjectProgram } from "@/lib/models/schemas";
 import { itemQuery, listQuery } from "@/lib/query/defaults";
@@ -103,6 +104,10 @@ function StudentProfilePage() {
 
   const p = profile.data;
   const displayName = p?.display_name || "Ученик";
+  const { user } = useAuth();
+  const primary = mySubjects.data[0] ?? null;
+  const primaryProgram = primary?.program?.title ?? primary?.subject?.name ?? null;
+  const primaryExam = primary?.program?.exam_type ?? primary?.subject?.exam_type ?? null;
 
   return (
     <main className="min-h-screen" style={{ background: "var(--pf-paper)" }}>
@@ -139,6 +144,32 @@ function StudentProfilePage() {
               "Учебный профиль — карта территории. Здесь живут цели, выбранные предметы, прогресс по темам и слабые места."}
           </p>
         </header>
+
+        {/* Паспорт ученика */}
+        <section className="mb-16">
+          <SectionEyebrow section="паспорт" sub="данные профиля" />
+          <dl className="mt-6 border-t border-[color:var(--pf-line-strong)]">
+            <Field label="почта" value={user?.email ?? "—"} />
+            <Field label="класс" value={p?.grade ? `${p.grade} класс` : "—"} />
+            <Field
+              label="система"
+              value={p?.education_system === "ru_school" ? "Российская школа" : p?.education_system ?? "—"}
+            />
+            <Field label="экзамен" value={p?.target_exam ?? primaryExam ?? "—"} />
+            <Field label="программа" value={primaryProgram ?? "—"} />
+            <Field label="цель" value={p?.learning_goal ?? "—"} />
+            <Field label="целевой балл" value={p?.target_score ?? "—"} />
+            <Field
+              label="дата цели"
+              value={
+                p?.target_date
+                  ? new Date(p.target_date).toLocaleDateString("ru-RU")
+                  : "—"
+              }
+            />
+            <Field label="время в неделю" value={p?.available_time ?? "—"} />
+          </dl>
+        </section>
 
         {/* Сводка */}
         <section className="mb-16">
@@ -354,6 +385,15 @@ function StudentProfilePage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[180px,1fr] gap-6 py-3 border-b border-[color:var(--pf-line)]">
+      <dt className="pf-eyebrow">{label}</dt>
+      <dd className="text-[14px]">{value}</dd>
+    </div>
   );
 }
 

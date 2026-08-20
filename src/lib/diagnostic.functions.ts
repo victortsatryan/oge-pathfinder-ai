@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { RELEASE_SUBJECT_IDS } from "@/lib/release-scope";
 
 // ---------------- Helpers ----------------
 
@@ -81,6 +82,8 @@ export const listAvailableDiagnostics = createServerFn({ method: "POST" })
         "id, title, description, diagnostic_type, duration_minutes, subject:subjects(id, slug, name, exam_type), program:subject_programs(id, title, exam_type, grade)",
       )
       .eq("is_public", true)
+      // Pre-release: only diagnostics of the shipped program are visible.
+      .in("subject_id", RELEASE_SUBJECT_IDS)
       .order("created_at", { ascending: false });
     if (data.subject_id) q = q.eq("subject_id", data.subject_id);
     if (data.diagnostic_type) q = q.eq("diagnostic_type", data.diagnostic_type);

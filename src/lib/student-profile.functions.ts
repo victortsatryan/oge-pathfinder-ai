@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { RELEASE_PROGRAM_IDS, RELEASE_SUBJECT_IDS } from "@/lib/release-scope";
 
 // ---------- Complete onboarding (atomic) ----------
 
@@ -40,9 +41,17 @@ export const completeStudentOnboarding = createServerFn({ method: "POST" })
     // 1) Role: student
     const { error: roleErr } = await sb.rpc("assign_self_role", { _role: "student" });
     if (roleErr) throw roleErr;
+    // Mirror grade/program into `profiles` — several screens read it from there,
+    // and a stale/empty value used to make the UI fall back to demo data (9 класс).
+    const gradeNum = data.grade != null ? Number.parseInt(data.grade, 10) : NaN;
     await sb
       .from("profiles")
-      .update({ role: "student", onboarding_completed: true })
+      .update({
+        role: "student",
+        onboarding_completed: true,
+        ...(Number.isFinite(gradeNum) ? { grade: gradeNum } : {}),
+        ...(data.target_program ? { program: data.target_program } : {}),
+      })
       .eq("user_id", userId);
 
     // 2) Ensure student_profile + update target fields
@@ -210,6 +219,8 @@ export const listSubjects = createServerFn({ method: "GET" })
       .select(
         "id, slug, name, description, category, exam_type, is_school_subject, subject_type, language",
       )
+      // Pre-release: only the shipped program is selectable.
+      .in("id", RELEASE_SUBJECT_IDS)
       .order("sort_order");
     if (error) throw error;
     return data ?? [];
@@ -230,6 +241,7 @@ export const listSubjectPrograms = createServerFn({ method: "POST" })
         "id, slug, title, description, program_type, exam_type, grade, language, is_public",
       )
       .eq("subject_id", data.subject_id)
+      .in("id", RELEASE_PROGRAM_IDS)
       .order("sort_order");
     if (error) throw error;
     return rows ?? [];
