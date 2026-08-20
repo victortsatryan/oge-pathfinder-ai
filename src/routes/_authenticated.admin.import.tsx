@@ -6,6 +6,8 @@ import Papa from "papaparse";
 import { toast } from "sonner";
 
 import { listImportLogs, previewImport, runImport } from "@/lib/admin-materials.functions";
+import { formatRowIssues, normalizeRow } from "@/lib/admin-import-normalize";
+import { isDevOpenAccess } from "@/lib/admin-access";
 import { useAuth } from "@/hooks/use-auth";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,39 @@ function normalizePreview(res: unknown): Preview {
   };
 }
 
+function validateLocally(rows: Row[]): Preview {
+  const errors: PreviewError[] = [];
+  let validRows = 0;
+
+  rows.forEach((row, index) => {
+    const result = normalizeRow(row);
+    if (result.ok) {
+      validRows += 1;
+      return;
+    }
+    errors.push({ row: index + 1, message: formatRowIssues(result.issues) });
+  });
+
+  return {
+    total: rows.length,
+    created: validRows,
+    updated: 0,
+    skipped: 0,
+    errors,
+    sample: rows.slice(0, 10),
+  };
+}
+
+async function errorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error instanceof Response) {
+    const body = await error.text().catch(() => "");
+    if (error.status === 401) return "Сессия истекла. Войдите снова, чтобы выполнить серверную проверку.";
+    if (error.status === 403) return "Для этой операции нужны права администратора.";
+    return body || `${fallback} (${error.status})`;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
 const EXPECTED_HEADERS = [
   "subject_title", "grade", "program_title", "topic_title", "subtopic_title",
   "learning_objective_title", "material_type", "title", "description",
@@ -59,6 +94,7 @@ function ImportPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
 
   const { user } = useAuth();
+  const devOpen = isDevOpenAccess();
   const logsQ = useQuery({
     queryKey: ["import-logs"],
     retry: false,
@@ -80,21 +116,36 @@ function ImportPage() {
 
   const previewMut = useMutation({
     mutationFn: async () => {
-      const res: unknown = await previewFn({ data: { rows, fileName, format } });
-      const r = (res ?? {}) as Record<string, unknown>;
-      if (!Array.isArray(r.errors)) {
-        const msg = s((r.error as Record<string, unknown> | undefined)?.message ?? r.message);
-        throw new Error(msg || "Сервер вернул неожиданный ответ (проверьте права администратора)");
+      // Preview routes intentionally allow browsing without auth. In that mode,
+      // validate in the browser instead of calling a protected server function.
+      if (!user) return validateLocally(rows);
+
+      try {
+        const res: unknown = await previewFn({ data: { rows, fileName, format } });
+        const r = (res ?? {}) as Record<string, unknown>;
+        if (!Array.isArray(r.errors)) {
+          const msg = s((r.error as Record<string, unknown> | undefined)?.message ?? r.message);
+          throw new Error(msg || "Сервер вернул неожиданный ответ (проверьте права администратора)");
+        }
+        return normalizePreview(res);
+      } catch (error: unknown) {
+        throw new Error(await errorMessage(error, "Ошибка предпросмотра"));
       }
-      return res;
     },
-    onSuccess: (res) => setPreview(normalizePreview(res)),
+    onSuccess: (res) => setPreview(res),
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка предпросмотра"),
   });
 
 
   const importMut = useMutation({
-    mutationFn: () => importFn({ data: { rows, fileName, format } }),
+    mutationFn: async () => {
+      if (!user) throw new Error("Войдите как администратор, чтобы импортировать материалы.");
+      try {
+        return await importFn({ data: { rows, fileName, format } });
+      } catch (error: unknown) {
+        throw new Error(await errorMessage(error, "Ошибка импорта"));
+      }
+    },
     onSuccess: (raw) => {
       const res = normalizePreview(raw);
       toast.success(`Импорт завершён: создано ${res.created}, обновлено ${res.updated}, пропущено ${res.skipped}, ошибок ${res.errors.length}`);
@@ -200,10 +251,16 @@ function ImportPage() {
                 <Button onClick={() => previewMut.mutate()} disabled={previewMut.isPending} variant="outline">
                   Проверить
                 </Button>
-                <Button onClick={() => importMut.mutate()} disabled={importMut.isPending || !preview}>
+                <Button onClick={() => importMut.mutate()} disabled={importMut.isPending || !preview || !user}>
                   Импортировать материалы
                 </Button>
               </div>
+
+              {!user && devOpen ? (
+                <p className="text-sm text-muted-foreground">
+                  В режиме предпросмотра «Проверить» выполняет безопасную локальную валидацию. Для импорта и проверки дубликатов войдите как администратор.
+                </p>
+              ) : null}
 
               {preview && (
                 <div className="rounded-md border p-4 text-sm space-y-1 bg-muted/50">
