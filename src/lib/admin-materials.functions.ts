@@ -121,7 +121,13 @@ async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: 
 
   for (let i = 0; i < rawRows.length; i++) {
     try {
-      const row = rowSchema.parse(rawRows[i]);
+      const normalized = normalizeRow(rawRows[i]);
+      if (!normalized.ok) {
+        outcome.errors.push({ row: i + 1, message: `Строка ${i + 1}: ${formatRowIssues(normalized.issues)}` });
+        continue;
+      }
+      const row = normalized.row;
+
       const subjectId = await upsertSubject(sb, row.subject_title);
       const programId = await upsertProgram(sb, subjectId, row.program_title, row.grade);
       const topicId = await upsertTopic(sb, subjectId, row.topic_title, null, 1);
