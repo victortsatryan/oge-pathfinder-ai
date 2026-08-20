@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { supabase } from "@/integrations/supabase/client";
 import { getMyAccess } from "@/lib/role.functions";
+import { destinationForAccess } from "@/lib/post-login-route";
 
 type CallbackSearch = { redirect?: string };
 
@@ -55,7 +56,7 @@ function AuthCallback() {
         // Otherwise route by role.
         try {
           const access = await getMyAccess();
-          const dest = destinationFor(access.primaryRole, access.onboardingCompleted);
+          const dest = destinationForAccess(access);
           navigate({ to: dest, replace: true });
         } catch {
           // If role lookup fails, default to onboarding — user is signed in.
@@ -97,19 +98,6 @@ function AuthCallback() {
       </div>
     </main>
   );
-}
-
-function destinationFor(
-  primaryRole: "student" | "teacher" | "admin" | null,
-  onboardingCompleted: boolean,
-): string {
-  if (!primaryRole) return "/onboarding";
-  if (primaryRole === "admin") return "/admin";
-  if (primaryRole === "teacher") return "/teacher";
-  if (primaryRole === "student") {
-    return onboardingCompleted ? "/student" : "/onboarding";
-  }
-  return "/onboarding";
 }
 
 function explainError(msg: string): string {

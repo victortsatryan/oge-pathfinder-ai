@@ -1,12 +1,21 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { getMyAccess } from "@/lib/role.functions";
+import { destinationForAccess } from "@/lib/post-login-route";
+
 export const Route = createFileRoute("/_authenticated/")({
+  ssr: false,
   loader: async () => {
-    const role =
-      typeof window !== "undefined" ? window.localStorage.getItem("educaite-demo-role") : null;
-    if (role === "student") throw redirect({ to: "/student" });
-    if (role === "teacher") throw redirect({ to: "/teacher" });
-    throw redirect({ to: "/onboarding" });
+    // Routing is decided from DB state (roles + onboarding_completed), not local state.
+    let dest = "/onboarding";
+    try {
+      const access = await getMyAccess();
+      dest = destinationForAccess(access);
+    } catch {
+      dest = "/onboarding";
+    }
+    throw redirect({ to: dest as never });
   },
   component: () => null,
 });
+
