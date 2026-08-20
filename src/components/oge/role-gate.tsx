@@ -54,7 +54,7 @@ export function RoleGate({ required, children }: Props) {
     );
   }
 
-  const allowed = roles.includes(required);
+  const allowed = roles.includes(required) || roles.includes("admin");
   if (!allowed) {
     return (
       <ErrorScreen
