@@ -108,6 +108,45 @@ async function upsertObjective(sb: any, topicId: string, title: string) {
   return data.id as string;
 }
 
+async function upsertDiagnosticTest(
+  sb: any,
+  subjectId: string,
+  programId: string | null,
+  row: DiagnosticRow,
+  userId: string,
+) {
+  const { data: existing } = await sb
+    .from("diagnostic_tests")
+    .select("id")
+    .eq("subject_id", subjectId)
+    .eq("title", row.diagnostic_title)
+    .maybeSingle();
+  if (existing?.id) {
+    await sb
+      .from("diagnostic_tests")
+      .update({ is_public: true, program_id: programId, diagnostic_type: row.diagnostic_type })
+      .eq("id", existing.id);
+    return existing.id as string;
+  }
+  const { data, error } = await sb
+    .from("diagnostic_tests")
+    .insert({
+      subject_id: subjectId,
+      program_id: programId,
+      title: row.diagnostic_title,
+      diagnostic_type: row.diagnostic_type,
+      is_public: true,
+      pcs_key: slugify(row.diagnostic_title),
+      source_name: row.source_name || null,
+      source_url: row.source_url || null,
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(`diagnostic test insert failed: ${error.message}`);
+  return data.id as string;
+}
+
 type ImportOutcome = {
   total: number;
   created: number;
@@ -118,9 +157,97 @@ type ImportOutcome = {
 
 async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: boolean): Promise<ImportOutcome> {
   const outcome: ImportOutcome = { total: rawRows.length, created: 0, updated: 0, skipped: 0, errors: [] };
+  /** diagnostic_test_id -> task ids seen in this file (used to prune stale links) */
+  const diagnosticTouched = new Map<string, Set<string>>();
 
   for (let i = 0; i < rawRows.length; i++) {
     try {
+      if (isDiagnosticRow(rawRows[i])) {
+        const parsed = normalizeDiagnosticRow(rawRows[i]);
+        if (!parsed.ok) {
+          outcome.errors.push({ row: i + 1, message: `Строка ${i + 1}: ${formatRowIssues(parsed.issues)}` });
+          continue;
+        }
+        const d = parsed.row;
+        const subjectId = await upsertSubject(sb, d.subject_title);
+        const programId = await upsertProgram(sb, subjectId, d.program_title, d.grade);
+        const parentTopicId = d.topic_title
+          ? await upsertTopic(sb, subjectId, d.topic_title, null, 1)
+          : null;
+        const subTopicId = d.subtopic_title
+          ? await upsertTopic(sb, subjectId, d.subtopic_title, parentTopicId, 2)
+          : null;
+        const topicId = subTopicId ?? parentTopicId;
+
+        const num = d.exam_task_number ?? d.order_index ?? i + 1;
+        const taskKey = `${slugify(d.diagnostic_title)}-q${num}`;
+
+        if (dryRun) {
+          outcome.created++;
+          continue;
+        }
+
+        const testId = await upsertDiagnosticTest(sb, subjectId, programId, d, userId);
+        const taskPayload = {
+          subject_id: subjectId,
+          program_id: programId,
+          topic_id: topicId,
+          task_key: taskKey,
+          exam_task_number: d.exam_task_number,
+          prompt: d.prompt,
+          answer_type: d.answer_type,
+          options: [],
+          correct_answer: d.correct_answer,
+          explanation: d.explanation || null,
+          difficulty: d.difficulty <= 2 ? "easy" : d.difficulty >= 4 ? "hard" : "medium",
+          task_type: "diagnostic",
+          source_name: d.source_name || null,
+          source_url: d.source_url || null,
+          is_published: true,
+        };
+
+        const { data: existingTask } = await sb
+          .from("tasks")
+          .select("id")
+          .eq("task_key", taskKey)
+          .maybeSingle();
+
+        let taskId: string;
+        if (existingTask?.id) {
+          const { error } = await sb.from("tasks").update(taskPayload).eq("id", existingTask.id);
+          if (error) throw new Error(error.message);
+          taskId = existingTask.id as string;
+          outcome.updated++;
+        } else {
+          const { data: created, error } = await sb
+            .from("tasks")
+            .insert(taskPayload)
+            .select("id")
+            .single();
+          if (error) throw new Error(error.message);
+          taskId = created.id as string;
+          outcome.created++;
+        }
+
+        const { error: linkErr } = await sb
+          .from("diagnostic_test_tasks")
+          .upsert(
+            {
+              diagnostic_test_id: testId,
+              task_id: taskId,
+              order_index: d.order_index ?? num,
+              points: d.points,
+            },
+            { onConflict: "diagnostic_test_id,task_id" },
+          );
+        if (linkErr) throw new Error(linkErr.message);
+
+        const seen = diagnosticTouched.get(testId) ?? new Set<string>();
+        seen.add(taskId);
+        diagnosticTouched.set(testId, seen);
+        continue;
+      }
+
       const normalized = normalizeRow(rawRows[i]);
       if (!normalized.ok) {
         outcome.errors.push({ row: i + 1, message: `Строка ${i + 1}: ${formatRowIssues(normalized.issues)}` });
