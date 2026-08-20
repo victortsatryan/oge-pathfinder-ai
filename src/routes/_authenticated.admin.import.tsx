@@ -224,18 +224,24 @@ function ImportPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(logsQ.data?.logs ?? []).map((log: any) => (
-                    <TableRow key={log.id}>
-                      <TableCell>{new Date(log.created_at).toLocaleString("ru-RU")}</TableCell>
-                      <TableCell>{log.file_name ?? "—"}</TableCell>
-                      <TableCell>{log.status}</TableCell>
-                      <TableCell>{log.total_rows}</TableCell>
-                      <TableCell>{log.created_count}</TableCell>
-                      <TableCell>{log.updated_count}</TableCell>
-                      <TableCell>{log.skipped_count}</TableCell>
-                      <TableCell>{log.error_count}</TableCell>
-                    </TableRow>
-                  ))}
+                  {(Array.isArray(logsQ.data?.logs) ? logsQ.data.logs : []).map((raw: unknown, i: number) => {
+                    const log = (raw ?? {}) as Record<string, unknown>;
+                    const created = s(log.created_at);
+                    const date = created ? new Date(created) : null;
+                    return (
+                      <TableRow key={s(log.id) || i}>
+                        <TableCell>{date && !Number.isNaN(date.getTime()) ? date.toLocaleString("ru-RU") : "—"}</TableCell>
+                        <TableCell>{s(log.file_name) || "—"}</TableCell>
+                        <TableCell>{s(log.status)}</TableCell>
+                        <TableCell>{n(log.total_rows)}</TableCell>
+                        <TableCell>{n(log.created_count)}</TableCell>
+                        <TableCell>{n(log.updated_count)}</TableCell>
+                        <TableCell>{n(log.skipped_count)}</TableCell>
+                        <TableCell>{n(log.error_count)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+
                 </TableBody>
               </Table>
             </div>
