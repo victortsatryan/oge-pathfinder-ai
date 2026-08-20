@@ -2,53 +2,23 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  MATERIAL_TYPES,
+  STATUSES,
+  formatRowIssues,
+  normalizeRow,
+  str,
+  type NormalizedRow,
+} from "@/lib/admin-import-normalize";
 
-const MATERIAL_TYPES = [
-  "theory",
-  "textbook_paragraph",
-  "video",
-  "article",
-  "scheme",
-  "infographic",
-  "exercise_set",
-  "task",
-  "test",
-  "task_solution",
-  "reference",
-  "scientific_material",
-] as const;
-
-const STATUSES = ["draft", "reviewed", "published", "archived"] as const;
-
-const rowSchema = z.object({
-  subject_title: z.string().trim().min(1),
-  grade: z.string().trim().optional().default(""),
-  program_title: z.string().trim().optional().default(""),
-  topic_title: z.string().trim().optional().default(""),
-  subtopic_title: z.string().trim().optional().default(""),
-  learning_objective_title: z.string().trim().optional().default(""),
-  material_type: z.enum(MATERIAL_TYPES),
-  title: z.string().trim().min(1).max(500),
-  description: z.string().optional().default(""),
-  source_name: z.string().optional().default(""),
-  source_url: z.string().optional().default(""),
-  content_text: z.string().optional().default(""),
-  video_url: z.string().optional().default(""),
-  file_url: z.string().optional().default(""),
-  image_url: z.string().optional().default(""),
-  difficulty: z.coerce.number().int().min(1).max(5).optional().default(1),
-  estimated_time_minutes: z.coerce.number().int().min(0).max(600).optional().nullable(),
-  license_note: z.string().optional().default(""),
-  status: z.enum(STATUSES).optional().default("draft"),
-});
-
-export type ImportRow = z.infer<typeof rowSchema>;
+export type ImportRow = NormalizedRow;
 
 const rowsSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).max(2000),
   fileName: z.string().optional(),
   format: z.enum(["csv", "json"]).optional(),
 });
+
 
 async function requireAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
