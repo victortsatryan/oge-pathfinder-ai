@@ -140,6 +140,32 @@ function StudentProfilePage() {
           </p>
         </header>
 
+        {/* Паспорт ученика */}
+        <section className="mb-16">
+          <SectionEyebrow section="паспорт" sub="данные профиля" />
+          <dl className="mt-6 border-t border-[color:var(--pf-line-strong)]">
+            <Field label="почта" value={user?.email ?? "—"} />
+            <Field label="класс" value={p?.grade ? `${p.grade} класс` : "—"} />
+            <Field
+              label="система"
+              value={p?.education_system === "ru_school" ? "Российская школа" : p?.education_system ?? "—"}
+            />
+            <Field label="экзамен" value={p?.target_exam ?? primaryExam ?? "—"} />
+            <Field label="программа" value={primaryProgram ?? "—"} />
+            <Field label="цель" value={p?.learning_goal ?? "—"} />
+            <Field label="целевой балл" value={p?.target_score ?? "—"} />
+            <Field
+              label="дата цели"
+              value={
+                p?.target_date
+                  ? new Date(p.target_date).toLocaleDateString("ru-RU")
+                  : "—"
+              }
+            />
+            <Field label="время в неделю" value={p?.available_time ?? "—"} />
+          </dl>
+        </section>
+
         {/* Сводка */}
         <section className="mb-16">
           <SectionEyebrow section="сводка" sub="ключевые числа" />
