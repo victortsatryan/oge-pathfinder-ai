@@ -23,9 +23,11 @@ const NAV = [
 
 function AdminLayout() {
   const check = useServerFn(amIAdmin);
+  const { user, loading: authLoading } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ["am-i-admin"],
     retry: false,
+    enabled: Boolean(user),
     queryFn: async () => {
       try {
         return await check();
@@ -36,11 +38,11 @@ function AdminLayout() {
     },
   });
 
-  const { user } = useAuth();
   const devOpen = isDevOpenAccess();
   const mode = getAccessMode();
 
-  if (isLoading)
+  if (authLoading || (Boolean(user) && isLoading))
+
     return (
       <div className="pf-reader-wide py-16 text-sm" style={{ color: "var(--pf-muted)" }}>
         Загрузка…

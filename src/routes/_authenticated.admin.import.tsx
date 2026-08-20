@@ -6,6 +6,8 @@ import Papa from "papaparse";
 import { toast } from "sonner";
 
 import { listImportLogs, previewImport, runImport } from "@/lib/admin-materials.functions";
+import { useAuth } from "@/hooks/use-auth";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,9 +58,12 @@ function ImportPage() {
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [preview, setPreview] = useState<Preview | null>(null);
 
+  const { user } = useAuth();
   const logsQ = useQuery({
     queryKey: ["import-logs"],
     retry: false,
+    enabled: Boolean(user),
+
     queryFn: async (): Promise<{ logs: unknown[] }> => {
       try {
         const res = (await listLogs()) as unknown;
