@@ -46,35 +46,6 @@ const RU_GRADES = Array.from({ length: 11 }, (_, i) => {
   };
 });
 
-// Fallback subject lists by grade (used when DB doesn't return matching subjects).
-const FALLBACK_SUBJECTS: Record<string, { slug: string; name: string }[]> = {
-  "9": [
-    { slug: "russian", name: "Русский язык" },
-    { slug: "mathematics", name: "Математика" },
-    { slug: "english", name: "Английский язык" },
-    { slug: "biology", name: "Биология" },
-    { slug: "physics", name: "Физика" },
-    { slug: "chemistry", name: "Химия" },
-    { slug: "informatics", name: "Информатика" },
-    { slug: "history", name: "История" },
-    { slug: "social_studies", name: "Обществознание" },
-    { slug: "geography", name: "География" },
-    { slug: "literature", name: "Литература" },
-  ],
-  "11": [
-    { slug: "russian", name: "Русский язык" },
-    { slug: "mathematics", name: "Математика" },
-    { slug: "english", name: "Английский язык" },
-    { slug: "biology", name: "Биология" },
-    { slug: "physics", name: "Физика" },
-    { slug: "chemistry", name: "Химия" },
-    { slug: "informatics", name: "Информатика" },
-    { slug: "history", name: "История" },
-    { slug: "social_studies", name: "Обществознание" },
-    { slug: "geography", name: "География" },
-    { slug: "literature", name: "Литература" },
-  ],
-};
 
 const GOAL_OPTIONS_BASE = [
   { id: "school", label: "Подтянуть школьную программу" },
