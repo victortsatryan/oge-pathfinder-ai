@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useAuth } from "@/hooks/use-auth";
 import { addStudentSubject } from "@/lib/student-profile.functions";
 import { EMPTY_PROFILE_ANALYTICS, type Subject, type SubjectProgram } from "@/lib/models/schemas";
 import { itemQuery, listQuery } from "@/lib/query/defaults";
