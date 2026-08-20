@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { setMyRole } from "@/lib/role.functions";
+import { setMyRole, getMyAccess } from "@/lib/role.functions";
+import { destinationForAccess } from "@/lib/post-login-route";
 import { PathyLogo } from "@/components/oge/logo";
 import {
   listSubjects,
@@ -358,10 +359,14 @@ function RolePicker({
   onStudent,
   onTeacher,
   teacherPending,
+  showAdmin,
+  onAdmin,
 }: {
   onStudent: () => void;
   onTeacher: () => void;
   teacherPending: boolean;
+  showAdmin?: boolean;
+  onAdmin?: () => void;
 }) {
   return (
     <main className="min-h-screen relative" style={{ background: "var(--pf-paper)" }}>
@@ -408,6 +413,17 @@ function RolePicker({
             disabled={teacherPending}
             onClick={onTeacher}
           />
+          {showAdmin && (
+            <RoleRow
+              index="03"
+              accent="var(--pf-forest)"
+              role="администратор"
+              title="Администратор"
+              description="Управление контентом и системой."
+              action="Открыть Pathy Studio →"
+              onClick={() => onAdmin?.()}
+            />
+          )}
         </div>
       </div>
       <Monogram />
