@@ -95,6 +95,20 @@ function ImportPage() {
 
   const { user } = useAuth();
   const devOpen = isDevOpenAccess();
+  const checkAdmin = useServerFn(amIAdmin);
+  const adminQ = useQuery({
+    queryKey: ["am-i-admin"],
+    retry: false,
+    enabled: Boolean(user),
+    queryFn: async (): Promise<{ isAdmin: boolean }> => {
+      try {
+        const res = (await checkAdmin()) as { isAdmin?: boolean } | null;
+        return { isAdmin: Boolean(res?.isAdmin) };
+      } catch {
+        return { isAdmin: false };
+      }
+    },
+  });
   const logsQ = useQuery({
     queryKey: ["import-logs"],
     retry: false,
