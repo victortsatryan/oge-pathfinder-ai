@@ -388,6 +388,15 @@ function StudentProfilePage() {
   );
 }
 
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[180px,1fr] gap-6 py-3 border-b border-[color:var(--pf-line)]">
+      <dt className="pf-eyebrow">{label}</dt>
+      <dd className="text-[14px]">{value}</dd>
+    </div>
+  );
+}
+
 function Metric({
   label,
   value,
