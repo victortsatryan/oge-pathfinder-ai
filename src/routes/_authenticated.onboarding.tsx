@@ -36,11 +36,12 @@ const EDUCATION_SYSTEMS: {
 
 const RU_GRADES = Array.from({ length: 11 }, (_, i) => {
   const n = i + 1;
+  const enabled = String(n) === RELEASE_GRADE;
   return {
     id: String(n),
     label: `${n} класс`,
-    disabled: n !== 9 && n !== 11,
-    hint: n !== 9 && n !== 11 ? "скоро появится" : undefined,
+    disabled: !enabled,
+    hint: enabled ? undefined : "скоро появится",
   };
 });
 
