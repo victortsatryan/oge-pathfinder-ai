@@ -59,10 +59,19 @@ function ImportPage() {
   const logsQ = useQuery({ queryKey: ["import-logs"], queryFn: () => listLogs() });
 
   const previewMut = useMutation({
-    mutationFn: () => previewFn({ data: { rows, fileName, format } }),
+    mutationFn: async () => {
+      const res: unknown = await previewFn({ data: { rows, fileName, format } });
+      const r = (res ?? {}) as Record<string, unknown>;
+      if (!Array.isArray(r.errors)) {
+        const msg = s((r.error as Record<string, unknown> | undefined)?.message ?? r.message);
+        throw new Error(msg || "Сервер вернул неожиданный ответ (проверьте права администратора)");
+      }
+      return res;
+    },
     onSuccess: (res) => setPreview(normalizePreview(res)),
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Ошибка предпросмотра"),
   });
+
 
   const importMut = useMutation({
     mutationFn: () => importFn({ data: { rows, fileName, format } }),
