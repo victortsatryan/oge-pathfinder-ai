@@ -41,9 +41,17 @@ export const completeStudentOnboarding = createServerFn({ method: "POST" })
     // 1) Role: student
     const { error: roleErr } = await sb.rpc("assign_self_role", { _role: "student" });
     if (roleErr) throw roleErr;
+    // Mirror grade/program into `profiles` — several screens read it from there,
+    // and a stale/empty value used to make the UI fall back to demo data (9 класс).
+    const gradeNum = data.grade != null ? Number.parseInt(data.grade, 10) : NaN;
     await sb
       .from("profiles")
-      .update({ role: "student", onboarding_completed: true })
+      .update({
+        role: "student",
+        onboarding_completed: true,
+        ...(Number.isFinite(gradeNum) ? { grade: gradeNum } : {}),
+        ...(data.target_program ? { program: data.target_program } : {}),
+      })
       .eq("user_id", userId);
 
     // 2) Ensure student_profile + update target fields
