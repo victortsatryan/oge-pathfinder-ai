@@ -66,8 +66,9 @@ function LibraryHome() {
         lead="Общая база материалов Pathy. Предлагайте свои материалы — они сразу доступны вам и попадают в очередь модерации."
       />
 
-      <div className="mt-6 flex items-center justify-between gap-4">
-        <div className="flex gap-6">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-6">
+
           <button
             onClick={() => setTab("mine")}
             className="font-mono text-[11px] uppercase tracking-widest pb-2"

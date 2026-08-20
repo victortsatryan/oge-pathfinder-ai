@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { RELEASE_SUBJECT_IDS } from "@/lib/release-scope";
+
 
 const STATUS_TO_PRIORITY: Record<string, number> = {
   weak: 4,
@@ -61,7 +63,32 @@ const generateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   goal: z.string().max(500).optional(),
   weeks: z.number().int().min(1).max(52).default(4),
+  /** Optional explicit subject. Defaults to the release-scope subject(s). */
+  subject_id: z.string().uuid().optional(),
 });
+
+/**
+ * Removes previously generated lessons/calendar events for the student's
+ * active paths so a re-generation never duplicates the calendar.
+ */
+async function archivePreviousPaths(sb: any, userId: string, keepPathId?: string) {
+  const { data: paths } = await sb
+    .from("learning_paths")
+    .select("id")
+    .eq("user_id", userId)
+    .neq("status", "archived");
+  const ids = (paths ?? []).map((p: any) => p.id).filter((id: string) => id !== keepPathId);
+  if (ids.length === 0) return;
+
+  const { data: lessons } = await sb.from("lessons").select("id").in("learning_path_id", ids);
+  const lessonIds = (lessons ?? []).map((l: any) => l.id);
+  if (lessonIds.length > 0) {
+    await sb.from("calendar_events").delete().in("lesson_id", lessonIds);
+    await sb.from("lessons").delete().in("id", lessonIds);
+  }
+  await sb.from("learning_path_items").delete().in("learning_path_id", ids);
+  await sb.from("learning_paths").update({ status: "archived" }).in("id", ids);
+}
 
 export const generateLearningPath = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -70,10 +97,13 @@ export const generateLearningPath = createServerFn({ method: "POST" })
     const sb = context.supabase;
     const profileId = await getOrCreateProfileId(sb, context.userId);
 
+    const subjectIds = data.subject_id ? [data.subject_id] : RELEASE_SUBJECT_IDS;
+
     const { data: progress, error: pErr } = await sb
       .from("student_topic_progress")
       .select("topic_id, subject_id, program_id, mastery_score, status, mistakes_count, topics(title)")
-      .eq("student_profile_id", profileId);
+      .eq("student_profile_id", profileId)
+      .in("subject_id", subjectIds);
     if (pErr) throw new Error(pErr.message);
 
     const weak = (progress ?? [])
@@ -92,9 +122,13 @@ export const generateLearningPath = createServerFn({ method: "POST" })
       return {
         ok: false as const,
         reason: "no_topics" as const,
-        message: "Нет тем для маршрута. Добавьте предмет и пройдите диагностику.",
+        message: "Нет тем для маршрута. Пройдите диагностику — маршрут собирается по её результатам.",
       };
     }
+
+    await archivePreviousPaths(sb, context.userId);
+
+
 
     const startDate = new Date();
     const endDate = new Date(startDate);
