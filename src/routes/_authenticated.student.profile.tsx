@@ -103,6 +103,10 @@ function StudentProfilePage() {
 
   const p = profile.data;
   const displayName = p?.display_name || "Ученик";
+  const { user } = useAuth();
+  const primary = mySubjects.data[0] ?? null;
+  const primaryProgram = primary?.program?.title ?? primary?.subject?.name ?? null;
+  const primaryExam = primary?.program?.exam_type ?? primary?.subject?.exam_type ?? null;
 
   return (
     <main className="min-h-screen" style={{ background: "var(--pf-paper)" }}>
