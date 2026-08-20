@@ -2931,6 +2931,7 @@ export type Database = {
           difficulty: Database["public"]["Enums"]["difficulty_level"]
           estimated_time_minutes: number | null
           exam_section: string | null
+          exam_task_number: number | null
           explanation: string | null
           id: string
           is_published: boolean
@@ -2955,6 +2956,7 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["difficulty_level"]
           estimated_time_minutes?: number | null
           exam_section?: string | null
+          exam_task_number?: number | null
           explanation?: string | null
           id?: string
           is_published?: boolean
@@ -2979,6 +2981,7 @@ export type Database = {
           difficulty?: Database["public"]["Enums"]["difficulty_level"]
           estimated_time_minutes?: number | null
           exam_section?: string | null
+          exam_task_number?: number | null
           explanation?: string | null
           id?: string
           is_published?: boolean

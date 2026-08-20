@@ -54,7 +54,7 @@ export function str(value: unknown): string {
 }
 
 /** Case/space-insensitive lookup so slightly different CSV headers still resolve. */
-function pick(raw: unknown, key: string): string {
+export function pick(raw: unknown, key: string): string {
   if (!raw || typeof raw !== "object") return "";
   const obj = raw as Record<string, unknown>;
   if (key in obj) return str(obj[key]);
