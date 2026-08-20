@@ -196,9 +196,11 @@ async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: 
         }
         outcome.created++;
       }
-    } catch (e: any) {
-      outcome.errors.push({ row: i + 1, message: e?.message ?? String(e) });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : str(e) || "неизвестная ошибка";
+      outcome.errors.push({ row: i + 1, message: `Строка ${i + 1}: ${message}` });
     }
+
   }
   return outcome;
 }
