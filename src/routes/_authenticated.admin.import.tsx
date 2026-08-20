@@ -6,6 +6,8 @@ import Papa from "papaparse";
 import { toast } from "sonner";
 
 import { listImportLogs, previewImport, runImport } from "@/lib/admin-materials.functions";
+import { useAuth } from "@/hooks/use-auth";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
