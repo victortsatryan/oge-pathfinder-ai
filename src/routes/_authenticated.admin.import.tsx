@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
-import { listImportLogs, previewImport, runImport } from "@/lib/admin-materials.functions";
+import { amIAdmin, listImportLogs, previewImport, runImport } from "@/lib/admin-materials.functions";
 import { formatRowIssues, normalizeRow } from "@/lib/admin-import-normalize";
 import { isDevOpenAccess } from "@/lib/admin-access";
 import { useAuth } from "@/hooks/use-auth";
