@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { RELEASE_PROGRAM_IDS, RELEASE_SUBJECT_IDS } from "@/lib/release-scope";
 
 // ---------- Complete onboarding (atomic) ----------
 
