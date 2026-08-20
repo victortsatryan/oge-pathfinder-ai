@@ -150,19 +150,54 @@ function OnboardingPage() {
   const [role, setRole] = useState<"student" | "teacher" | null>(null);
   const [answers, setAnswers] = useState<Answers>(initial);
 
+  // DB is the source of truth for onboarding completion / roles.
+  const fetchAccess = useServerFn(getMyAccess);
+  const access = useQuery({
+    queryKey: ["my-access"],
+    queryFn: () => fetchAccess(),
+    retry: 0,
+    staleTime: 30_000,
+  });
+
+  const isAdmin = Boolean(access.data?.roles?.includes("admin"));
+  const alreadyOnboarded =
+    !isAdmin &&
+    Boolean(access.data) &&
+    (access.data!.primaryRole === "teacher" ||
+      (access.data!.primaryRole === "student" && access.data!.onboardingCompleted));
+
+  useEffect(() => {
+    if (!alreadyOnboarded || !access.data) return;
+    navigate({
+      to: destinationForAccess(access.data) as never,
+      replace: true,
+    });
+  }, [alreadyOnboarded, access.data, navigate]);
+
   const setRoleFn = useServerFn(setMyRole);
   const teacherMut = useMutation({
     mutationFn: () => setRoleFn({ data: { role: "teacher" } }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["my-role"] });
+      await qc.invalidateQueries({ queryKey: ["my-access"] });
       navigate({ to: "/teacher" });
     },
     onError: (e: any) => toast.error(e?.message ?? "Не удалось сохранить роль"),
   });
 
+  if (access.isLoading) {
+    return <FullscreenNote text="Загружаем ваш профиль…" />;
+  }
+
+  if (alreadyOnboarded) {
+    return <FullscreenNote text="Открываем ваш кабинет…" />;
+  }
+
   if (role === null) {
     return (
       <RolePicker
+        showAdmin={isAdmin}
+        onAdmin={() => navigate({ to: "/admin/content" })}
         onStudent={() => setRole("student")}
         onTeacher={() => {
           setRole("teacher");
@@ -172,6 +207,7 @@ function OnboardingPage() {
       />
     );
   }
+
 
   if (role === "teacher") {
     return <FullscreenNote text="Переносим вас в кабинет преподавателя…" />;
