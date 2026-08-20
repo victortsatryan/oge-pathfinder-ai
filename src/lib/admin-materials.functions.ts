@@ -62,6 +62,14 @@ async function upsertProgram(sb: any, subjectId: string, title: string, grade: s
     .eq("slug", slug)
     .maybeSingle();
   if (existing?.id) return existing.id as string;
+  // Fall back to title match so slightly different slugs don't fork the program.
+  const { data: byTitle } = await sb
+    .from("subject_programs")
+    .select("id")
+    .eq("subject_id", subjectId)
+    .ilike("title", title)
+    .maybeSingle();
+  if (byTitle?.id) return byTitle.id as string;
   const { data, error } = await sb
     .from("subject_programs")
     .insert({ subject_id: subjectId, title, slug, grade: grade || null })
