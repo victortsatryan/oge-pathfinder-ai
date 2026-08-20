@@ -239,6 +239,10 @@ function CompletedView({
   const data = resultsQ.data as any;
   if (!data) return null;
   const { session, topicResults, mistakes, weak } = data;
+  const strongNumbers: number[] = data.strongNumbers ?? [];
+  const weakNumbers: number[] = data.weakNumbers ?? [];
+  const correctCount: number = data.correctCount ?? session.score ?? 0;
+  const totalCount: number = data.totalCount ?? session.max_score ?? 0;
 
   const mistakeAgg = new Map<string, number>();
   for (const m of mistakes ?? []) {
@@ -252,14 +256,63 @@ function CompletedView({
         <p className="pf-eyebrow mb-2">общий результат</p>
         <div className="grid sm:grid-cols-3 gap-6 items-end">
           <div>
-            <div className="font-mono text-4xl">{session.score_percent ?? 0}%</div>
+            <div className="font-mono text-4xl">
+              {correctCount} из {totalCount}
+            </div>
             <div className="text-[12px] font-mono uppercase tracking-wider text-[color:var(--pf-muted)]">
-              {session.score ?? 0} из {session.max_score ?? 0} баллов
+              {session.score_percent ?? 0}% верных ответов
             </div>
           </div>
           <div className="sm:col-span-2 text-[14px]">{session.summary}</div>
         </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button onClick={() => navigate({ to: "/student/path" })}>Перейти к маршруту</Button>
+        </div>
       </section>
+
+      {(strongNumbers.length > 0 || weakNumbers.length > 0) && (
+        <section className="pf-block mb-8">
+          <p className="pf-eyebrow mb-2">по номерам ЕГЭ</p>
+          <h2 className="pf-h2 mb-4">Сильные и слабые задания</h2>
+          <div className="grid sm:grid-cols-2 gap-6">
+            <div>
+              <p className="pf-eyebrow mb-2">верно</p>
+              <div className="flex flex-wrap gap-2">
+                {strongNumbers.length === 0 ? (
+                  <span className="text-sm text-[color:var(--pf-muted)]">—</span>
+                ) : (
+                  strongNumbers.map((n) => (
+                    <span
+                      key={`s-${n}`}
+                      className="font-mono text-[12px] px-2 py-1 border border-[color:var(--pf-divider)]"
+                    >
+                      {n}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="pf-eyebrow mb-2">требует работы</p>
+              <div className="flex flex-wrap gap-2">
+                {weakNumbers.length === 0 ? (
+                  <span className="text-sm text-[color:var(--pf-muted)]">—</span>
+                ) : (
+                  weakNumbers.map((n) => (
+                    <span
+                      key={`w-${n}`}
+                      className="font-mono text-[12px] px-2 py-1 border border-[color:var(--pf-cinnabar,#c0392b)] text-[color:var(--pf-cinnabar,#c0392b)]"
+                    >
+                      {n}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
 
       <section className="pf-block mb-8">
         <p className="pf-eyebrow mb-2">по темам</p>
