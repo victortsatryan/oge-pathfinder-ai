@@ -83,23 +83,43 @@ function ImportPage() {
     setPreview(null);
     const reader = new FileReader();
     reader.onload = () => {
-      const text = String(reader.result ?? "");
+      const text = s(reader.result);
       if (file.name.toLowerCase().endsWith(".json")) {
         try {
-          const parsed = JSON.parse(text);
-          const arr = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.materials) ? parsed.materials : [];
-          setRows(arr as Row[]);
+          const parsed: unknown = JSON.parse(text);
+          const arr = Array.isArray(parsed)
+            ? parsed
+            : Array.isArray((parsed as { materials?: unknown })?.materials)
+              ? ((parsed as { materials: unknown[] }).materials)
+              : [];
+          setRows(arr.map((r) => {
+            const obj: Row = {};
+            for (const [k, v] of Object.entries((r ?? {}) as Record<string, unknown>)) obj[k] = s(v);
+            return obj;
+          }));
           setFormat("json");
-        } catch (e: any) {
-          toast.error("Неверный JSON: " + (e?.message ?? ""));
+        } catch (e: unknown) {
+          toast.error("Неверный JSON: " + (e instanceof Error ? e.message : ""));
         }
       } else {
-        const result = Papa.parse<Row>(text, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() });
-        if (result.errors.length) toast.error(`CSV: ${result.errors[0]!.message}`);
-        setRows(result.data.filter((r) => Object.values(r).some((v) => v !== "" && v != null)));
+        const result = Papa.parse<Record<string, unknown>>(text, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (h) => s(h).trim(),
+        });
+        const parseErrors = Array.isArray(result.errors) ? result.errors : [];
+        if (parseErrors.length > 0) toast.error(`CSV: ${s(parseErrors[0]?.message) || "ошибка разбора"}`);
+        const data = Array.isArray(result.data) ? result.data : [];
+        const normalized = data.map((r) => {
+          const obj: Row = {};
+          for (const [k, v] of Object.entries((r ?? {}) as Record<string, unknown>)) obj[s(k).trim()] = s(v);
+          return obj;
+        });
+        setRows(normalized.filter((r) => Object.values(r).some((v) => s(v).trim() !== "")));
         setFormat("csv");
       }
     };
+
     reader.readAsText(file);
   }
 
