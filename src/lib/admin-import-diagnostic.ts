@@ -8,6 +8,8 @@
  */
 import { pick, str } from "@/lib/admin-import-normalize";
 
+export { normalizeAnswer } from "@/lib/answer-check";
+
 export type DiagnosticRow = {
   diagnostic_title: string;
   diagnostic_type: string;
@@ -105,15 +107,4 @@ export function normalizeDiagnosticRow(
       source_url: pick(raw, "source_url"),
     },
   };
-}
-
-/** Answer comparison used both on import preview and when grading. */
-export function normalizeAnswer(value: unknown): string {
-  if (value == null) return "";
-  const s = typeof value === "string" ? value : String(value);
-  return s
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[\s.,;:]+/g, "")
-    .trim();
 }

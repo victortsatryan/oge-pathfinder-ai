@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { RELEASE_SUBJECT_IDS } from "@/lib/release-scope";
+import { isAnswerCorrect } from "@/lib/answer-check";
 
 // ---------------- Helpers ----------------
 
@@ -24,19 +25,8 @@ async function ensureProfile(sb: any, userId: string) {
   return profile as { id: string };
 }
 
-function normalize(v: unknown) {
-  if (v == null) return "";
-  if (typeof v === "string") return v.trim().toLowerCase();
-  return JSON.stringify(v).trim().toLowerCase();
-}
-
 function checkAnswer(task: any, studentAnswer: string | null): boolean | null {
-  if (studentAnswer == null || studentAnswer === "") return null;
-  const correct = task?.correct_answer;
-  if (correct == null) return null;
-  if (Array.isArray(correct))
-    return correct.map(normalize).includes(normalize(studentAnswer));
-  return normalize(correct) === normalize(studentAnswer);
+  return isAnswerCorrect(task?.correct_answer, studentAnswer);
 }
 
 function mistakeTypeFor(subjectSlug: string | undefined): string {
@@ -172,7 +162,7 @@ export const getDiagnosticSession = createServerFn({ method: "POST" })
     const { data: items } = await sb
       .from("diagnostic_test_tasks")
       .select(
-        "order_index, points, task:tasks(id, prompt, answer_type, options, topic_id, topic:topics(id, title))",
+        "order_index, points, task:tasks(id, prompt, answer_type, options, exam_task_number, topic_id, topic:topics(id, title))",
       )
       .eq("diagnostic_test_id", (session as any).diagnostic_test?.id)
       .order("order_index");
@@ -236,7 +226,7 @@ export const completeDiagnosticSession = createServerFn({ method: "POST" })
     // Load test tasks (for points) and task details
     const { data: testTasks } = await sb
       .from("diagnostic_test_tasks")
-      .select("task_id, points, task:tasks(id, topic_id, correct_answer, answer_type)")
+      .select("task_id, points, task:tasks(id, topic_id, correct_answer, answer_type, exam_task_number)")
       .eq("diagnostic_test_id", session.diagnostic_test_id);
 
     const tasksMap = new Map<string, any>();
