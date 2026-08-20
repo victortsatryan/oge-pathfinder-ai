@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
-import { listImportLogs, previewImport, runImport } from "@/lib/admin-materials.functions";
+import { amIAdmin, listImportLogs, previewImport, runImport } from "@/lib/admin-materials.functions";
 import { formatRowIssues, normalizeRow } from "@/lib/admin-import-normalize";
 import { isDevOpenAccess } from "@/lib/admin-access";
 import { useAuth } from "@/hooks/use-auth";
@@ -95,6 +95,20 @@ function ImportPage() {
 
   const { user } = useAuth();
   const devOpen = isDevOpenAccess();
+  const checkAdmin = useServerFn(amIAdmin);
+  const adminQ = useQuery({
+    queryKey: ["am-i-admin"],
+    retry: false,
+    enabled: Boolean(user),
+    queryFn: async (): Promise<{ isAdmin: boolean }> => {
+      try {
+        const res = (await checkAdmin()) as { isAdmin?: boolean } | null;
+        return { isAdmin: Boolean(res?.isAdmin) };
+      } catch {
+        return { isAdmin: false };
+      }
+    },
+  });
   const logsQ = useQuery({
     queryKey: ["import-logs"],
     retry: false,
@@ -203,6 +217,24 @@ function ImportPage() {
     reader.readAsText(file);
   }
 
+  const invalidRows = (preview?.errors ?? []).length;
+  const validRows = preview ? Math.max(preview.total - invalidRows, 0) : 0;
+  const validationPassed = Boolean(preview) && invalidRows === 0;
+  const isAdmin = Boolean(adminQ.data?.isAdmin);
+  const canImport = validationPassed && Boolean(user) && isAdmin;
+
+  const blockReason = !preview
+    ? "Сначала нажмите «Проверить»."
+    : !validationPassed
+      ? `Файл содержит ошибки: ${invalidRows}. Исправьте их и проверьте снова.`
+      : !user
+        ? "Войдите в аккаунт администратора."
+        : adminQ.isLoading
+          ? "Проверяем роль аккаунта…"
+          : !isAdmin
+            ? "У этого аккаунта нет роли admin."
+            : null;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -251,16 +283,32 @@ function ImportPage() {
                 <Button onClick={() => previewMut.mutate()} disabled={previewMut.isPending} variant="outline">
                   Проверить
                 </Button>
-                <Button onClick={() => importMut.mutate()} disabled={importMut.isPending || !preview || !user}>
+                <Button onClick={() => importMut.mutate()} disabled={importMut.isPending || !canImport}>
                   Импортировать материалы
                 </Button>
               </div>
+
+              {blockReason ? (
+                <p className="text-sm text-destructive">{blockReason}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Проверка пройдена — импорт доступен.</p>
+              )}
 
               {!user && devOpen ? (
                 <p className="text-sm text-muted-foreground">
                   В режиме предпросмотра «Проверить» выполняет безопасную локальную валидацию. Для импорта и проверки дубликатов войдите как администратор.
                 </p>
               ) : null}
+
+              <div className="rounded-md border p-3 text-xs font-mono space-y-0.5 text-muted-foreground">
+                <div>session exists: {String(Boolean(user))}</div>
+                <div>user id: {user?.id ?? "—"}</div>
+                <div>role: {!user ? "—" : adminQ.isLoading ? "загрузка…" : adminQ.data?.isAdmin ? "admin" : "не admin"}</div>
+                <div>validationPassed: {String(validationPassed)}</div>
+                <div>validRows: {preview ? validRows : "—"}</div>
+                <div>invalidRows: {preview ? invalidRows : "—"}</div>
+              </div>
+
 
               {preview && (
                 <div className="rounded-md border p-4 text-sm space-y-1 bg-muted/50">
