@@ -207,27 +207,35 @@ function StudentsPage() {
           </p>
         ) : (
           <div>
-            {filtered.map((s) => (
-              <div key={s.link_id} className="pf-student-row">
-                <Link
-                  to="/teacher/students/$studentId"
-                  params={{ studentId: s.student?.id ?? "" }}
-                  className="contents"
-                >
-                  <span className="pf-student-row__avatar">
-                    {(s.student?.display_name ?? "У")[0]}
-                  </span>
+            {filtered.map((s) => {
+              const studentId = s.student?.id ?? s.student_profile_id ?? null;
+              const name = s.student?.display_name?.trim() || "Ученик без имени";
+              const body = (
+                <>
+                  <span className="pf-student-row__avatar">{name[0]}</span>
                   <div>
-                    <div className="pf-student-row__name">
-                      {s.student?.display_name ?? "Без имени"}
-                    </div>
+                    <div className="pf-student-row__name">{name}</div>
                     <div className="pf-student-row__sub">
                       прогресс {s.avg_mastery}% · слабых тем {s.weak_count}
                       {s.last_active &&
                         ` · посл. активность ${new Date(s.last_active).toLocaleDateString()}`}
                     </div>
                   </div>
-                </Link>
+                </>
+              );
+              return (
+              <div key={s.link_id} className="pf-student-row">
+                {studentId ? (
+                  <Link
+                    to="/teacher/students/$studentId"
+                    params={{ studentId }}
+                    className="contents"
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  body
+                )}
                 <span
                   className="font-mono text-[11px] uppercase tracking-widest"
                   style={{
