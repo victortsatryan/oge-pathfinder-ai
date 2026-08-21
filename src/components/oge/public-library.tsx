@@ -88,7 +88,6 @@ export function PublicLibraryList() {
 
       <div className="pf-library mt-4">
         {rows.map((m) => {
-          const href = m.source_url ?? m.video_url ?? null;
           return (
             <div key={m.id} className="pf-library__item">
               <div className="pf-library__kind">
@@ -97,13 +96,13 @@ export function PublicLibraryList() {
                 {m.topics?.title ? ` · ${m.topics.title}` : ""}
               </div>
               <div className="pf-library__title">
-                {href ? (
-                  <a href={href} target="_blank" rel="noreferrer" className="hover:underline">
-                    {m.title}
-                  </a>
-                ) : (
-                  m.title
-                )}
+                <Link
+                  to="/material/$materialId"
+                  params={{ materialId: m.id }}
+                  className="hover:underline"
+                >
+                  {m.title}
+                </Link>
               </div>
               {m.description && (
                 <div className="text-xs text-[color:var(--pf-muted)] mt-1 line-clamp-2">{m.description}</div>
