@@ -239,11 +239,13 @@ export const listMyTeacherStudents = createServerFn({ method: "GET" })
 
     const students = (links ?? []).map((l: any) => {
       const s = map.get(l.student_profile_id);
+      const profile = l.student_profiles ?? profileMap.get(l.student_profile_id) ?? null;
       return {
         link_id: l.id,
         status: l.status,
         started_at: l.started_at,
-        student: l.student_profiles,
+        student: profile ? { ...profile, id: profile.id ?? l.student_profile_id } : null,
+        student_profile_id: l.student_profile_id ?? null,
         avg_mastery: s && s.count ? Math.round(s.avg / s.count) : 0,
         weak_count: s?.weak ?? 0,
         last_active: s?.lastActive ?? null,
@@ -263,6 +265,15 @@ export const linkStudent = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sb = context.supabase as any;
     const tp = await ensureTeacherProfile(sb, context.userId);
+    {
+      const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
+      const { data: exists } = await a
+        .from("student_profiles")
+        .select("id")
+        .eq("id", data.student_profile_id)
+        .maybeSingle();
+      if (!exists) throw new Error("Ученик с таким ID профиля не найден");
+    }
     const { data: row, error } = await sb
       .from("teacher_student_links")
       .upsert(
