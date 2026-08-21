@@ -2,7 +2,7 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 import {
@@ -131,15 +131,14 @@ function LessonPage() {
                   style={{ borderBottom: "1px solid var(--pf-line)" }}
                 >
                   <div className="text-[15px] font-medium">
-                    {mat?.source_url ? (
-                      <a
-                        href={mat.source_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 hover:underline"
+                    {mat?.id ? (
+                      <Link
+                        to="/material/$materialId"
+                        params={{ materialId: mat.id }}
+                        className="hover:underline"
                       >
-                        {mat.title} <ExternalLink className="h-3 w-3" />
-                      </a>
+                        {mat.title}
+                      </Link>
                     ) : (
                       mat?.title
                     )}
@@ -194,6 +193,11 @@ function LessonPage() {
                     </span>
                     {task.title ?? task.prompt}
                   </div>
+                  {task.prompt && task.title && (
+                    <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words mt-3">
+                      {task.prompt}
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap items-baseline gap-4 mt-4">
                     <input

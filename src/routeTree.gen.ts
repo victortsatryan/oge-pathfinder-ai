@@ -42,6 +42,7 @@ import { Route as AuthenticatedStudentLessonsRouteImport } from './routes/_authe
 import { Route as AuthenticatedStudentCalendarRouteImport } from './routes/_authenticated.student.calendar'
 import { Route as AuthenticatedStudentAssistantRouteImport } from './routes/_authenticated.student.assistant'
 import { Route as AuthenticatedStudentAnalyticsRouteImport } from './routes/_authenticated.student.analytics'
+import { Route as AuthenticatedMaterialMaterialIdRouteImport } from './routes/_authenticated.material.$materialId'
 import { Route as AuthenticatedLessonLessonIdRouteImport } from './routes/_authenticated.lesson.$lessonId'
 import { Route as AuthenticatedAdminSourcesRouteImport } from './routes/_authenticated.admin.sources'
 import { Route as AuthenticatedAdminRoutesRouteImport } from './routes/_authenticated.admin.routes'
@@ -252,6 +253,12 @@ const AuthenticatedStudentAnalyticsRoute =
     path: '/analytics',
     getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
+const AuthenticatedMaterialMaterialIdRoute =
+  AuthenticatedMaterialMaterialIdRouteImport.update({
+    id: '/material/$materialId',
+    path: '/material/$materialId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedLessonLessonIdRoute =
   AuthenticatedLessonLessonIdRouteImport.update({
     id: '/lesson/$lessonId',
@@ -426,6 +433,7 @@ export interface FileRoutesByFullPath {
   '/admin/routes': typeof AuthenticatedAdminRoutesRoute
   '/admin/sources': typeof AuthenticatedAdminSourcesRoute
   '/lesson/$lessonId': typeof AuthenticatedLessonLessonIdRoute
+  '/material/$materialId': typeof AuthenticatedMaterialMaterialIdRoute
   '/student/analytics': typeof AuthenticatedStudentAnalyticsRoute
   '/student/assistant': typeof AuthenticatedStudentAssistantRoute
   '/student/calendar': typeof AuthenticatedStudentCalendarRoute
@@ -482,6 +490,7 @@ export interface FileRoutesByTo {
   '/admin/routes': typeof AuthenticatedAdminRoutesRoute
   '/admin/sources': typeof AuthenticatedAdminSourcesRoute
   '/lesson/$lessonId': typeof AuthenticatedLessonLessonIdRoute
+  '/material/$materialId': typeof AuthenticatedMaterialMaterialIdRoute
   '/student/analytics': typeof AuthenticatedStudentAnalyticsRoute
   '/student/assistant': typeof AuthenticatedStudentAssistantRoute
   '/student/calendar': typeof AuthenticatedStudentCalendarRoute
@@ -544,6 +553,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/routes': typeof AuthenticatedAdminRoutesRoute
   '/_authenticated/admin/sources': typeof AuthenticatedAdminSourcesRoute
   '/_authenticated/lesson/$lessonId': typeof AuthenticatedLessonLessonIdRoute
+  '/_authenticated/material/$materialId': typeof AuthenticatedMaterialMaterialIdRoute
   '/_authenticated/student/analytics': typeof AuthenticatedStudentAnalyticsRoute
   '/_authenticated/student/assistant': typeof AuthenticatedStudentAssistantRoute
   '/_authenticated/student/calendar': typeof AuthenticatedStudentCalendarRoute
@@ -606,6 +616,7 @@ export interface FileRouteTypes {
     | '/admin/routes'
     | '/admin/sources'
     | '/lesson/$lessonId'
+    | '/material/$materialId'
     | '/student/analytics'
     | '/student/assistant'
     | '/student/calendar'
@@ -662,6 +673,7 @@ export interface FileRouteTypes {
     | '/admin/routes'
     | '/admin/sources'
     | '/lesson/$lessonId'
+    | '/material/$materialId'
     | '/student/analytics'
     | '/student/assistant'
     | '/student/calendar'
@@ -723,6 +735,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/routes'
     | '/_authenticated/admin/sources'
     | '/_authenticated/lesson/$lessonId'
+    | '/_authenticated/material/$materialId'
     | '/_authenticated/student/analytics'
     | '/_authenticated/student/assistant'
     | '/_authenticated/student/calendar'
@@ -1007,6 +1020,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/student/analytics'
       preLoaderRoute: typeof AuthenticatedStudentAnalyticsRouteImport
       parentRoute: typeof AuthenticatedStudentRoute
+    }
+    '/_authenticated/material/$materialId': {
+      id: '/_authenticated/material/$materialId'
+      path: '/material/$materialId'
+      fullPath: '/material/$materialId'
+      preLoaderRoute: typeof AuthenticatedMaterialMaterialIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/lesson/$lessonId': {
       id: '/_authenticated/lesson/$lessonId'
@@ -1344,6 +1364,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTeacherRoute: typeof AuthenticatedTeacherRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedLessonLessonIdRoute: typeof AuthenticatedLessonLessonIdRoute
+  AuthenticatedMaterialMaterialIdRoute: typeof AuthenticatedMaterialMaterialIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -1354,6 +1375,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTeacherRoute: AuthenticatedTeacherRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedLessonLessonIdRoute: AuthenticatedLessonLessonIdRoute,
+  AuthenticatedMaterialMaterialIdRoute: AuthenticatedMaterialMaterialIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
