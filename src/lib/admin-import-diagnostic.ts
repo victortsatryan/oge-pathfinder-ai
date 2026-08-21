@@ -46,6 +46,20 @@ function examNumberFromTitle(raw: unknown): number | null {
   return n >= 1 && n <= 99 ? n : null;
 }
 
+/**
+ * A row that clearly belongs to a diagnostic (explicit title or "Задание N"
+ * heading) even when its answer key failed to arrive. Used to fail loudly
+ * instead of silently importing the row as a draft library material.
+ */
+export function looksDiagnostic(raw: unknown): boolean {
+  return (
+    pick(raw, "diagnostic_title") !== "" ||
+    pick(raw, "exam_task_number") !== "" ||
+    pick(raw, "task_number") !== "" ||
+    examNumberFromTitle(raw) !== null
+  );
+}
+
 /** Cheap detector used by the importer to route a row. */
 export function isDiagnosticRow(raw: unknown): boolean {
   const hasNumber =

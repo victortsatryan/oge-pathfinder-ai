@@ -13,6 +13,7 @@ import {
 import {
   describeRows,
   isDiagnosticRow,
+  looksDiagnostic,
   normalizeDiagnosticRow,
   type DiagnosticRow,
 } from "@/lib/admin-import-diagnostic";
@@ -259,6 +260,16 @@ async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: 
         const seen = diagnosticTouched.get(testId) ?? new Set<string>();
         seen.add(taskId);
         diagnosticTouched.set(testId, seen);
+        continue;
+      }
+
+      if (looksDiagnostic(rawRows[i])) {
+        outcome.errors.push({
+          row: i + 1,
+          message:
+            `Строка ${i + 1}: похоже на диагностическое задание, но не хватает ключа ответа ` +
+            `(correct_answer). Строка не импортирована как материал.`,
+        });
         continue;
       }
 
