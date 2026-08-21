@@ -79,7 +79,41 @@ export const listAvailableDiagnostics = createServerFn({ method: "POST" })
     if (data.diagnostic_type) q = q.eq("diagnostic_type", data.diagnostic_type);
     const { data: rows, error } = await q;
     if (error) throw error;
-    return rows ?? [];
+    const tests = (rows ?? []) as any[];
+    if (tests.length === 0) return [];
+
+    // Attempt status is strictly personal: only sessions of the current user
+    // for that exact diagnostic_test_id count.
+    const { data: sessions } = await sb
+      .from("diagnostic_sessions")
+      .select("id, diagnostic_test_id, status, score_percent, completed_at, started_at")
+      .eq("user_id", context.userId)
+      .in(
+        "diagnostic_test_id",
+        tests.map((t) => t.id),
+      )
+      .order("started_at", { ascending: false });
+
+    const byTest = new Map<string, any[]>();
+    for (const s of (sessions ?? []) as any[]) {
+      if (!s.diagnostic_test_id) continue;
+      const list = byTest.get(s.diagnostic_test_id) ?? [];
+      list.push(s);
+      byTest.set(s.diagnostic_test_id, list);
+    }
+
+    return tests.map((t) => {
+      const own = byTest.get(t.id) ?? [];
+      const active = own.find((s) => s.status === "in_progress");
+      const done = own.find((s) => s.status === "completed");
+      return {
+        ...t,
+        attempt_status: active ? "in_progress" : done ? "completed" : "none",
+        attempt_session_id: active?.id ?? done?.id ?? null,
+        attempt_score_percent: done?.score_percent ?? null,
+        attempt_completed_at: done?.completed_at ?? null,
+      };
+    });
   });
 
 // ---------------- Start / Resume ----------------
