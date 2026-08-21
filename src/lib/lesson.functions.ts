@@ -96,19 +96,11 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
           .limit(practiceCount),
       ]);
       picked.push(...(theory ?? []), ...(practice ?? []));
-
-      // Fallback: subject-level theory when the topic itself has none.
-      if (picked.length === 0 && item.subject_id) {
-        const { data: subjectTheory } = await sb
-          .from("materials")
-          .select("id")
-          .eq("subject_id", item.subject_id)
-          .eq("status", "published")
-          .in("material_type", ["theory", "video", "article", "reference"])
-          .limit(theoryCount);
-        picked.push(...(subjectTheory ?? []));
-      }
+      // No subject-level fallback on purpose: a lesson for "Задание N ЕГЭ" must
+      // only contain content of that exact topic, otherwise the student gets
+      // irrelevant material.
     }
+
 
     if (picked.length > 0) {
       const rows = picked.map((m: any, i: number) => ({
