@@ -204,8 +204,23 @@ export const listMyTeacherStudents = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw error;
 
-    const studentIds = (links ?? []).map((l: any) => l.student_profile_id);
+    const studentIds = (links ?? [])
+      .map((l: any) => l.student_profile_id)
+      .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
     if (studentIds.length === 0) return { teacher: tp, students: [] };
+
+    // The embedded profile is RLS-scoped (active links only), so hydrate names
+    // for every linked student regardless of link status.
+    const profileMap = new Map<string, any>();
+    {
+      const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
+      const { data: profiles } = await a
+        .from("student_profiles")
+        .select("id, display_name, grade, learning_goal, target_exam")
+        .in("id", studentIds);
+      for (const p of (profiles ?? []) as any[]) profileMap.set(p.id, p);
+    }
+
 
     const { data: progress } = await sb
       .from("student_topic_progress")
