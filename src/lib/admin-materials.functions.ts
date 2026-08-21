@@ -11,6 +11,7 @@ import {
   type NormalizedRow,
 } from "@/lib/admin-import-normalize";
 import {
+  describeRows,
   isDiagnosticRow,
   normalizeDiagnosticRow,
   type DiagnosticRow,
