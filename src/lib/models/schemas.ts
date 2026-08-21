@@ -263,6 +263,15 @@ export const diagnosticTestSchema = z.object({
 });
 export type DiagnosticTest = z.infer<typeof diagnosticTestSchema>;
 
+/** Per-test attempt status for the current user only. */
+export const diagnosticTestWithStatusSchema = diagnosticTestSchema.extend({
+  attempt_status: z.enum(["none", "in_progress", "completed"]).default("none"),
+  attempt_session_id: z.string().nullable().default(null),
+  attempt_score_percent: z.number().nullable().default(null),
+  attempt_completed_at: z.string().nullable().default(null),
+});
+export type DiagnosticTestWithStatus = z.infer<typeof diagnosticTestWithStatusSchema>;
+
 export const diagnosticHistoryRowSchema = z.object({
   id: z.string(),
   status: z.string().default("in_progress"),
@@ -301,10 +310,29 @@ export const candidateSchema = z.object({
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 
+/** Опубликованный материал общей библиотеки. */
+export const libraryMaterialSchema = z.object({
+  id: z.string(),
+  title: z.string().default("—"),
+  description: z.string().nullable().optional(),
+  material_type: z.string().nullable().optional(),
+  source_name: z.string().nullable().optional(),
+  source_url: z.string().nullable().optional(),
+  video_url: z.string().nullable().optional(),
+  difficulty: z.number().nullable().optional(),
+  estimated_time_minutes: z.number().nullable().optional(),
+  subject_id: z.string().nullable().optional(),
+  topic_id: z.string().nullable().optional(),
+  subjects: z.object({ name: z.string().nullable().optional() }).nullable().optional(),
+  topics: z.object({ title: z.string().nullable().optional() }).nullable().optional(),
+});
+export type LibraryMaterial = z.infer<typeof libraryMaterialSchema>;
+
 // -------- Teacher --------
 
 export const teacherStudentSchema = z.object({
   link_id: z.string(),
+  student_profile_id: z.string().nullable().default(null),
   status: z.string().nullable().optional(),
   started_at: z.string().nullable().optional(),
   student: z

@@ -204,8 +204,23 @@ export const listMyTeacherStudents = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw error;
 
-    const studentIds = (links ?? []).map((l: any) => l.student_profile_id);
+    const studentIds = (links ?? [])
+      .map((l: any) => l.student_profile_id)
+      .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
     if (studentIds.length === 0) return { teacher: tp, students: [] };
+
+    // The embedded profile is RLS-scoped (active links only), so hydrate names
+    // for every linked student regardless of link status.
+    const profileMap = new Map<string, any>();
+    {
+      const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
+      const { data: profiles } = await a
+        .from("student_profiles")
+        .select("id, display_name, grade, learning_goal, target_exam")
+        .in("id", studentIds);
+      for (const p of (profiles ?? []) as any[]) profileMap.set(p.id, p);
+    }
+
 
     const { data: progress } = await sb
       .from("student_topic_progress")
@@ -224,11 +239,13 @@ export const listMyTeacherStudents = createServerFn({ method: "GET" })
 
     const students = (links ?? []).map((l: any) => {
       const s = map.get(l.student_profile_id);
+      const profile = l.student_profiles ?? profileMap.get(l.student_profile_id) ?? null;
       return {
         link_id: l.id,
         status: l.status,
         started_at: l.started_at,
-        student: l.student_profiles,
+        student: profile ? { ...profile, id: profile.id ?? l.student_profile_id } : null,
+        student_profile_id: l.student_profile_id ?? null,
         avg_mastery: s && s.count ? Math.round(s.avg / s.count) : 0,
         weak_count: s?.weak ?? 0,
         last_active: s?.lastActive ?? null,
@@ -248,6 +265,15 @@ export const linkStudent = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sb = context.supabase as any;
     const tp = await ensureTeacherProfile(sb, context.userId);
+    {
+      const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
+      const { data: exists } = await a
+        .from("student_profiles")
+        .select("id")
+        .eq("id", data.student_profile_id)
+        .maybeSingle();
+      if (!exists) throw new Error("Ученик с таким ID профиля не найден");
+    }
     const { data: row, error } = await sb
       .from("teacher_student_links")
       .upsert(

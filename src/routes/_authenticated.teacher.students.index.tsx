@@ -32,9 +32,10 @@ function StudentsPage() {
   const availFn = useServerFn(listAvailableStudents);
 
   const devMode = typeof window !== "undefined" && isDevOpenAccess();
-  const { data: students } = useQuery(
+  const studentsQuery = useQuery(
     listQuery(["teacher", "students"], () => teacherRepo.students()),
   );
+  const students = studentsQuery.data;
   const { data: avail } = useQuery({
     queryKey: ["teacher", "available-students"],
     queryFn: () => availFn(),
@@ -201,33 +202,49 @@ function StudentsPage() {
           }
         />
 
-        {filtered.length === 0 ? (
+        {studentsQuery.isError ? (
           <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
-            Никого по этому фильтру.
+            Не удалось загрузить список учеников. Обновите страницу.
+          </p>
+        ) : studentsQuery.isLoading ? (
+          <p className="text-sm" style={{ color: "var(--pf-muted)" }}>Загрузка…</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+            {filter === "all"
+              ? "Пока нет привязанных учеников. Введите ID профиля ученика выше, чтобы добавить первого."
+              : "Никого по этому фильтру."}
           </p>
         ) : (
           <div>
-            {filtered.map((s) => (
-              <div key={s.link_id} className="pf-student-row">
-                <Link
-                  to="/teacher/students/$studentId"
-                  params={{ studentId: s.student?.id ?? "" }}
-                  className="contents"
-                >
-                  <span className="pf-student-row__avatar">
-                    {(s.student?.display_name ?? "У")[0]}
-                  </span>
+            {filtered.map((s) => {
+              const studentId = s.student?.id ?? s.student_profile_id ?? null;
+              const name = s.student?.display_name?.trim() || "Ученик без имени";
+              const body = (
+                <>
+                  <span className="pf-student-row__avatar">{name[0]}</span>
                   <div>
-                    <div className="pf-student-row__name">
-                      {s.student?.display_name ?? "Без имени"}
-                    </div>
+                    <div className="pf-student-row__name">{name}</div>
                     <div className="pf-student-row__sub">
                       прогресс {s.avg_mastery}% · слабых тем {s.weak_count}
                       {s.last_active &&
                         ` · посл. активность ${new Date(s.last_active).toLocaleDateString()}`}
                     </div>
                   </div>
-                </Link>
+                </>
+              );
+              return (
+              <div key={s.link_id} className="pf-student-row">
+                {studentId ? (
+                  <Link
+                    to="/teacher/students/$studentId"
+                    params={{ studentId }}
+                    className="contents"
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  body
+                )}
                 <span
                   className="font-mono text-[11px] uppercase tracking-widest"
                   style={{
@@ -257,7 +274,8 @@ function StudentsPage() {
                   <option value="archived">archived</option>
                 </select>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

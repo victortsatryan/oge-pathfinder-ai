@@ -1,15 +1,18 @@
 import {
   adminCandidateSchema,
   candidateSchema,
+  libraryMaterialSchema,
   subjectSchema,
   type AdminCandidate,
   type Candidate,
+  type LibraryMaterial,
   type Subject,
 } from "@/lib/models/schemas";
 import { parseList } from "@/lib/query/parse";
 import {
   adminListCandidates,
   listMyCandidates,
+  listPublicLibrary,
   listSubjectsForLibrary,
 } from "@/lib/community-library.functions";
 
@@ -18,6 +21,14 @@ export const communityRepo = {
   async myCandidates(): Promise<Candidate[]> {
     const raw = await listMyCandidates();
     return parseList("community.myCandidates", candidateSchema, raw);
+  },
+
+  async publicMaterials(
+    filter: { material_type?: string; search?: string } = {},
+  ): Promise<LibraryMaterial[]> {
+    const raw: unknown = await listPublicLibrary({ data: filter });
+    const obj = (raw ?? {}) as Record<string, unknown>;
+    return parseList("community.publicMaterials", libraryMaterialSchema, obj.materials ?? raw);
   },
 
   async subjects(): Promise<Subject[]> {

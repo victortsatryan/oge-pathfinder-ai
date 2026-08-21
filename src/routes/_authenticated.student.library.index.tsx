@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/oge/page-header";
+import { PublicLibraryList } from "@/components/oge/public-library";
 import { deleteMyCandidate } from "@/lib/community-library.functions";
 import type { Candidate } from "@/lib/models/schemas";
 import { listQuery } from "@/lib/query/defaults";
@@ -58,7 +59,7 @@ function LibraryHome() {
     <>
       <div className="pf-topbar">
         <div className="pf-crumb"><b>Библиотека</b> · community</div>
-        <div className="pf-crumb">{tab === "mine" ? `${rows.length} материалов` : "скоро"}</div>
+        <div className="pf-crumb">{tab === "mine" ? `${rows.length} материалов` : "общая база"}</div>
       </div>
 
       <PageHeader
@@ -95,11 +96,7 @@ function LibraryHome() {
         </Link>
       </div>
 
-      {tab === "public" && (
-        <div className="pf-block mt-6 text-sm" style={{ color: "var(--pf-muted)" }}>
-          Общая библиотека соберётся из одобренных материалов. Раздел скоро откроется.
-        </div>
-      )}
+      {tab === "public" && <PublicLibraryList />}
 
       {tab === "mine" && (
         <div className="pf-library mt-6">
