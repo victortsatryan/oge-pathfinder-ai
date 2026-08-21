@@ -6,6 +6,9 @@ export function listQuery<T>(key: QueryKey, queryFn: () => Promise<T[]>) {
     queryKey: key,
     queryFn,
     initialData: [] as T[],
+    // initialData counts as fresh data; without this the first mount would
+    // skip fetching for `staleTime` and the UI would sit on the empty array.
+    initialDataUpdatedAt: 0,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   };
@@ -17,6 +20,7 @@ export function itemQuery<T>(key: QueryKey, queryFn: () => Promise<T | null>) {
     queryKey: key,
     queryFn,
     initialData: null as T | null,
+    initialDataUpdatedAt: 0,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   };
