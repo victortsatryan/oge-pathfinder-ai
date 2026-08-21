@@ -27,7 +27,7 @@ export const learningPathRepo = {
   async detail(
     pathId: string,
   ): Promise<{ path: LearningPath | null; items: LearningPathItem[] }> {
-    const raw: unknown = await getLearningPath({ data: { path_id: pathId } });
+    const raw: unknown = await safeAwait("learningPath.detail", () => getLearningPath({ data: { path_id: pathId } }));
     const obj = (raw ?? {}) as Record<string, unknown>;
     return {
       path: parseOne("learningPath.detail", learningPathSchema, obj.path ?? null),

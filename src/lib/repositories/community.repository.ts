@@ -32,7 +32,7 @@ export const communityRepo = {
       page_size?: number;
     } = {},
   ): Promise<{ materials: LibraryMaterial[]; total: number }> {
-    const raw: unknown = await listPublicLibrary({ data: filter });
+    const raw: unknown = await safeAwait("community.publicMaterials", () => listPublicLibrary({ data: filter }));
     const obj = (raw ?? {}) as Record<string, unknown>;
     const materials = parseList(
       "community.publicMaterials",
@@ -51,7 +51,7 @@ export const communityRepo = {
   async adminQueue(
     status: "all" | "draft" | "submitted" | "in_review" | "approved" | "published" | "rejected" = "all",
   ): Promise<{ candidates: AdminCandidate[]; counts: Record<string, number> }> {
-    const raw: unknown = await adminListCandidates({ data: { status } });
+    const raw: unknown = await safeAwait("community.adminQueue", () => adminListCandidates({ data: { status } }));
     const obj = (raw ?? {}) as Record<string, unknown>;
     const counts =
       obj.counts && typeof obj.counts === "object"
