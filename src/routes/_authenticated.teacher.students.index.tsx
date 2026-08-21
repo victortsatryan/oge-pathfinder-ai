@@ -218,7 +218,9 @@ function StudentsPage() {
           <div>
             {filtered.map((s) => {
               const studentId = s.student?.id ?? s.student_profile_id ?? null;
-              const name = s.student?.display_name?.trim() || "Ученик без имени";
+              const name =
+                s.student?.display_name?.trim() ||
+                (s.student?.grade ? `Ученик · ${s.student.grade} класс` : "Ученик без имени");
               const body = (
                 <>
                   <span className="pf-student-row__avatar">{name[0]}</span>
