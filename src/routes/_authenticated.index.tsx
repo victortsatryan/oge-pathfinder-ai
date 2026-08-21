@@ -10,6 +10,7 @@ export const Route = createFileRoute("/_authenticated/")({
     let dest = "/onboarding";
     try {
       const access = await getMyAccessOptional();
+      if (!access) throw new Error("no session");
       dest = destinationForAccess(access);
     } catch {
       dest = "/onboarding";

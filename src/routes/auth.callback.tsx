@@ -56,6 +56,7 @@ function AuthCallback() {
         // Otherwise route by role.
         try {
           const access = await getMyAccessOptional();
+          if (!access) throw new Error("no session");
           const dest = destinationForAccess(access);
           navigate({ to: dest, replace: true });
         } catch {
