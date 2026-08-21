@@ -28,8 +28,22 @@ import {
 } from "@/components/ui/select";
 
 import { useAuth } from "@/hooks/use-auth";
-import { addStudentSubject } from "@/lib/student-profile.functions";
-import { EMPTY_PROFILE_ANALYTICS, type Subject, type SubjectProgram } from "@/lib/models/schemas";
+import {
+  addStudentSubject,
+  updateMyStudentProfile,
+} from "@/lib/student-profile.functions";
+import {
+  findTeacherByEmail,
+  linkMyTeacher,
+  listMyTeachers,
+  unlinkMyTeacher,
+} from "@/lib/teacher.functions";
+import {
+  EMPTY_PROFILE_ANALYTICS,
+  type StudentProfile,
+  type Subject,
+  type SubjectProgram,
+} from "@/lib/models/schemas";
 import { itemQuery, listQuery } from "@/lib/query/defaults";
 import { studentRepo } from "@/lib/repositories/student.repository";
 
