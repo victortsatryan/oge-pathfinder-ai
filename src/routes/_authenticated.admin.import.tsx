@@ -307,7 +307,19 @@ function ImportPage() {
                 <div>validationPassed: {String(validationPassed)}</div>
                 <div>validRows: {preview ? validRows : "—"}</div>
                 <div>invalidRows: {preview ? invalidRows : "—"}</div>
+                <div className="break-all">raw headers: {csvHeaders.join(" | ") || "—"}</div>
+                <div>
+                  diagnostic_title: {rowsWith("diagnostic_title")} · exam_task_number: {rowsWith("exam_task_number")} ·
+                  correct_answer: {rowsWith("correct_answer")}
+                </div>
+                {report ? (
+                  <div>
+                    server: diagnosticRows {n(report.diagnosticRows)} · materialRows {n(report.materialRows)} ·
+                    correct_answer {n(report.withCorrectAnswer)} · exam_task_number {n(report.withExamNumber)}
+                  </div>
+                ) : null}
               </div>
+
 
 
               {preview && (
