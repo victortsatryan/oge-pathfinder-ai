@@ -8,7 +8,7 @@ import {
   type LibraryMaterial,
   type Subject,
 } from "@/lib/models/schemas";
-import { parseList } from "@/lib/query/parse";
+import { safeAwait, parseList } from "@/lib/query/parse";
 import {
   adminListCandidates,
   listMyCandidates,
@@ -19,7 +19,7 @@ import {
 /** Community Library domain repository. */
 export const communityRepo = {
   async myCandidates(): Promise<Candidate[]> {
-    const raw = await listMyCandidates();
+    const raw = await safeAwait("community.myCandidates", () => listMyCandidates());
     return parseList("community.myCandidates", candidateSchema, raw);
   },
 
@@ -44,7 +44,7 @@ export const communityRepo = {
   },
 
   async subjects(): Promise<Subject[]> {
-    const raw = await listSubjectsForLibrary();
+    const raw = await safeAwait("community.subjects", () => listSubjectsForLibrary());
     return parseList("community.subjects", subjectSchema, raw);
   },
 

@@ -7,7 +7,7 @@ import {
   type StudentOverview,
   type WeakTopic,
 } from "@/lib/models/schemas";
-import { parseList, parseOne } from "@/lib/query/parse";
+import { safeAwait, parseList, parseOne } from "@/lib/query/parse";
 import {
   getRecommendations,
   getStudentOverview,
@@ -16,15 +16,15 @@ import {
 
 export const analyticsRepo = {
   async overview(): Promise<StudentOverview> {
-    const raw = await getStudentOverview();
+    const raw = await safeAwait("analytics.overview", () => getStudentOverview());
     return parseOne("analytics.overview", studentOverviewSchema, raw) ?? EMPTY_STUDENT_OVERVIEW;
   },
   async weakTopics(limit = 10): Promise<WeakTopic[]> {
-    const raw = await getWeakTopics({ data: { limit } });
+    const raw = await safeAwait("analytics.weakTopics", () => getWeakTopics({ data: { limit } }));
     return parseList("analytics.weakTopics", weakTopicSchema, raw);
   },
   async recommendations(): Promise<Recommendation[]> {
-    const raw = await getRecommendations();
+    const raw = await safeAwait("analytics.recommendations", () => getRecommendations());
     return parseList("analytics.recommendations", recommendationSchema, raw);
   },
 };

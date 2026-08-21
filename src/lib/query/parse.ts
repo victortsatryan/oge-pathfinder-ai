@@ -130,3 +130,23 @@ export function parseOne<S extends z.ZodTypeAny>(
   });
   return res.data;
 }
+
+/**
+ * Await a server-function call without ever throwing.
+ * Server functions guarded by auth middleware reject with a raw `Response`
+ * (401/403), which surfaces as `Error: [object Response]` and blanks the screen.
+ * We log it and fall back to an empty payload so the UI can render empty state.
+ */
+export async function safeAwait(scope: string, thunk: () => Promise<unknown>): Promise<unknown> {
+  try {
+    return await thunk();
+  } catch (error) {
+    const status =
+      typeof Response !== "undefined" && error instanceof Response ? error.status : undefined;
+    logger.warn(`data:${scope}`, "request failed", {
+      status,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}

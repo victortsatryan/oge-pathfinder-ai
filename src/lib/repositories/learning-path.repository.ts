@@ -6,7 +6,7 @@ import {
   type LearningPath,
   type LearningPathItem,
 } from "@/lib/models/schemas";
-import { parseList, parseOne } from "@/lib/query/parse";
+import { safeAwait, parseList, parseOne } from "@/lib/query/parse";
 import {
   getLearningPath,
   listCalendarEvents,
@@ -15,12 +15,12 @@ import {
 
 export const learningPathRepo = {
   async calendarEvents(range: { from?: string; to?: string } = {}): Promise<CalendarEvent[]> {
-    const raw = await listCalendarEvents({ data: range });
+    const raw = await safeAwait("learningPath.calendarEvents", () => listCalendarEvents({ data: range }));
     return parseList("learningPath.calendarEvents", calendarEventSchema, raw);
   },
 
   async paths(): Promise<LearningPath[]> {
-    const raw = await listMyLearningPaths();
+    const raw = await safeAwait("learningPath.paths", () => listMyLearningPaths());
     return parseList("learningPath.paths", learningPathSchema, raw);
   },
 
