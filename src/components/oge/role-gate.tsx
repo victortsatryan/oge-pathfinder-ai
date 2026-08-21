@@ -19,9 +19,15 @@ export function RoleGate({ required, children }: Props) {
   const fetchAccess = useServerFn(getMyAccess);
   const q = useQuery({
     queryKey: ["my-access"],
-    queryFn: () => fetchAccess(),
     // Even in dev-open we still fetch so headers/user info can be surfaced,
-    // but we don't block on failures.
+    // but we don't block on failures: 401 becomes null, never a thrown Response.
+    queryFn: async () => {
+      try {
+        return await fetchAccess();
+      } catch {
+        return null;
+      }
+    },
     retry: 0,
     staleTime: 30_000,
   });
