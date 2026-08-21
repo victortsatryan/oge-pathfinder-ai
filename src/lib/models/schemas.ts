@@ -310,6 +310,24 @@ export const candidateSchema = z.object({
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 
+/** Опубликованный материал общей библиотеки. */
+export const libraryMaterialSchema = z.object({
+  id: z.string(),
+  title: z.string().default("—"),
+  description: z.string().nullable().optional(),
+  material_type: z.string().nullable().optional(),
+  source_name: z.string().nullable().optional(),
+  source_url: z.string().nullable().optional(),
+  video_url: z.string().nullable().optional(),
+  difficulty: z.number().nullable().optional(),
+  estimated_time_minutes: z.number().nullable().optional(),
+  subject_id: z.string().nullable().optional(),
+  topic_id: z.string().nullable().optional(),
+  subjects: z.object({ name: z.string().nullable().optional() }).nullable().optional(),
+  topics: z.object({ title: z.string().nullable().optional() }).nullable().optional(),
+});
+export type LibraryMaterial = z.infer<typeof libraryMaterialSchema>;
+
 // -------- Teacher --------
 
 export const teacherStudentSchema = z.object({
