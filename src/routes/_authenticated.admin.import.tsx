@@ -93,6 +93,7 @@ function ImportPage() {
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [report, setReport] = useState<Record<string, unknown> | null>(null);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
 
   const csvHeaders = Array.from(new Set(rows.flatMap((r) => Object.keys(r ?? {}))));
   const normKey = (k: string) => k.toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "");
@@ -187,6 +188,8 @@ function ImportPage() {
   function handleFile(file: File) {
     setFileName(file.name);
     setPreview(null);
+    setReport(null);
+    setParseErrors([]);
     const reader = new FileReader();
     reader.onload = () => {
       const text = s(reader.result);
@@ -213,9 +216,17 @@ function ImportPage() {
           skipEmptyLines: true,
           transformHeader: (h) => s(h).trim(),
         });
-        const parseErrors = Array.isArray(result.errors) ? result.errors : [];
-        if (parseErrors.length > 0) toast.error(`CSV: ${s(parseErrors[0]?.message) || "ошибка разбора"}`);
+        const errs = Array.isArray(result.errors) ? result.errors : [];
         const data = Array.isArray(result.data) ? result.data : [];
+        const messages = errs
+          .slice(0, 20)
+          .map((e) => `строка ${n(e?.row) + 1}: ${s(e?.message) || "ошибка разбора"}`);
+        // Rows whose quoting broke shift later columns (correct_answer!) into
+        // __parsed_extra, so treat that as a hard parse failure too.
+        const extras = data.filter((r) => r && "__parsed_extra" in (r as Record<string, unknown>)).length;
+        if (extras > 0) messages.push(`${extras} строк(и) содержат лишние поля — вероятно незакрытые кавычки`);
+        setParseErrors(messages);
+        if (messages.length > 0) toast.error(`CSV: ${messages[0]}`);
         const normalized = data.map((r) => {
           const obj: Row = {};
           for (const [k, v] of Object.entries((r ?? {}) as Record<string, unknown>)) obj[s(k).trim()] = s(v);
@@ -233,9 +244,11 @@ function ImportPage() {
   const validRows = preview ? Math.max(preview.total - invalidRows, 0) : 0;
   const validationPassed = Boolean(preview) && invalidRows === 0;
   const isAdmin = Boolean(adminQ.data?.isAdmin);
-  const canImport = validationPassed && Boolean(user) && isAdmin;
+  const canImport = validationPassed && Boolean(user) && isAdmin && parseErrors.length === 0;
 
-  const blockReason = !preview
+  const blockReason = parseErrors.length > 0
+    ? `CSV разобран с ошибками (${parseErrors.length}). Импорт заблокирован.`
+    : !preview
     ? "Сначала нажмите «Проверить»."
     : !validationPassed
       ? `Файл содержит ошибки: ${invalidRows}. Исправьте их и проверьте снова.`
@@ -333,6 +346,17 @@ function ImportPage() {
               </div>
 
 
+
+              {parseErrors.length > 0 && (
+                <div className="rounded-md border border-destructive p-4 text-sm space-y-1">
+                  <div className="font-medium text-destructive">Ошибки разбора CSV</div>
+                  <ul className="space-y-1">
+                    {parseErrors.map((m, i) => (
+                      <li key={i} className="text-destructive">{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {preview && (
                 <div className="rounded-md border p-4 text-sm space-y-1 bg-muted/50">
