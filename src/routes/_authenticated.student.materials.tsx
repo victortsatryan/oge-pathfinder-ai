@@ -111,13 +111,13 @@ function MaterialsPage() {
                 {m.subjects?.name ? ` · ${m.subjects.name}` : ""}
               </div>
               <div className="pf-library__title">
-                {m.source_url ? (
-                  <a href={m.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline">
-                    {m.title} <ExternalLink className="h-3 w-3" />
-                  </a>
-                ) : (
-                  m.title
-                )}
+                <Link
+                  to="/material/$materialId"
+                  params={{ materialId: m.id }}
+                  className="hover:underline"
+                >
+                  {m.title}
+                </Link>
               </div>
               {m.description && (
                 <div className="text-xs text-[color:var(--pf-muted)] mt-1">{m.description}</div>

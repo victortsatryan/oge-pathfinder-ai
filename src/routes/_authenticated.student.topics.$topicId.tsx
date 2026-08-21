@@ -183,13 +183,13 @@ function MaterialRow({ m }: { m: any }) {
       <Icon className="h-4 w-4 mt-1 text-[color:var(--pf-muted)]" />
       <div>
         <div className="text-sm font-medium">
-          {m.source_url ? (
-            <a href={m.source_url} target="_blank" rel="noreferrer" className="hover:underline inline-flex items-center gap-1">
-              {m.title} <ExternalLink className="h-3 w-3" />
-            </a>
-          ) : (
-            m.title
-          )}
+          <Link
+            to="/material/$materialId"
+            params={{ materialId: m.id }}
+            className="hover:underline"
+          >
+            {m.title}
+          </Link>
         </div>
         {m.description && (
           <div className="text-xs text-[color:var(--pf-muted)] mt-0.5">{m.description}</div>
