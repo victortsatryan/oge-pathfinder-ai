@@ -44,7 +44,7 @@ function DiagnosticHub() {
     listQuery<Subject>(["subjects-catalog"], () => studentRepo.subjectCatalog()),
   );
   const tests = useQuery(
-    listQuery<DiagnosticTest>(["diagnostic-tests", subjectId, type], () =>
+    listQuery<DiagnosticTestWithStatus>(["diagnostic-tests", subjectId, type], () =>
       diagnosticRepo.available({
         subject_id: subjectId !== "all" ? subjectId : undefined,
         diagnostic_type: type !== "all" ? type : undefined,
