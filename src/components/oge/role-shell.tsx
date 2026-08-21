@@ -1,9 +1,12 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { signOut } from "@/hooks/use-auth";
+import { signOut, useAuth } from "@/hooks/use-auth";
 import { PathyLogo } from "@/components/oge/logo";
+import { itemQuery } from "@/lib/query/defaults";
+import { studentRepo } from "@/lib/repositories/student.repository";
 
 export type NavItem = {
   label: string;
