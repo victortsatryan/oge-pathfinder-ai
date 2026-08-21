@@ -32,9 +32,10 @@ function StudentsPage() {
   const availFn = useServerFn(listAvailableStudents);
 
   const devMode = typeof window !== "undefined" && isDevOpenAccess();
-  const { data: students } = useQuery(
+  const studentsQuery = useQuery(
     listQuery(["teacher", "students"], () => teacherRepo.students()),
   );
+  const students = studentsQuery.data;
   const { data: avail } = useQuery({
     queryKey: ["teacher", "available-students"],
     queryFn: () => availFn(),
