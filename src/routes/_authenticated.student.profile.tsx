@@ -103,7 +103,7 @@ function StudentProfilePage() {
   });
 
   const p = profile.data;
-  const displayName = p?.display_name || "Ученик";
+  const displayName = p?.display_name?.trim() || "";
   const { user } = useAuth();
   const primary = mySubjects.data[0] ?? null;
   const primaryProgram = primary?.program?.title ?? primary?.subject?.name ?? null;
