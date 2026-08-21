@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { setMyRole, getMyAccess } from "@/lib/role.functions";
+import { setMyRole, getMyAccessOptional } from "@/lib/role.functions";
 import { destinationForAccess } from "@/lib/post-login-route";
 import { PathyLogo } from "@/components/oge/logo";
 import { RELEASE_GRADE, RELEASE_PROGRAM_ID, RELEASE_SUBJECT_ID } from "@/lib/release-scope";
@@ -125,7 +125,7 @@ function OnboardingPage() {
   const [answers, setAnswers] = useState<Answers>(initial);
 
   // DB is the source of truth for onboarding completion / roles.
-  const fetchAccess = useServerFn(getMyAccess);
+  const fetchAccess = useServerFn(getMyAccessOptional);
   const access = useQuery({
     queryKey: ["my-access"],
     // Unauthenticated (401) is a normal state here: show onboarding instead of

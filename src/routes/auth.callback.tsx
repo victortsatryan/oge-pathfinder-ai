@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getMyAccess } from "@/lib/role.functions";
+import { getMyAccessOptional } from "@/lib/role.functions";
 import { destinationForAccess } from "@/lib/post-login-route";
 
 type CallbackSearch = { redirect?: string };
@@ -55,7 +55,7 @@ function AuthCallback() {
 
         // Otherwise route by role.
         try {
-          const access = await getMyAccess();
+          const access = await getMyAccessOptional();
           const dest = destinationForAccess(access);
           navigate({ to: dest, replace: true });
         } catch {
