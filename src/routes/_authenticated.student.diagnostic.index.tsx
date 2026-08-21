@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 
 import { startDiagnosticSession } from "@/lib/diagnostic.functions";
-import type { DiagnosticHistoryRow, DiagnosticTest, Subject } from "@/lib/models/schemas";
+import type { DiagnosticHistoryRow, DiagnosticTestWithStatus, Subject } from "@/lib/models/schemas";
 import { listQuery } from "@/lib/query/defaults";
 import { diagnosticRepo } from "@/lib/repositories/diagnostic.repository";
 import { studentRepo } from "@/lib/repositories/student.repository";
