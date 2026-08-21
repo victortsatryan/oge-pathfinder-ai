@@ -332,6 +332,7 @@ export type LibraryMaterial = z.infer<typeof libraryMaterialSchema>;
 
 export const teacherStudentSchema = z.object({
   link_id: z.string(),
+  student_profile_id: z.string().nullable().default(null),
   status: z.string().nullable().optional(),
   started_at: z.string().nullable().optional(),
   student: z
