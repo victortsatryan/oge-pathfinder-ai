@@ -128,3 +128,38 @@ export function normalizeDiagnosticRow(
     },
   };
 }
+
+/** Report used by the import UI to prove which CSV columns actually arrived. */
+export type ImportFieldReport = {
+  headers: string[];
+  diagnosticRows: number;
+  materialRows: number;
+  withDiagnosticTitle: number;
+  withExamNumber: number;
+  withCorrectAnswer: number;
+};
+
+export function describeRows(rawRows: unknown[]): ImportFieldReport {
+  const headers = new Set<string>();
+  let diagnosticRows = 0;
+  let withDiagnosticTitle = 0;
+  let withExamNumber = 0;
+  let withCorrectAnswer = 0;
+
+  for (const raw of rawRows) {
+    for (const k of Object.keys((raw ?? {}) as Record<string, unknown>)) headers.add(k);
+    if (pick(raw, "diagnostic_title") !== "") withDiagnosticTitle++;
+    if (pick(raw, "exam_task_number") !== "" || pick(raw, "task_number") !== "") withExamNumber++;
+    if (pick(raw, "correct_answer") !== "") withCorrectAnswer++;
+    if (isDiagnosticRow(raw)) diagnosticRows++;
+  }
+
+  return {
+    headers: Array.from(headers),
+    diagnosticRows,
+    materialRows: rawRows.length - diagnosticRows,
+    withDiagnosticTitle,
+    withExamNumber,
+    withCorrectAnswer,
+  };
+}
