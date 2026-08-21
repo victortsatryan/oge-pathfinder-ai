@@ -265,7 +265,8 @@ function StudentsPage() {
                   <option value="archived">archived</option>
                 </select>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
