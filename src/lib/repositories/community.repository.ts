@@ -24,11 +24,23 @@ export const communityRepo = {
   },
 
   async publicMaterials(
-    filter: { material_type?: string; search?: string } = {},
-  ): Promise<LibraryMaterial[]> {
+    filter: {
+      material_type?: string;
+      topic_id?: string;
+      search?: string;
+      page?: number;
+      page_size?: number;
+    } = {},
+  ): Promise<{ materials: LibraryMaterial[]; total: number }> {
     const raw: unknown = await listPublicLibrary({ data: filter });
     const obj = (raw ?? {}) as Record<string, unknown>;
-    return parseList("community.publicMaterials", libraryMaterialSchema, obj.materials ?? raw);
+    const materials = parseList(
+      "community.publicMaterials",
+      libraryMaterialSchema,
+      obj.materials ?? raw,
+    );
+    const total = typeof obj.total === "number" ? obj.total : materials.length;
+    return { materials, total };
   },
 
   async subjects(): Promise<Subject[]> {

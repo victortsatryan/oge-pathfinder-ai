@@ -28,8 +28,22 @@ import {
 } from "@/components/ui/select";
 
 import { useAuth } from "@/hooks/use-auth";
-import { addStudentSubject } from "@/lib/student-profile.functions";
-import { EMPTY_PROFILE_ANALYTICS, type Subject, type SubjectProgram } from "@/lib/models/schemas";
+import {
+  addStudentSubject,
+  updateMyStudentProfile,
+} from "@/lib/student-profile.functions";
+import {
+  findTeacherByEmail,
+  linkMyTeacher,
+  listMyTeachers,
+  unlinkMyTeacher,
+} from "@/lib/teacher.functions";
+import {
+  EMPTY_PROFILE_ANALYTICS,
+  type StudentProfile,
+  type Subject,
+  type SubjectProgram,
+} from "@/lib/models/schemas";
 import { itemQuery, listQuery } from "@/lib/query/defaults";
 import { studentRepo } from "@/lib/repositories/student.repository";
 
@@ -148,8 +162,13 @@ function StudentProfilePage() {
 
         {/* Паспорт ученика */}
         <section className="mb-16">
-          <SectionEyebrow section="паспорт" sub="данные профиля" />
+          <SectionEyebrow
+            section="паспорт"
+            sub="данные профиля"
+            right={<ProfileEditDialog profile={p ?? null} />}
+          />
           <dl className="mt-6 border-t border-[color:var(--pf-line-strong)]">
+            <Field label="имя" value={displayName || "—"} />
             <Field label="почта" value={user?.email ?? "—"} />
             <Field label="класс" value={p?.grade ? `${p.grade} класс` : "—"} />
             <Field
@@ -169,8 +188,12 @@ function StudentProfilePage() {
               }
             />
             <Field label="время в неделю" value={p?.available_time ?? "—"} />
+            <Field label="ID профиля" value={p?.id ?? "—"} />
           </dl>
         </section>
+
+        {/* Преподаватель */}
+        <TeacherLinkSection />
 
         {/* Сводка */}
         <section className="mb-16">
@@ -567,5 +590,257 @@ function AddSubjectDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+const TIME_OPTIONS = [
+  "15–20 минут в день",
+  "30–40 минут в день",
+  "Около часа в день",
+  "1–2 часа в день",
+  "Несколько раз в неделю",
+];
+
+/** Редактирование базовых полей профиля: имя, класс, цель, время. */
+function ProfileEditDialog({ profile }: { profile: StudentProfile | null }) {
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updateMyStudentProfile);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [grade, setGrade] = useState("");
+  const [goal, setGoal] = useState("");
+  const [score, setScore] = useState("");
+  const [time, setTime] = useState("");
+
+  const reset = () => {
+    setName(profile?.display_name ?? "");
+    setGrade(profile?.grade ?? "");
+    setGoal(profile?.learning_goal ?? "");
+    setScore(profile?.target_score ?? "");
+    setTime(profile?.available_time ?? "");
+  };
+
+  const mut = useMutation({
+    mutationFn: () =>
+      updateFn({
+        data: {
+          display_name: name.trim() || null,
+          grade: grade.trim() || null,
+          learning_goal: goal.trim() || null,
+          target_score: score.trim() || null,
+          available_time: time.trim() || null,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Профиль обновлён");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["student-profile"] });
+      qc.invalidateQueries({ queryKey: ["my-student-profile"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Не удалось сохранить"),
+  });
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (v) reset();
+        setOpen(v);
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          Редактировать
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Редактировать профиль</DialogTitle>
+          <DialogDescription>
+            Эти данные используются для подбора маршрута и видны вашему преподавателю.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label htmlFor="pf-name">Имя</Label>
+            <Input
+              id="pf-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Как к вам обращаться"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pf-grade">Класс</Label>
+            <Input
+              id="pf-grade"
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              placeholder="11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pf-goal">Цель</Label>
+            <Input
+              id="pf-goal"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="Подготовиться к ЕГЭ"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pf-score">Целевой балл</Label>
+            <Input
+              id="pf-score"
+              value={score}
+              onChange={(e) => setScore(e.target.value)}
+              placeholder="90"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>Время на занятия</Label>
+            <Select value={time} onValueChange={setTime}>
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите режим…" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIME_OPTIONS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || name.trim().length < 2}
+          >
+            {mut.isPending ? "Сохраняем…" : "Сохранить"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** MVP-связь с преподавателем: поиск по почте, привязка и отвязка. */
+function TeacherLinkSection() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listMyTeachers);
+  const findFn = useServerFn(findTeacherByEmail);
+  const linkFn = useServerFn(linkMyTeacher);
+  const unlinkFn = useServerFn(unlinkMyTeacher);
+
+  const [email, setEmail] = useState("");
+
+  const teachers = useQuery({
+    queryKey: ["my-teachers"],
+    queryFn: async () => {
+      const res = (await listFn()) as { teachers?: unknown } | null;
+      const list = Array.isArray(res?.teachers) ? res!.teachers : [];
+      return list as {
+        link_id: string;
+        status: string;
+        display_name: string | null;
+        specialization: string | null;
+      }[];
+    },
+  });
+
+  const addMut = useMutation({
+    mutationFn: async () => {
+      const found = await findFn({ data: { email: email.trim() } });
+      await linkFn({ data: { teacher_profile_id: found.teacher_profile_id } });
+      return found;
+    },
+    onSuccess: (found) => {
+      setEmail("");
+      toast.success(`Преподаватель ${found.display_name ?? ""} добавлен`.trim());
+      qc.invalidateQueries({ queryKey: ["my-teachers"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Не удалось добавить преподавателя"),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: (link_id: string) => unlinkFn({ data: { link_id } }),
+    onSuccess: () => {
+      toast.success("Связь удалена");
+      qc.invalidateQueries({ queryKey: ["my-teachers"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить связь"),
+  });
+
+  const rows = teachers.data ?? [];
+
+  return (
+    <section className="mb-16">
+      <SectionEyebrow section="преподаватель" sub="совместная работа" />
+      {teachers.isLoading ? (
+        <p className="mt-6 text-sm text-[color:var(--pf-muted)]">Загрузка…</p>
+      ) : rows.length === 0 ? (
+        <p className="mt-6 text-sm text-[color:var(--pf-muted)]">
+          Пока нет преподавателя. Введите его рабочую почту — он получит доступ к
+          вашему прогрессу и маршруту.
+        </p>
+      ) : (
+        <ul className="mt-6 border-t border-[color:var(--pf-line-strong)]">
+          {rows.map((t) => (
+            <li
+              key={t.link_id}
+              className="grid grid-cols-[1fr,auto,auto] items-center gap-4 py-4 border-b border-[color:var(--pf-line)]"
+            >
+              <div>
+                <div className="text-[15px] font-medium">
+                  {t.display_name?.trim() || "Преподаватель"}
+                </div>
+                {t.specialization && (
+                  <div className="text-[12px] text-[color:var(--pf-muted)] mt-1">
+                    {t.specialization}
+                  </div>
+                )}
+              </div>
+              <span className="font-mono text-[11px] uppercase tracking-widest text-[color:var(--pf-muted)]">
+                {t.status}
+              </span>
+              <button
+                type="button"
+                className="font-mono text-[11px] uppercase tracking-widest"
+                style={{ color: "var(--pf-cinnabar)" }}
+                disabled={removeMut.isPending}
+                onClick={() => removeMut.mutate(t.link_id)}
+              >
+                отвязать
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-6 grid grid-cols-[1fr,auto] gap-4 items-end max-w-xl">
+        <div className="grid gap-2">
+          <Label htmlFor="teacher-email">Почта преподавателя</Label>
+          <Input
+            id="teacher-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="teacher@example.com"
+          />
+        </div>
+        <Button
+          variant="outline"
+          disabled={!email.includes("@") || addMut.isPending}
+          onClick={() => addMut.mutate()}
+        >
+          {addMut.isPending ? "Ищем…" : "Добавить"}
+        </Button>
+      </div>
+    </section>
   );
 }

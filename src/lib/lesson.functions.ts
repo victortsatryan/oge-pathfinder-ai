@@ -69,27 +69,49 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
       mastery = prog?.mastery_score ?? 0;
     }
 
-    // Pick materials
-    const preferredTypes =
-      mastery < 30 ? ["theory", "video", "textbook_paragraph", "scheme"]
-      : mastery < 70 ? ["theory", "exercise_set", "article"]
-      : ["exercise_set", "test", "task_solution"];
-    const maxDifficulty = mastery < 30 ? 2 : mastery < 70 ? 3 : 5;
+    // ---- Materials: theory first, then practice from the same topic ----
+    // The library stores practice items as materials (material_type = 'task'),
+    // so a lesson mixes explanation + exercises instead of coming out empty.
+    const theoryCount = mastery < 30 ? 3 : mastery < 70 ? 2 : 1;
+    const practiceCount = mastery < 30 ? 3 : mastery < 70 ? 5 : 6;
 
-    const { data: mats } = item.topic_id
-      ? await sb
+    const picked: { id: string }[] = [];
+    if (item.topic_id) {
+      const [{ data: theory }, { data: practice }] = await Promise.all([
+        sb
+          .from("materials")
+          .select("id, difficulty")
+          .eq("topic_id", item.topic_id)
+          .eq("status", "published")
+          .in("material_type", ["theory", "video", "article", "reference", "scheme"])
+          .order("difficulty", { ascending: true, nullsFirst: true })
+          .limit(theoryCount),
+        sb
+          .from("materials")
+          .select("id, difficulty")
+          .eq("topic_id", item.topic_id)
+          .eq("status", "published")
+          .in("material_type", ["task", "practice", "exercise_set", "test"])
+          .order("difficulty", { ascending: true, nullsFirst: true })
+          .limit(practiceCount),
+      ]);
+      picked.push(...(theory ?? []), ...(practice ?? []));
+
+      // Fallback: subject-level theory when the topic itself has none.
+      if (picked.length === 0 && item.subject_id) {
+        const { data: subjectTheory } = await sb
           .from("materials")
           .select("id")
-          .eq("topic_id", item.topic_id)
-          .eq("is_public", true)
-          .in("material_type", preferredTypes)
-          .lte("difficulty", maxDifficulty)
-          .order("difficulty")
-          .limit(4)
-      : { data: [] as { id: string }[] };
+          .eq("subject_id", item.subject_id)
+          .eq("status", "published")
+          .in("material_type", ["theory", "video", "article", "reference"])
+          .limit(theoryCount);
+        picked.push(...(subjectTheory ?? []));
+      }
+    }
 
-    if ((mats ?? []).length > 0) {
-      const rows = mats!.map((m: any, i: number) => ({
+    if (picked.length > 0) {
+      const rows = picked.map((m: any, i: number) => ({
         lesson_id: lessonId!,
         material_id: m.id,
         order_index: i,
@@ -99,7 +121,7 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
       await sb.from("lesson_materials").upsert(rows, { onConflict: "lesson_id,material_id" });
     }
 
-    // Pick tasks
+    // ---- Interactive tasks (auto-checked) ----
     const taskCount = mastery < 30 ? 4 : mastery < 70 ? 6 : 4;
     const { data: tasks } = item.topic_id
       ? await sb
@@ -122,7 +144,7 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
       await sb.from("lesson_tasks").upsert(rows, { onConflict: "lesson_id,task_id" });
     }
 
-    return { lesson_id: lessonId, materials: mats?.length ?? 0, tasks: tasks?.length ?? 0 };
+    return { lesson_id: lessonId, materials: picked.length, tasks: tasks?.length ?? 0 };
   });
 
 export const getLessonDetail = createServerFn({ method: "POST" })

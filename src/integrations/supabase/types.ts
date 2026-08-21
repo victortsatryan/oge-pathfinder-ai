@@ -3652,6 +3652,14 @@ export type Database = {
           user_count: number
         }[]
       }
+      find_teacher_by_email: {
+        Args: { _email: string }
+        Returns: {
+          display_name: string
+          specialization: string
+          teacher_profile_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -89,6 +89,7 @@ const TIME_OPTIONS = [
 // -------------------- State --------------------
 
 type Answers = {
+  name: string;
   educationSystem: string | null;
   grade: string | null;
   subjects: string[]; // subject ids (uuid) OR fallback slug tokens
@@ -101,6 +102,7 @@ type Answers = {
 };
 
 const initial: Answers = {
+  name: "",
   educationSystem: null,
   grade: null,
   subjects: [],
@@ -202,7 +204,14 @@ function OnboardingPage() {
 
   return (
     <WizardChrome step={step} total={TOTAL_STEPS} onBack={back}>
-      {step === 1 && <StepWelcome onNext={next} />}
+      {step === 1 && (
+        <StepWelcome
+          answers={answers}
+          setAnswers={setAnswers}
+          onNext={next}
+          canNext={canNext}
+        />
+      )}
       {step === 2 && (
         <StepEducationSystem
           answers={answers}
@@ -267,7 +276,7 @@ function OnboardingPage() {
 function validateStep(step: number, a: Answers): boolean {
   switch (step) {
     case 1:
-      return true;
+      return a.name.trim().length >= 2;
     case 2:
       return !!a.educationSystem;
     case 3:
@@ -414,7 +423,7 @@ function RolePicker({
 
 // -------------------- Steps --------------------
 
-function StepWelcome({ onNext }: { onNext: () => void }) {
+function StepWelcome({ answers, setAnswers, onNext, canNext }: StepProps) {
   return (
     <div>
       <p className="pf-eyebrow mb-4">знакомство</p>
@@ -434,8 +443,29 @@ function StepWelcome({ onNext }: { onNext: () => void }) {
         Несколько коротких вопросов помогут настроить обучение под вашу
         ситуацию. Займёт три-пять минут.
       </p>
+
+      <div className="mt-10 max-w-md">
+        <label htmlFor="onb-name" className="pf-eyebrow mb-2 block">
+          как вас зовут
+        </label>
+        <input
+          id="onb-name"
+          className="pf-input-line"
+          value={answers.name}
+          autoComplete="given-name"
+          placeholder="Имя"
+          onChange={(e) => setAnswers({ ...answers, name: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && canNext) onNext();
+          }}
+        />
+        <p className="mt-2 text-[12px]" style={{ color: "var(--pf-muted)" }}>
+          Имя видно вам и вашему преподавателю. Изменить можно в профиле.
+        </p>
+      </div>
+
       <div className="mt-12">
-        <Button size="lg" onClick={onNext}>
+        <Button size="lg" onClick={onNext} disabled={!canNext}>
           Начать →
         </Button>
       </div>
@@ -799,6 +829,7 @@ function StepSummary({ answers }: { answers: Answers }) {
             // all resolve to the same program the student picked.
             program_id: subject_id === RELEASE_SUBJECT_ID ? RELEASE_PROGRAM_ID : null,
           })),
+          display_name: answers.name.trim(),
           education_system: answers.educationSystem,
           grade: answers.grade,
           target_program: answers.grade

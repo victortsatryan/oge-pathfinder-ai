@@ -8,11 +8,10 @@ import { SectionEyebrow } from "@/components/oge/section-eyebrow";
 import {
   linkStudent,
   updateLinkStatus,
-  listAvailableStudents,
+  unlinkStudent,
 } from "@/lib/teacher.functions";
 import { listQuery } from "@/lib/query/defaults";
 import { teacherRepo } from "@/lib/repositories/teacher.repository";
-import { isDevOpenAccess } from "@/lib/admin-access";
 
 export const Route = createFileRoute("/_authenticated/teacher/students/")({
   component: StudentsPage,
@@ -29,18 +28,12 @@ function StudentsPage() {
   const qc = useQueryClient();
   const linkFn = useServerFn(linkStudent);
   const statusFn = useServerFn(updateLinkStatus);
-  const availFn = useServerFn(listAvailableStudents);
+  const unlinkFn = useServerFn(unlinkStudent);
 
-  const devMode = typeof window !== "undefined" && isDevOpenAccess();
   const studentsQuery = useQuery(
     listQuery(["teacher", "students"], () => teacherRepo.students()),
   );
   const students = studentsQuery.data;
-  const { data: avail } = useQuery({
-    queryKey: ["teacher", "available-students"],
-    queryFn: () => availFn(),
-    enabled: devMode,
-  });
 
   const [filter, setFilter] = useState<FilterKey>("all");
   const [studentId, setStudentId] = useState("");
@@ -51,12 +44,11 @@ function StudentsPage() {
     onSuccess: () => {
       setStudentId("");
       setErr(null);
-      toast.success("Ученик привязан");
+      toast.success("Ученик добавлен");
       qc.invalidateQueries({ queryKey: ["teacher", "students"] });
-      qc.invalidateQueries({ queryKey: ["teacher", "available-students"] });
     },
     onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : "Не удалось привязать ученика.";
+      const msg = e instanceof Error ? e.message : "Не удалось добавить ученика.";
       setErr(msg);
       toast.error(msg);
     },
@@ -68,6 +60,16 @@ function StudentsPage() {
       status: "active" | "paused" | "archived";
     }) => statusFn({ data: vars }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["teacher", "students"] }),
+  });
+
+  const unlinkMut = useMutation({
+    mutationFn: (link_id: string) => unlinkFn({ data: { link_id } }),
+    onSuccess: () => {
+      toast.success("Ученик удалён из кабинета");
+      qc.invalidateQueries({ queryKey: ["teacher", "students"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Не удалось удалить ученика."),
   });
 
   const filtered = students.filter((s) => {
@@ -129,53 +131,6 @@ function StudentsPage() {
         </p>
       </section>
 
-      {devMode && (avail?.students?.length ?? 0) > 0 && (
-        <section className="mb-12">
-          <SectionEyebrow
-            section="dev"
-            sub="Тестовые ученики"
-            mark="forest"
-          />
-          <ul>
-            {(avail?.students ?? []).map((s: { id: string; display_name?: string | null; grade?: string | null; learning_goal?: string | null; target_exam?: string | null; linked?: boolean }) => (
-              <li
-                key={s.id}
-                className="py-3 grid grid-cols-[1fr,auto] gap-4 items-center"
-                style={{ borderBottom: "1px solid var(--pf-line)" }}
-              >
-                <div>
-                  <div className="text-[14px] font-medium">
-                    {s.display_name ?? "Без имени"}
-                  </div>
-                  <div
-                    className="mt-1 font-mono text-[11px] uppercase tracking-widest"
-                    style={{ color: "var(--pf-muted)" }}
-                  >
-                    {s.grade ?? "—"} · {s.learning_goal ?? "—"} ·{" "}
-                    {s.target_exam ?? "—"}
-                  </div>
-                </div>
-                {s.linked ? (
-                  <span
-                    className="font-mono text-[11px] uppercase tracking-widest"
-                    style={{ color: "var(--pf-muted)" }}
-                  >
-                    уже привязан
-                  </span>
-                ) : (
-                  <button
-                    className="pf-btn pf-btn--ghost"
-                    disabled={linkMut.isPending}
-                    onClick={() => linkMut.mutate(s.id)}
-                  >
-                    Привязать
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {/* Список */}
       <section>
@@ -275,6 +230,22 @@ function StudentsPage() {
                   <option value="paused">paused</option>
                   <option value="archived">archived</option>
                 </select>
+                <button
+                  type="button"
+                  className="font-mono text-[11px] uppercase tracking-widest"
+                  style={{ color: "var(--pf-cinnabar)" }}
+                  disabled={unlinkMut.isPending}
+                  onClick={() => {
+                    if (
+                      typeof window !== "undefined" &&
+                      !window.confirm(`Удалить ${name} из кабинета?`)
+                    )
+                      return;
+                    unlinkMut.mutate(s.link_id);
+                  }}
+                >
+                  удалить
+                </button>
               </div>
               );
             })}
