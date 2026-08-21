@@ -38,16 +38,28 @@ function toInt(value: string): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
+/** Exam task number written into the row title, e.g. «Диагностика ЕГЭ · Задание 12 · № 14932». */
+function examNumberFromTitle(raw: unknown): number | null {
+  const m = /задание\s*№?\s*(\d{1,2})/i.exec(pick(raw, "title"));
+  if (!m) return null;
+  const n = Number(m[1]);
+  return n >= 1 && n <= 99 ? n : null;
+}
+
 /** Cheap detector used by the importer to route a row. */
 export function isDiagnosticRow(raw: unknown): boolean {
+  const hasNumber =
+    pick(raw, "exam_task_number") !== "" ||
+    pick(raw, "task_number") !== "" ||
+    examNumberFromTitle(raw) !== null;
+  // A row with an answer key belongs to the diagnostic engine even when the CSV
+  // carries no explicit `diagnostic_title` column.
+  if (pick(raw, "correct_answer") !== "" && hasNumber) return true;
   const title = pick(raw, "diagnostic_title");
   if (title === "") return false;
-  return (
-    pick(raw, "correct_answer") !== "" ||
-    pick(raw, "exam_task_number") !== "" ||
-    pick(raw, "task_number") !== ""
-  );
+  return pick(raw, "correct_answer") !== "" || hasNumber;
 }
+
 
 export type DiagnosticIssue = { field: string; message: string };
 
@@ -56,10 +68,16 @@ export function normalizeDiagnosticRow(
 ): { ok: true; row: DiagnosticRow } | { ok: false; issues: DiagnosticIssue[] } {
   const issues: DiagnosticIssue[] = [];
 
-  const diagnostic_title = pick(raw, "diagnostic_title");
   const subject_title = pick(raw, "subject_title");
   if (subject_title === "")
     issues.push({ field: "subject_title", message: "обязательное поле не заполнено" });
+
+  const grade = pick(raw, "grade");
+  const diagnostic_title =
+    pick(raw, "diagnostic_title") ||
+    (subject_title !== ""
+      ? `Диагностика ЕГЭ — ${subject_title}${grade ? `, ${grade} класс` : ""}`
+      : "");
 
   const prompt =
     pick(raw, "prompt") ||
@@ -74,9 +92,10 @@ export function normalizeDiagnosticRow(
     issues.push({ field: "correct_answer", message: "правильный ответ не заполнен" });
 
   const numberRaw = pick(raw, "exam_task_number") || pick(raw, "task_number");
-  const exam_task_number = toInt(numberRaw);
+  const exam_task_number = numberRaw !== "" ? toInt(numberRaw) : examNumberFromTitle(raw);
   if (numberRaw !== "" && exam_task_number === null)
     issues.push({ field: "exam_task_number", message: `не число: «${numberRaw}»` });
+
 
   if (issues.length > 0) return { ok: false, issues };
 
@@ -92,11 +111,12 @@ export function normalizeDiagnosticRow(
       diagnostic_type: pick(raw, "diagnostic_type").toLowerCase() || "entry",
       subject_title,
       program_title: pick(raw, "program_title"),
-      grade: pick(raw, "grade"),
+      grade,
       topic_title: pick(raw, "topic_title"),
       subtopic_title: pick(raw, "subtopic_title"),
       exam_task_number,
-      order_index: toInt(orderRaw),
+      order_index: toInt(orderRaw) ?? exam_task_number,
+
       prompt,
       correct_answer,
       answer_type: answerTypeRaw === "" ? "text" : answerTypeRaw,
