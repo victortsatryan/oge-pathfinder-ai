@@ -68,10 +68,16 @@ export function normalizeDiagnosticRow(
 ): { ok: true; row: DiagnosticRow } | { ok: false; issues: DiagnosticIssue[] } {
   const issues: DiagnosticIssue[] = [];
 
-  const diagnostic_title = pick(raw, "diagnostic_title");
   const subject_title = pick(raw, "subject_title");
   if (subject_title === "")
     issues.push({ field: "subject_title", message: "обязательное поле не заполнено" });
+
+  const grade = pick(raw, "grade");
+  const diagnostic_title =
+    pick(raw, "diagnostic_title") ||
+    (subject_title !== ""
+      ? `Диагностика ЕГЭ — ${subject_title}${grade ? `, ${grade} класс` : ""}`
+      : "");
 
   const prompt =
     pick(raw, "prompt") ||
@@ -86,9 +92,10 @@ export function normalizeDiagnosticRow(
     issues.push({ field: "correct_answer", message: "правильный ответ не заполнен" });
 
   const numberRaw = pick(raw, "exam_task_number") || pick(raw, "task_number");
-  const exam_task_number = toInt(numberRaw);
+  const exam_task_number = numberRaw !== "" ? toInt(numberRaw) : examNumberFromTitle(raw);
   if (numberRaw !== "" && exam_task_number === null)
     issues.push({ field: "exam_task_number", message: `не число: «${numberRaw}»` });
+
 
   if (issues.length > 0) return { ok: false, issues };
 
