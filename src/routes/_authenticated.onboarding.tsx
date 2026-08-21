@@ -829,6 +829,7 @@ function StepSummary({ answers }: { answers: Answers }) {
             // all resolve to the same program the student picked.
             program_id: subject_id === RELEASE_SUBJECT_ID ? RELEASE_PROGRAM_ID : null,
           })),
+          display_name: answers.name.trim(),
           education_system: answers.educationSystem,
           grade: answers.grade,
           target_program: answers.grade
