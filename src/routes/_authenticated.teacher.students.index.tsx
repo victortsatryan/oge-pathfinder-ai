@@ -202,9 +202,17 @@ function StudentsPage() {
           }
         />
 
-        {filtered.length === 0 ? (
+        {studentsQuery.isError ? (
           <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
-            Никого по этому фильтру.
+            Не удалось загрузить список учеников. Обновите страницу.
+          </p>
+        ) : studentsQuery.isLoading ? (
+          <p className="text-sm" style={{ color: "var(--pf-muted)" }}>Загрузка…</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--pf-muted)" }}>
+            {filter === "all"
+              ? "Пока нет привязанных учеников. Введите ID профиля ученика выше, чтобы добавить первого."
+              : "Никого по этому фильтру."}
           </p>
         ) : (
           <div>
