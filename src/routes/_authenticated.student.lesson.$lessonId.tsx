@@ -193,6 +193,11 @@ function LessonPage() {
                     </span>
                     {task.title ?? task.prompt}
                   </div>
+                  {task.prompt && task.title && (
+                    <div className="text-[15px] leading-relaxed whitespace-pre-wrap break-words mt-3">
+                      {task.prompt}
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap items-baseline gap-4 mt-4">
                     <input
