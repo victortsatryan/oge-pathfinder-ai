@@ -11,7 +11,9 @@ import {
   type NormalizedRow,
 } from "@/lib/admin-import-normalize";
 import {
+  describeRows,
   isDiagnosticRow,
+  looksDiagnostic,
   normalizeDiagnosticRow,
   type DiagnosticRow,
 } from "@/lib/admin-import-diagnostic";
@@ -261,6 +263,16 @@ async function processRows(sb: any, userId: string, rawRows: unknown[], dryRun: 
         continue;
       }
 
+      if (looksDiagnostic(rawRows[i])) {
+        outcome.errors.push({
+          row: i + 1,
+          message:
+            `Строка ${i + 1}: похоже на диагностическое задание, но не хватает ключа ответа ` +
+            `(correct_answer). Строка не импортирована как материал.`,
+        });
+        continue;
+      }
+
       const normalized = normalizeRow(rawRows[i]);
       if (!normalized.ok) {
         outcome.errors.push({ row: i + 1, message: `Строка ${i + 1}: ${formatRowIssues(normalized.issues)}` });
@@ -388,7 +400,7 @@ export const previewImport = createServerFn({ method: "POST" })
       return obj;
     });
 
-    return { ...outcome, sample };
+    return { ...outcome, sample, report: describeRows(data.rows) };
   });
 
 export const runImport = createServerFn({ method: "POST" })

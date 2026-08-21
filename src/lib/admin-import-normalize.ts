@@ -53,17 +53,30 @@ export function str(value: unknown): string {
   }
 }
 
+/**
+ * Header key normalization: lowercase and drop everything that is not a letter
+ * or a digit. This survives BOM (\uFEFF), NBSP, zero-width chars, stray quotes,
+ * spaces, dashes and underscores — all common in exported CSV headers.
+ */
+export function normalizeKey(key: unknown): string {
+  return String(key ?? "")
+    .replace(/[\uFEFF\u200B-\u200D\u00A0]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "");
+}
+
 /** Case/space-insensitive lookup so slightly different CSV headers still resolve. */
 export function pick(raw: unknown, key: string): string {
   if (!raw || typeof raw !== "object") return "";
   const obj = raw as Record<string, unknown>;
   if (key in obj) return str(obj[key]);
-  const wanted = key.toLowerCase().replace(/[\s_-]+/g, "");
+  const wanted = normalizeKey(key);
   for (const [k, v] of Object.entries(obj)) {
-    if (String(k ?? "").toLowerCase().replace(/[\s_-]+/g, "") === wanted) return str(v);
+    if (normalizeKey(k) === wanted) return str(v);
   }
   return "";
 }
+
 
 function intOrNull(value: string): number | null {
   if (value === "") return null;

@@ -46,6 +46,20 @@ function examNumberFromTitle(raw: unknown): number | null {
   return n >= 1 && n <= 99 ? n : null;
 }
 
+/**
+ * A row that clearly belongs to a diagnostic (explicit title or "Задание N"
+ * heading) even when its answer key failed to arrive. Used to fail loudly
+ * instead of silently importing the row as a draft library material.
+ */
+export function looksDiagnostic(raw: unknown): boolean {
+  return (
+    pick(raw, "diagnostic_title") !== "" ||
+    pick(raw, "exam_task_number") !== "" ||
+    pick(raw, "task_number") !== "" ||
+    examNumberFromTitle(raw) !== null
+  );
+}
+
 /** Cheap detector used by the importer to route a row. */
 export function isDiagnosticRow(raw: unknown): boolean {
   const hasNumber =
@@ -126,5 +140,40 @@ export function normalizeDiagnosticRow(
       source_name: pick(raw, "source_name") || str(diagnostic_title),
       source_url: pick(raw, "source_url"),
     },
+  };
+}
+
+/** Report used by the import UI to prove which CSV columns actually arrived. */
+export type ImportFieldReport = {
+  headers: string[];
+  diagnosticRows: number;
+  materialRows: number;
+  withDiagnosticTitle: number;
+  withExamNumber: number;
+  withCorrectAnswer: number;
+};
+
+export function describeRows(rawRows: unknown[]): ImportFieldReport {
+  const headers = new Set<string>();
+  let diagnosticRows = 0;
+  let withDiagnosticTitle = 0;
+  let withExamNumber = 0;
+  let withCorrectAnswer = 0;
+
+  for (const raw of rawRows) {
+    for (const k of Object.keys((raw ?? {}) as Record<string, unknown>)) headers.add(k);
+    if (pick(raw, "diagnostic_title") !== "") withDiagnosticTitle++;
+    if (pick(raw, "exam_task_number") !== "" || pick(raw, "task_number") !== "") withExamNumber++;
+    if (pick(raw, "correct_answer") !== "") withCorrectAnswer++;
+    if (isDiagnosticRow(raw)) diagnosticRows++;
+  }
+
+  return {
+    headers: Array.from(headers),
+    diagnosticRows,
+    materialRows: rawRows.length - diagnosticRows,
+    withDiagnosticTitle,
+    withExamNumber,
+    withCorrectAnswer,
   };
 }
