@@ -263,6 +263,15 @@ export const diagnosticTestSchema = z.object({
 });
 export type DiagnosticTest = z.infer<typeof diagnosticTestSchema>;
 
+/** Per-test attempt status for the current user only. */
+export const diagnosticTestWithStatusSchema = diagnosticTestSchema.extend({
+  attempt_status: z.enum(["none", "in_progress", "completed"]).default("none"),
+  attempt_session_id: z.string().nullable().default(null),
+  attempt_score_percent: z.number().nullable().default(null),
+  attempt_completed_at: z.string().nullable().default(null),
+});
+export type DiagnosticTestWithStatus = z.infer<typeof diagnosticTestWithStatusSchema>;
+
 export const diagnosticHistoryRowSchema = z.object({
   id: z.string(),
   status: z.string().default("in_progress"),
