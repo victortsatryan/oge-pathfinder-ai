@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { getMyAccess } from "@/lib/role.functions";
+import { getMyAccessOptional } from "@/lib/role.functions";
 import { destinationForAccess } from "@/lib/post-login-route";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -9,7 +9,8 @@ export const Route = createFileRoute("/_authenticated/")({
     // Routing is decided from DB state (roles + onboarding_completed), not local state.
     let dest = "/onboarding";
     try {
-      const access = await getMyAccess();
+      const access = await getMyAccessOptional();
+      if (!access) throw new Error("no session");
       dest = destinationForAccess(access);
     } catch {
       dest = "/onboarding";

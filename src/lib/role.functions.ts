@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { readMyAccess } from "@/lib/role-access.server";
 
 export type UserRole = "student" | "teacher" | "admin";
 
@@ -94,3 +95,9 @@ export const getMyAccess = createServerFn({ method: "GET" })
       onboardingCompleted: Boolean(profileRes.data?.onboarding_completed),
     };
   });
+
+// Non-throwing variant: returns null when the caller has no valid session.
+// Prevents the 401 Response from bubbling up as a runtime error (blank screen).
+export const getMyAccessOptional = createServerFn({ method: "GET" }).handler(async () =>
+  readMyAccess(),
+);

@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 
 import { Button } from "@/components/ui/button";
 import { isDevOpenAccess } from "@/lib/admin-access";
-import { getMyAccess, type UserRole } from "@/lib/role.functions";
+import { getMyAccessOptional, type UserRole } from "@/lib/role.functions";
 
 type Props = {
   required: UserRole;
@@ -16,7 +16,7 @@ type Props = {
 // open so contributors can test any role without an admin grant.
 export function RoleGate({ required, children }: Props) {
   const devOpen = isDevOpenAccess();
-  const fetchAccess = useServerFn(getMyAccess);
+  const fetchAccess = useServerFn(getMyAccessOptional);
   const q = useQuery({
     queryKey: ["my-access"],
     // Even in dev-open we still fetch so headers/user info can be surfaced,
