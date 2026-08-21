@@ -162,8 +162,13 @@ function StudentProfilePage() {
 
         {/* Паспорт ученика */}
         <section className="mb-16">
-          <SectionEyebrow section="паспорт" sub="данные профиля" />
+          <SectionEyebrow
+            section="паспорт"
+            sub="данные профиля"
+            right={<ProfileEditDialog profile={p ?? null} />}
+          />
           <dl className="mt-6 border-t border-[color:var(--pf-line-strong)]">
+            <Field label="имя" value={displayName || "—"} />
             <Field label="почта" value={user?.email ?? "—"} />
             <Field label="класс" value={p?.grade ? `${p.grade} класс` : "—"} />
             <Field
@@ -183,8 +188,12 @@ function StudentProfilePage() {
               }
             />
             <Field label="время в неделю" value={p?.available_time ?? "—"} />
+            <Field label="ID профиля" value={p?.id ?? "—"} />
           </dl>
         </section>
+
+        {/* Преподаватель */}
+        <TeacherLinkSection />
 
         {/* Сводка */}
         <section className="mb-16">
