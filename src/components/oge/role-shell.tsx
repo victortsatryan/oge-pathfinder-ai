@@ -24,6 +24,25 @@ export function RoleShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isTeacher = accent === "Преподаватель";
+  const { user } = useAuth();
+  const studentProfile = useQuery({
+    ...itemQuery(["student-profile"], () => studentRepo.profile()),
+    enabled: !isTeacher,
+  });
+
+  const p = studentProfile.data;
+  const name = isTeacher
+    ? "Преподаватель"
+    : p?.display_name?.trim() || user?.email || "Профиль";
+  const subtitle = isTeacher
+    ? "кабинет"
+    : p?.grade
+      ? `${p.grade} класс`
+      : "класс не указан";
+  const initials = isTeacher
+    ? "ПР"
+    : (name.replace(/[^\p{L}]/gu, "").slice(0, 2) || "УЧ").toUpperCase();
+
 
   return (
     <div className="pf-shell">
