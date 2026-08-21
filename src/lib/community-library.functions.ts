@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -182,32 +183,45 @@ export const listPublicLibrary = createServerFn({ method: "POST" })
     z
       .object({
         material_type: z.string().trim().max(40).optional(),
+        topic_id: z.string().uuid().optional(),
         search: z.string().trim().max(200).optional(),
-        limit: z.number().int().min(1).max(200).default(60),
+        page: z.number().int().min(1).max(500).default(1),
+        page_size: z.number().int().min(1).max(200).default(50),
       })
       .parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { RELEASE_SUBJECT_IDS } = await import("@/lib/release-scope");
     const sel = (s: string): string => s;
+    const from = (data.page - 1) * data.page_size;
+    const to = from + data.page_size - 1;
     let q = context.supabase
       .from("materials")
       .select(
         sel(
           "id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes, subject_id, topic_id, subjects(name), topics(title)",
         ),
+        { count: "exact" },
       )
       .eq("status", "published")
       .in("subject_id", RELEASE_SUBJECT_IDS)
-      .order("created_at", { ascending: false })
-      .limit(data.limit);
+      // Deterministic order so pagination is stable across pages.
+      .order("material_type", { ascending: true })
+      .order("title", { ascending: true })
+      .range(from, to);
     if (data.material_type && data.material_type !== "all") {
       q = q.eq("material_type", data.material_type);
     }
+    if (data.topic_id) q = q.eq("topic_id", data.topic_id);
     if (data.search) q = q.ilike("title", `%${data.search}%`);
     const { data: rows, error, count } = await q;
     if (error) throw new Error(error.message);
-    return { materials: rows ?? [], total: count ?? (rows?.length ?? 0) };
+    return {
+      materials: rows ?? [],
+      total: count ?? (rows?.length ?? 0),
+      page: data.page,
+      page_size: data.page_size,
+    };
   });
 
 /* ---------- Admin ---------- */

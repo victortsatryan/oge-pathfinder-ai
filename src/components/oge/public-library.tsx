@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import type { LibraryMaterial } from "@/lib/models/schemas";
-import { listQuery } from "@/lib/query/defaults";
 import { communityRepo } from "@/lib/repositories/community.repository";
 
 const TYPE_TABS: { value: string; label: string }[] = [
@@ -11,24 +9,37 @@ const TYPE_TABS: { value: string; label: string }[] = [
   { value: "task", label: "Практика" },
 ];
 
+const PAGE_SIZE = 50;
+
 /**
  * Общая библиотека — опубликованные материалы релизной программы.
- * Один и тот же список для ученика и преподавателя.
+ * Один и тот же список для ученика и преподавателя, с постраничной выдачей:
+ * весь банк заданий (≈1000) не грузится одним запросом.
  */
 export function PublicLibraryList() {
   const [type, setType] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  const q = useQuery(
-    listQuery<LibraryMaterial>(["public-library", type, search], () =>
+  useEffect(() => {
+    setPage(1);
+  }, [type, search]);
+
+  const q = useQuery({
+    queryKey: ["public-library", type, search, page],
+    queryFn: () =>
       communityRepo.publicMaterials({
         material_type: type,
         search: search.trim() || undefined,
+        page,
+        page_size: PAGE_SIZE,
       }),
-    ),
-  );
+    placeholderData: (prev) => prev,
+  });
 
-  const rows = q.data;
+  const rows = q.data?.materials ?? [];
+  const total = q.data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="mt-6">
@@ -58,7 +69,9 @@ export function PublicLibraryList() {
       </div>
 
       <div className="font-mono text-[11px] uppercase tracking-widest mt-4" style={{ color: "var(--pf-muted)" }}>
-        {q.isLoading ? "загрузка…" : `${rows.length} материалов`}
+        {q.isLoading
+          ? "загрузка…"
+          : `${total} материалов · страница ${page} из ${pages}`}
       </div>
 
       {q.isError && (
@@ -106,6 +119,33 @@ export function PublicLibraryList() {
           );
         })}
       </div>
+
+      {pages > 1 && (
+        <div className="mt-6 flex items-center justify-between gap-4 flex-wrap">
+          <button
+            type="button"
+            className="pf-btn pf-btn--ghost"
+            disabled={page <= 1 || q.isFetching}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            ← Назад
+          </button>
+          <span
+            className="font-mono text-[11px] uppercase tracking-widest"
+            style={{ color: "var(--pf-muted)" }}
+          >
+            {page} / {pages}
+          </span>
+          <button
+            type="button"
+            className="pf-btn pf-btn--ghost"
+            disabled={page >= pages || q.isFetching}
+            onClick={() => setPage((p) => Math.min(pages, p + 1))}
+          >
+            Вперёд →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

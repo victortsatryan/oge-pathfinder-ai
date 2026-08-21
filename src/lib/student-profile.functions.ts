@@ -15,6 +15,7 @@ const onboardingSchema = z.object({
       }),
     )
     .min(1),
+  display_name: z.string().trim().min(2).max(120),
   education_system: z.string().trim().max(40).nullable().optional(),
   grade: z.string().trim().max(40).nullable().optional(),
   target_program: z.string().trim().max(40).nullable().optional(),
@@ -49,6 +50,7 @@ export const completeStudentOnboarding = createServerFn({ method: "POST" })
       .update({
         role: "student",
         onboarding_completed: true,
+        display_name: data.display_name,
         ...(Number.isFinite(gradeNum) ? { grade: gradeNum } : {}),
         ...(data.target_program ? { program: data.target_program } : {}),
       })
@@ -72,6 +74,7 @@ export const completeStudentOnboarding = createServerFn({ method: "POST" })
     const profilePatch: Record<string, unknown> = {
       onboarding_completed: true,
       onboarding_completed_at: new Date().toISOString(),
+      display_name: data.display_name,
     };
     if (data.target_exam !== undefined) profilePatch.target_exam = data.target_exam;
     if (data.target_program !== undefined) profilePatch.target_program = data.target_program;
@@ -188,6 +191,8 @@ const updateProfileSchema = z.object({
   target_exam: z.string().trim().max(40).nullable().optional(),
   target_date: z.string().nullable().optional(),
   target_score: z.string().trim().max(40).nullable().optional(),
+  available_time: z.string().trim().max(40).nullable().optional(),
+  education_system: z.string().trim().max(40).nullable().optional(),
   preferred_intensity: z.enum(["low", "medium", "high"]).nullable().optional(),
 });
 
@@ -205,6 +210,20 @@ export const updateMyStudentProfile = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) throw error;
+    // Keep the shared `profiles` row in sync — the shell and teacher views read it.
+    if (payload.display_name !== undefined || payload.grade !== undefined) {
+      const gradeNum =
+        typeof payload.grade === "string" ? Number.parseInt(payload.grade, 10) : NaN;
+      await sb
+        .from("profiles")
+        .update({
+          ...(payload.display_name !== undefined
+            ? { display_name: payload.display_name }
+            : {}),
+          ...(Number.isFinite(gradeNum) ? { grade: gradeNum } : {}),
+        })
+        .eq("user_id", context.userId);
+    }
     return updated;
   });
 

@@ -89,6 +89,7 @@ const TIME_OPTIONS = [
 // -------------------- State --------------------
 
 type Answers = {
+  name: string;
   educationSystem: string | null;
   grade: string | null;
   subjects: string[]; // subject ids (uuid) OR fallback slug tokens
@@ -101,6 +102,7 @@ type Answers = {
 };
 
 const initial: Answers = {
+  name: "",
   educationSystem: null,
   grade: null,
   subjects: [],
@@ -202,7 +204,14 @@ function OnboardingPage() {
 
   return (
     <WizardChrome step={step} total={TOTAL_STEPS} onBack={back}>
-      {step === 1 && <StepWelcome onNext={next} />}
+      {step === 1 && (
+        <StepWelcome
+          answers={answers}
+          setAnswers={setAnswers}
+          onNext={next}
+          canNext={canNext}
+        />
+      )}
       {step === 2 && (
         <StepEducationSystem
           answers={answers}
@@ -267,7 +276,7 @@ function OnboardingPage() {
 function validateStep(step: number, a: Answers): boolean {
   switch (step) {
     case 1:
-      return true;
+      return a.name.trim().length >= 2;
     case 2:
       return !!a.educationSystem;
     case 3:

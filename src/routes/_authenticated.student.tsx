@@ -5,6 +5,7 @@ import { RoleGate } from "@/components/oge/role-gate";
 
 const NAV: NavItem[] = [
   { label: "Главная", to: "/student" },
+  { label: "Диагностика", to: "/student/diagnostic" },
   { label: "Предметы", to: "/student/subjects" },
   { label: "Маршрут", to: "/student/path" },
   { label: "Календарь", to: "/student/calendar" },

@@ -84,19 +84,115 @@ export const updateMyTeacherProfile = createServerFn({ method: "POST" })
     return row;
   });
 
-// ---------- Dev helpers ----------
-export const listAvailableStudents = createServerFn({ method: "GET" })
+// ---------- Unlink (teacher side) ----------
+export const unlinkStudent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ link_id: uuid }).parse(i))
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+    const tp = await ensureTeacherProfile(sb, context.userId);
+    const { error } = await sb
+      .from("teacher_student_links")
+      .delete()
+      .eq("id", data.link_id)
+      .eq("teacher_profile_id", tp.id);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// ---------- Student side: my teachers ----------
+async function myStudentProfileId(sb: any, userId: string): Promise<string> {
+  const { data, error } = await sb
+    .from("student_profiles")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Профиль ученика ещё не создан");
+  return data.id as string;
+}
+
+export const findTeacherByEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ email: z.string().trim().email().max(200) }).parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+    const { data: rows, error } = await sb.rpc("find_teacher_by_email", {
+      _email: data.email,
+    });
+    if (error) throw error;
+    const teacher = Array.isArray(rows) ? rows[0] : rows;
+    if (!teacher) throw new Error("Преподаватель с такой почтой не найден");
+    return {
+      teacher_profile_id: teacher.teacher_profile_id as string,
+      display_name: (teacher.display_name as string | null) ?? null,
+      specialization: (teacher.specialization as string | null) ?? null,
+    };
+  });
+
+export const linkMyTeacher = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ teacher_profile_id: uuid }).parse(i))
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+    const spId = await myStudentProfileId(sb, context.userId);
+    const { data: row, error } = await sb
+      .from("teacher_student_links")
+      .upsert(
+        {
+          teacher_profile_id: data.teacher_profile_id,
+          student_profile_id: spId,
+          status: "active",
+        },
+        { onConflict: "teacher_profile_id,student_profile_id" },
+      )
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    return { ok: true, link_id: row?.id ?? null };
+  });
+
+export const listMyTeachers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const sb = context.supabase as any;
-    const tp = await ensureTeacherProfile(sb, context.userId);
-    const { supabaseAdmin: a } = await import("@/integrations/supabase/client.server");
-    const [{ data: all }, { data: links }] = await Promise.all([
-      a.from("student_profiles").select("id, display_name, grade, learning_goal, target_exam").order("created_at", { ascending: false }).limit(50),
-      sb.from("teacher_student_links").select("student_profile_id").eq("teacher_profile_id", tp.id),
-    ]);
-    const linked = new Set((links ?? []).map((l: any) => l.student_profile_id));
-    return { students: (all ?? []).map((s: any) => ({ ...s, linked: linked.has(s.id) })) };
+    const { data: sp } = await sb
+      .from("student_profiles")
+      .select("id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!sp) return { teachers: [] };
+    const { data, error } = await sb
+      .from("teacher_student_links")
+      .select("id, status, started_at, teacher:teacher_profiles(id, display_name, specialization)")
+      .eq("student_profile_id", sp.id);
+    if (error) throw error;
+    return {
+      teachers: (data ?? []).map((l: any) => ({
+        link_id: l.id,
+        status: l.status ?? "active",
+        started_at: l.started_at ?? null,
+        display_name: l.teacher?.display_name ?? null,
+        specialization: l.teacher?.specialization ?? null,
+      })),
+    };
+  });
+
+export const unlinkMyTeacher = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ link_id: uuid }).parse(i))
+  .handler(async ({ context, data }) => {
+    const sb = context.supabase as any;
+    const spId = await myStudentProfileId(sb, context.userId);
+    const { error } = await sb
+      .from("teacher_student_links")
+      .delete()
+      .eq("id", data.link_id)
+      .eq("student_profile_id", spId);
+    if (error) throw error;
+    return { ok: true };
   });
 
 // ---------- Lessons (all linked students) ----------
