@@ -131,15 +131,14 @@ function LessonPage() {
                   style={{ borderBottom: "1px solid var(--pf-line)" }}
                 >
                   <div className="text-[15px] font-medium">
-                    {mat?.source_url ? (
-                      <a
-                        href={mat.source_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 hover:underline"
+                    {mat?.id ? (
+                      <Link
+                        to="/material/$materialId"
+                        params={{ materialId: mat.id }}
+                        className="hover:underline"
                       >
-                        {mat.title} <ExternalLink className="h-3 w-3" />
-                      </a>
+                        {mat.title}
+                      </Link>
                     ) : (
                       mat?.title
                     )}
