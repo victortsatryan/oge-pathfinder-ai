@@ -1,0 +1,1 @@
+DELETE FROM public.materials WHERE material_type = 'task' AND status = 'draft' AND title LIKE 'Диагностика ЕГЭ%';
