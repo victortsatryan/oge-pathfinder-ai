@@ -79,12 +79,10 @@ export function RoleShell({
 
         <div className="flex flex-col gap-3">
           <Link to="/profile" className="pf-rail__user">
-            <span className="pf-rail__user-avatar">
-              {isTeacher ? "ПР" : "УЧ"}
-            </span>
+            <span className="pf-rail__user-avatar">{initials}</span>
             <span className="pf-rail__user-meta">
-              <b>{isTeacher ? "Преподаватель" : "Иван"}</b>
-              <span>{isTeacher ? "кабинет" : "9 класс"}</span>
+              <b className="truncate max-w-[140px]">{name}</b>
+              <span>{subtitle}</span>
             </span>
           </Link>
 
