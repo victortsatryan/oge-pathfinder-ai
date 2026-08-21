@@ -1,8 +1,8 @@
 import {
   diagnosticHistoryRowSchema,
-  diagnosticTestSchema,
+  diagnosticTestWithStatusSchema,
   type DiagnosticHistoryRow,
-  type DiagnosticTest,
+  type DiagnosticTestWithStatus,
 } from "@/lib/models/schemas";
 import { parseList } from "@/lib/query/parse";
 import {
@@ -14,9 +14,9 @@ import {
 export const diagnosticRepo = {
   async available(
     filter: { subject_id?: string; diagnostic_type?: string } = {},
-  ): Promise<DiagnosticTest[]> {
+  ): Promise<DiagnosticTestWithStatus[]> {
     const raw = await listAvailableDiagnostics({ data: filter });
-    return parseList("diagnostic.available", diagnosticTestSchema, raw);
+    return parseList("diagnostic.available", diagnosticTestWithStatusSchema, raw);
   },
 
   async history(): Promise<DiagnosticHistoryRow[]> {
