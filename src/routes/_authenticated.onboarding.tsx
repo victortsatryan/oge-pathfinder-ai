@@ -128,7 +128,15 @@ function OnboardingPage() {
   const fetchAccess = useServerFn(getMyAccess);
   const access = useQuery({
     queryKey: ["my-access"],
-    queryFn: () => fetchAccess(),
+    // Unauthenticated (401) is a normal state here: show onboarding instead of
+    // letting the thrown Response bubble up as a runtime error / blank screen.
+    queryFn: async () => {
+      try {
+        return await fetchAccess();
+      } catch {
+        return null;
+      }
+    },
     retry: 0,
     staleTime: 30_000,
   });
