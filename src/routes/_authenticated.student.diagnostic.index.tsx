@@ -142,16 +142,45 @@ function DiagnosticHub() {
                       {t.description}
                     </p>
                   )}
-                  <div className="flex items-center justify-between mt-4">
+                  <div className="flex items-center justify-between mt-4 gap-3 flex-wrap">
                     <span className="font-mono text-[12px] text-[color:var(--pf-muted)]">
-                      {t.duration_minutes ? `≈ ${t.duration_minutes} мин` : ""}
+                      {t.duration_minutes ? `≈ ${t.duration_minutes} мин · ` : ""}
+                      {t.attempt_status === "completed"
+                        ? `пройдено · ${t.attempt_score_percent ?? 0}%`
+                        : t.attempt_status === "in_progress"
+                          ? "попытка не завершена"
+                          : "не проходилась"}
                     </span>
-                    <Button
-                      onClick={() => startMut.mutate({ diagnostic_test_id: t.id })}
-                      disabled={startMut.isPending}
-                    >
-                      Начать
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      {t.attempt_status === "completed" && t.attempt_session_id && (
+                        <Link
+                          to="/student/diagnostic/$sessionId"
+                          params={{ sessionId: t.attempt_session_id }}
+                          className="text-[12px] font-mono underline underline-offset-4"
+                        >
+                          результат →
+                        </Link>
+                      )}
+                      {t.attempt_status === "in_progress" && t.attempt_session_id ? (
+                        <Button
+                          onClick={() =>
+                            navigate({
+                              to: "/student/diagnostic/$sessionId",
+                              params: { sessionId: t.attempt_session_id as string },
+                            })
+                          }
+                        >
+                          Продолжить диагностику
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => startMut.mutate({ diagnostic_test_id: t.id })}
+                          disabled={startMut.isPending}
+                        >
+                          {t.attempt_status === "completed" ? "Пройти заново" : "Пройти диагностику"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
