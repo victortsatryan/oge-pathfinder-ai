@@ -32,6 +32,7 @@ function AdminCommunityQueue() {
     queryKey: ["admin-candidates", status],
     queryFn: () => communityRepo.adminQueue(status as Parameters<typeof communityRepo.adminQueue>[0]),
     initialData: { candidates: [], counts: {} },
+    initialDataUpdatedAt: 0,
   });
 
   const rows = data.candidates;

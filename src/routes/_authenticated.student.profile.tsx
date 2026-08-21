@@ -69,6 +69,7 @@ function StudentProfilePage() {
     queryKey: ["student-analytics"],
     queryFn: () => studentRepo.profileAnalytics(),
     initialData: EMPTY_PROFILE_ANALYTICS,
+    initialDataUpdatedAt: 0,
   });
   const weak = useQuery(listQuery(["student-weak"], () => studentRepo.weakTopics()));
   const mistakes = useQuery(listQuery(["student-mistakes"], () => studentRepo.recentMistakes()));
