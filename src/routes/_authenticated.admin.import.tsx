@@ -92,6 +92,17 @@ function ImportPage() {
   const [fileName, setFileName] = useState<string>("");
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [report, setReport] = useState<Record<string, unknown> | null>(null);
+
+  const csvHeaders = Array.from(new Set(rows.flatMap((r) => Object.keys(r ?? {}))));
+  const normKey = (k: string) => k.toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "");
+  const rowsWith = (key: string) => {
+    const wanted = normKey(key);
+    return rows.filter((r) =>
+      Object.entries(r ?? {}).some(([k, v]) => normKey(k) === wanted && s(v).trim() !== ""),
+    ).length;
+  };
+
 
   const { user } = useAuth();
   const devOpen = isDevOpenAccess();
