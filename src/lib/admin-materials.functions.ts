@@ -388,7 +388,7 @@ export const previewImport = createServerFn({ method: "POST" })
       return obj;
     });
 
-    return { ...outcome, sample };
+    return { ...outcome, sample, report: describeRows(data.rows) };
   });
 
 export const runImport = createServerFn({ method: "POST" })
