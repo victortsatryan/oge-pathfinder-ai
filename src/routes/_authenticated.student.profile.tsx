@@ -103,7 +103,7 @@ function StudentProfilePage() {
   });
 
   const p = profile.data;
-  const displayName = p?.display_name || "Ученик";
+  const displayName = p?.display_name?.trim() || "";
   const { user } = useAuth();
   const primary = mySubjects.data[0] ?? null;
   const primaryProgram = primary?.program?.title ?? primary?.subject?.name ?? null;
@@ -121,11 +121,11 @@ function StudentProfilePage() {
 
         <header className="mt-10 mb-14 max-w-3xl">
           <p className="pf-eyebrow mb-3">
-            исследователь{p?.grade ? ` · ${p.grade}` : ""}
+            исследователь{p?.grade ? ` · ${p.grade} класс` : ""}
           </p>
           <h1 className="pf-h1" style={{ maxWidth: "18ch" }}>
             {(() => {
-              const chars = Array.from(displayName);
+              const chars = Array.from(displayName || user?.email || "Профиль ученика");
               return (
                 <>
                   {chars.slice(0, -1).join("")}

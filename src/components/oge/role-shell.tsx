@@ -1,9 +1,12 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { signOut } from "@/hooks/use-auth";
+import { signOut, useAuth } from "@/hooks/use-auth";
 import { PathyLogo } from "@/components/oge/logo";
+import { itemQuery } from "@/lib/query/defaults";
+import { studentRepo } from "@/lib/repositories/student.repository";
 
 export type NavItem = {
   label: string;
@@ -21,6 +24,25 @@ export function RoleShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isTeacher = accent === "Преподаватель";
+  const { user } = useAuth();
+  const studentProfile = useQuery({
+    ...itemQuery(["student-profile"], () => studentRepo.profile()),
+    enabled: !isTeacher,
+  });
+
+  const p = studentProfile.data;
+  const name = isTeacher
+    ? "Преподаватель"
+    : p?.display_name?.trim() || user?.email || "Профиль";
+  const subtitle = isTeacher
+    ? "кабинет"
+    : p?.grade
+      ? `${p.grade} класс`
+      : "класс не указан";
+  const initials = isTeacher
+    ? "ПР"
+    : (name.replace(/[^\p{L}]/gu, "").slice(0, 2) || "УЧ").toUpperCase();
+
 
   return (
     <div className="pf-shell">
@@ -57,12 +79,10 @@ export function RoleShell({
 
         <div className="flex flex-col gap-3">
           <Link to="/profile" className="pf-rail__user">
-            <span className="pf-rail__user-avatar">
-              {isTeacher ? "ПР" : "УЧ"}
-            </span>
+            <span className="pf-rail__user-avatar">{initials}</span>
             <span className="pf-rail__user-meta">
-              <b>{isTeacher ? "Преподаватель" : "Иван"}</b>
-              <span>{isTeacher ? "кабинет" : "9 класс"}</span>
+              <b className="truncate max-w-[140px]">{name}</b>
+              <span>{subtitle}</span>
             </span>
           </Link>
 
