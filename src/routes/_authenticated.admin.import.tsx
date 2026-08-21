@@ -148,6 +148,7 @@ function ImportPage() {
       try {
         const res: unknown = await previewFn({ data: { rows, fileName, format } });
         const r = (res ?? {}) as Record<string, unknown>;
+        setReport((r.report ?? null) as Record<string, unknown> | null);
         if (!Array.isArray(r.errors)) {
           const msg = s((r.error as Record<string, unknown> | undefined)?.message ?? r.message);
           throw new Error(msg || "Сервер вернул неожиданный ответ (проверьте права администратора)");
