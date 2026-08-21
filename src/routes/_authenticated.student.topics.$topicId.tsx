@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, Video, FileText, ListChecks, Sparkles, ExternalLink } from "lucide-react";
+import { ArrowLeft, BookOpen, Video, FileText, ListChecks, Sparkles } from "lucide-react";
 
 import { PageHeader } from "@/components/oge/page-header";
 import {
