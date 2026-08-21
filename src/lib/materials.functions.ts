@@ -126,3 +126,18 @@ export const listSubjectsForFilter = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return { subjects: data ?? [] };
   });
+
+export const getMaterialDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ material_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("materials")
+      .select(
+        "id, title, description, material_type, content_text, source_name, source_url, video_url, file_url, image_url, difficulty, estimated_time_minutes, topic_id, subject_id, subjects(name), topics(title)",
+      )
+      .eq("id", data.material_id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { material: row ?? null };
+  });
