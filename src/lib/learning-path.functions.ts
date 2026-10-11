@@ -68,26 +68,51 @@ const generateSchema = z.object({
 });
 
 /**
- * Removes previously generated lessons/calendar events for the student's
- * active paths so a re-generation never duplicates the calendar.
+ * Archives the student's previous active paths WITHOUT deleting anything.
+ * - lessons, lesson_results, task_attempts, lesson_materials/tasks stay intact
+ *   and remain linked to the archived path (history is preserved);
+ * - completed lessons keep status "completed";
+ * - unfinished lessons get status "rescheduled" (superseded by the new path),
+ *   their calendar events get status "cancelled" so the calendar shows no duplicates;
+ * - unfinished path items get status "archived".
  */
 async function archivePreviousPaths(sb: any, userId: string, keepPathId?: string) {
-  const { data: paths } = await sb
+  const { data: paths, error } = await sb
     .from("learning_paths")
     .select("id")
     .eq("user_id", userId)
     .neq("status", "archived");
+  if (error) throw new Error(error.message);
   const ids = (paths ?? []).map((p: any) => p.id).filter((id: string) => id !== keepPathId);
   if (ids.length === 0) return;
 
-  const { data: lessons } = await sb.from("lessons").select("id").in("learning_path_id", ids);
-  const lessonIds = (lessons ?? []).map((l: any) => l.id);
-  if (lessonIds.length > 0) {
-    await sb.from("calendar_events").delete().in("lesson_id", lessonIds);
-    await sb.from("lessons").delete().in("id", lessonIds);
+  const { data: lessons, error: lErr } = await sb
+    .from("lessons")
+    .select("id, status")
+    .in("learning_path_id", ids);
+  if (lErr) throw new Error(lErr.message);
+  const openIds = (lessons ?? [])
+    .filter((l: any) => l.status !== "completed")
+    .map((l: any) => l.id);
+
+  if (openIds.length > 0) {
+    const c = await sb
+      .from("calendar_events")
+      .update({ status: "cancelled" })
+      .in("lesson_id", openIds)
+      .neq("status", "completed");
+    if (c.error) throw new Error(c.error.message);
+    const u = await sb.from("lessons").update({ status: "rescheduled" }).in("id", openIds);
+    if (u.error) throw new Error(u.error.message);
   }
-  await sb.from("learning_path_items").delete().in("learning_path_id", ids);
-  await sb.from("learning_paths").update({ status: "archived" }).in("id", ids);
+  const it = await sb
+    .from("learning_path_items")
+    .update({ status: "archived" })
+    .in("learning_path_id", ids)
+    .neq("status", "completed");
+  if (it.error) throw new Error(it.error.message);
+  const p = await sb.from("learning_paths").update({ status: "archived" }).in("id", ids);
+  if (p.error) throw new Error(p.error.message);
 }
 
 export const generateLearningPath = createServerFn({ method: "POST" })
@@ -283,55 +308,74 @@ export const generateCalendarFromLearningPath = createServerFn({ method: "POST" 
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
 
-    // Remove previous calendar events for this path's items
     const itemIds = (items ?? []).map((i: any) => i.id);
     if (itemIds.length === 0) return { created: 0 };
 
-    // Delete existing lesson events for these path items
-    const { data: existingLessons } = await sb
+    // Never delete lessons (history). Reuse existing lessons; only create
+    // lessons for items that have none, and add a calendar event only for
+    // lessons that do not already have an active one.
+    const { data: existingLessons, error: exErr } = await sb
       .from("lessons")
-      .select("id")
+      .select("id, learning_path_item_id, lesson_date, title, subject_id, topic_id, student_profile_id, status")
       .in("learning_path_item_id", itemIds);
-    const lessonIds = (existingLessons ?? []).map((l: any) => l.id);
-    if (lessonIds.length > 0) {
-      await sb.from("calendar_events").delete().in("lesson_id", lessonIds);
-      await sb.from("lessons").delete().in("id", lessonIds);
+    if (exErr) throw new Error(exErr.message);
+    const haveLesson = new Set((existingLessons ?? []).map((l: any) => l.learning_path_item_id));
+
+    const lessonRows = items!
+      .filter((it: any) => !haveLesson.has(it.id))
+      .map((it: any) => ({
+        user_id: context.userId,
+        student_profile_id: profileId,
+        learning_path_id: data.path_id,
+        learning_path_item_id: it.id,
+        subject_id: it.subject_id,
+        topic_id: it.topic_id,
+        lesson_date: it.planned_date,
+        title: it.title,
+        duration_minutes: it.duration_minutes,
+        status: "planned" as const,
+      }));
+
+    let created: any[] = [];
+    if (lessonRows.length > 0) {
+      const lessonsIns = await sb
+        .from("lessons")
+        .insert(lessonRows)
+        .select("id, lesson_date, title, subject_id, topic_id, student_profile_id, status");
+      if (lessonsIns.error) throw new Error(lessonsIns.error.message);
+      created = lessonsIns.data ?? [];
     }
 
-    const lessonRows = items!.map((it: any) => ({
-      user_id: context.userId,
-      student_profile_id: profileId,
-      learning_path_id: data.path_id,
-      learning_path_item_id: it.id,
-      subject_id: it.subject_id,
-      topic_id: it.topic_id,
-      lesson_date: it.planned_date,
-      title: it.title,
-      duration_minutes: it.duration_minutes,
-      status: "planned" as const,
-    }));
+    const allLessons = [
+      ...(existingLessons ?? []).filter((l: any) => l.status !== "rescheduled"),
+      ...created,
+    ];
+    const allIds = allLessons.map((l: any) => l.id);
+    const { data: activeEvents } = allIds.length
+      ? await sb.from("calendar_events").select("lesson_id").in("lesson_id", allIds).neq("status", "cancelled")
+      : { data: [] };
+    const hasEvent = new Set((activeEvents ?? []).map((e: any) => e.lesson_id));
 
-    const lessonsIns = await sb.from("lessons").insert(lessonRows).select("id, lesson_date, title, subject_id, topic_id, student_profile_id");
-    if (lessonsIns.error) throw new Error(lessonsIns.error.message);
-
-    const eventRows = (lessonsIns.data ?? []).map((l: any) => ({
-      user_id: context.userId,
-      student_profile_id: l.student_profile_id,
-      event_type: "lesson",
-      lesson_id: l.id,
-      subject_id: l.subject_id,
-      topic_id: l.topic_id,
-      title: l.title,
-      event_date: l.lesson_date,
-      duration_minutes: 60,
-      status: "planned",
-    }));
+    const eventRows = allLessons
+      .filter((l: any) => !hasEvent.has(l.id))
+      .map((l: any) => ({
+        user_id: context.userId,
+        student_profile_id: l.student_profile_id ?? profileId,
+        event_type: "lesson",
+        lesson_id: l.id,
+        subject_id: l.subject_id,
+        topic_id: l.topic_id,
+        title: l.title,
+        event_date: l.lesson_date,
+        duration_minutes: 60,
+        status: l.status === "completed" ? "completed" : "planned",
+      }));
     if (eventRows.length > 0) {
       const e = await sb.from("calendar_events").insert(eventRows);
       if (e.error) throw new Error(e.error.message);
     }
 
-    return { created: lessonsIns.data?.length ?? 0 };
+    return { created: created.length };
   });
 
 export const listCalendarEvents = createServerFn({ method: "POST" })
@@ -344,6 +388,7 @@ export const listCalendarEvents = createServerFn({ method: "POST" })
       .from("calendar_events")
       .select("id, event_type, title, description, event_date, start_time, duration_minutes, status, lesson_id, diagnostic_session_id, subject_id, topic_id, subjects(name), topics(title)")
       .eq("user_id", context.userId)
+      .neq("status", "cancelled")
       .order("event_date");
     if (data.from) q = q.gte("event_date", data.from);
     if (data.to) q = q.lte("event_date", data.to);

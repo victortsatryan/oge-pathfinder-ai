@@ -3645,6 +3645,10 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: undefined
       }
+      can_teacher_view_lesson: {
+        Args: { _lesson_id: string }
+        Returns: boolean
+      }
       count_ai_requests_today: {
         Args: { _ip: string; _user_id: string }
         Returns: {

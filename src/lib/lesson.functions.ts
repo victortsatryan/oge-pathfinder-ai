@@ -183,6 +183,7 @@ export const getLessonDetail = createServerFn({ method: "POST" })
       result: resultRes.data,
       attempts: attemptsRes.data ?? [],
       mastery,
+      viewer_is_owner: lessonRes.data?.user_id === context.userId,
     };
   });
 

@@ -58,6 +58,7 @@ function LessonPage() {
 
   const lesson: any = q.data?.lesson;
   const materials = q.data?.materials ?? [];
+  const readOnly = q.data ? !(q.data as any).viewer_is_owner : false;
   const tasks = q.data?.tasks ?? [];
   const result = q.data?.result;
   const attempts = q.data?.attempts ?? [];
@@ -200,6 +201,12 @@ function LessonPage() {
                   )}
 
                   <div className="flex flex-wrap items-baseline gap-4 mt-4">
+                    {readOnly ? (
+                      <span className="text-[14px]">
+                        Ответ ученика: {a?.student_answer || "—"}
+                      </span>
+                    ) : (
+                    <>
                     <input
                       defaultValue={a?.student_answer ?? ""}
                       onChange={(e) =>
@@ -219,6 +226,8 @@ function LessonPage() {
                     >
                       Проверить
                     </button>
+                    </>
+                    )}
                     {a && (
                       <span
                         className="font-mono text-[11px] uppercase tracking-widest"
@@ -281,6 +290,10 @@ function LessonPage() {
               </p>
             )}
           </div>
+        ) : readOnly ? (
+          <p className="text-[14px]" style={{ color: "var(--pf-muted)" }}>
+            Ученик ещё не завершил занятие.
+          </p>
         ) : (
           <button
             onClick={() => completeMut.mutate()}

@@ -8,19 +8,24 @@ export type UserRole = "student" | "teacher" | "admin";
 
 const roleSchema = z.object({ role: z.enum(["student", "teacher"]) });
 
+// Role is derived from user_roles (single source of authority).
+// profiles.role only records the cabinet chosen at onboarding and never grants rights.
 export const getMyRole = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data, error } = await (supabase as any)
-      .from("profiles")
-      .select("role, onboarding_completed")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (error) throw error;
+    const sb = supabase as any;
+    const [rolesRes, profileRes] = await Promise.all([
+      sb.from("user_roles").select("role").eq("user_id", userId),
+      sb.from("profiles").select("onboarding_completed").eq("user_id", userId).maybeSingle(),
+    ]);
+    if (rolesRes.error) throw rolesRes.error;
+    if (profileRes.error) throw profileRes.error;
+    const roles = ((rolesRes.data ?? []) as { role: string }[]).map((r) => r.role);
+    const role = roles.includes("teacher") ? "teacher" : roles.includes("student") ? "student" : null;
     return {
-      role: (data?.role ?? null) as "student" | "teacher" | null,
-      onboarding_completed: Boolean(data?.onboarding_completed),
+      role: role as "student" | "teacher" | null,
+      onboarding_completed: Boolean(profileRes.data?.onboarding_completed),
     };
   });
 
@@ -30,13 +35,15 @@ export const setMyRole = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const sb = supabase as any;
+    // 1) Grant the role through the guarded RPC (only student/teacher allowed).
+    const { error: rpcErr } = await sb.rpc("assign_self_role", { _role: data.role });
+    if (rpcErr) throw rpcErr;
+    // 2) Only then record the chosen cabinet on the profile (informational).
     const { error } = await sb
       .from("profiles")
       .update({ role: data.role, onboarding_completed: true })
       .eq("user_id", userId);
     if (error) throw error;
-    const { error: rpcErr } = await sb.rpc("assign_self_role", { _role: data.role });
-    if (rpcErr) throw rpcErr;
     return { ok: true, role: data.role };
   });
 
