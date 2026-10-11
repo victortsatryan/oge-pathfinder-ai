@@ -258,15 +258,10 @@ export const submitLessonTaskAttempt = createServerFn({ method: "POST" })
       mistake_type: isCorrect ? null : "careless_error",
     };
 
-    if (existing?.id) {
-      const upd = await sb.from("task_attempts").update(row).eq("id", existing.id);
-      if (upd.error) throw new Error(upd.error.message);
-    } else {
-      const ins = await sb.from("task_attempts").insert(row);
-      if (ins.error) throw new Error(ins.error.message);
-    }
+    const ins = await sb.from("task_attempts").insert(row);
+    if (ins.error) throw new Error(ins.error.message);
 
-    return { is_correct: isCorrect };
+    return { is_correct: isCorrect, correct_answer: taskRes.data.correct_answer, already_submitted: false };
   });
 
 export const completeLesson = createServerFn({ method: "POST" })
@@ -285,10 +280,21 @@ export const completeLesson = createServerFn({ method: "POST" })
     if (!lesson.student_profile_id) throw new Error("Lesson missing student_profile_id");
     const profileId = lesson.student_profile_id as string;
 
-    const { data: attempts } = await sb
-      .from("task_attempts")
-      .select("is_correct, points_awarded, max_points, task_id, mistake_type")
-      .eq("lesson_id", data.lesson_id);
+    const [{ data: attempts }, { count: taskCount }, { count: materialCount }] = await Promise.all([
+      sb.from("task_attempts")
+        .select("is_correct, points_awarded, max_points, task_id, mistake_type")
+        .eq("lesson_id", data.lesson_id),
+      sb.from("lesson_tasks").select("id", { count: "exact", head: true }).eq("lesson_id", data.lesson_id),
+      sb.from("lesson_materials").select("id", { count: "exact", head: true }).eq("lesson_id", data.lesson_id),
+    ]);
+
+    // Guards: an empty lesson cannot be completed, and every interactive task must be answered.
+    if ((taskCount ?? 0) === 0 && (materialCount ?? 0) === 0) {
+      throw new Error("В занятии нет материалов — завершить его нельзя.");
+    }
+    if ((attempts?.length ?? 0) < (taskCount ?? 0)) {
+      throw new Error("Ответьте на все задания перед завершением.");
+    }
 
     const completed = attempts?.length ?? 0;
     const correct = attempts?.filter((a: any) => a.is_correct).length ?? 0;
@@ -298,11 +304,13 @@ export const completeLesson = createServerFn({ method: "POST" })
     const percent = max > 0 ? Math.round((score / max) * 100) : 0;
 
     const summary =
-      percent < 50
-        ? "Результат низкий. Рекомендуется повторить теорию и выполнить дополнительные задания по этой теме."
-        : percent < 80
-          ? "Хороший результат. Закрепите тему ещё одной практикой."
-          : "Отличный результат. Можно переходить к следующей теме.";
+      completed === 0
+        ? "Теория изучена. Автоматически проверяемых заданий в занятии не было, поэтому уровень освоения темы не изменился."
+        : percent < 50
+          ? "Результат низкий. Рекомендуется повторить теорию и выполнить дополнительные задания по этой теме."
+          : percent < 80
+            ? "Хороший результат. Закрепите тему ещё одной практикой."
+            : "Отличный результат. Можно переходить к следующей теме.";
 
     // Upsert lesson_result
     const { data: existing } = await sb
