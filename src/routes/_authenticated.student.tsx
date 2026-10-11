@@ -4,14 +4,14 @@ import { RoleShell, type NavItem } from "@/components/oge/role-shell";
 import { RoleGate } from "@/components/oge/role-gate";
 
 const NAV: NavItem[] = [
+  { label: "Мой маршрут", to: "/student/path" },
   { label: "Главная", to: "/student" },
+  { label: "Календарь", to: "/student/calendar" },
   { label: "Диагностика", to: "/student/diagnostic" },
   { label: "Предметы", to: "/student/subjects" },
-  { label: "Маршрут", to: "/student/path" },
-  { label: "Календарь", to: "/student/calendar" },
   { label: "Аналитика", to: "/student/analytics" },
-  { label: "Ассистент", to: "/student/assistant" },
   { label: "Библиотека", to: "/student/library" },
+  { label: "Ассистент", to: "/student/assistant" },
   { label: "Профиль", to: "/student/profile" },
 ];
 

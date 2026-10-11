@@ -1405,12 +1405,28 @@
   font-family: var(--font-mono);
   font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
 }
+/* Mobile: the rail becomes a sticky top bar with a horizontally scrolling, labelled nav. */
 @media (max-width: 900px) {
-  .pf-rail__logo span, .pf-rail__item span:not(.pf-rail__icon),
-  .pf-rail__user-meta, .pf-rail__section { display: none; }
-  .pf-rail { padding: 24px 10px; align-items: center; }
-  .pf-rail__logo { padding-bottom: 16px; }
-  .pf-rail__item { justify-content: center; padding: 10px; }
+  .pf-shell { grid-template-columns: minmax(0, 1fr); }
+  .pf-rail {
+    position: sticky; top: 0; z-index: 30; height: auto;
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+    gap: 8px 12px; padding: 10px 16px 0;
+    border-right: 0; border-bottom: 1px solid var(--pf-line-strong);
+  }
+  .pf-rail > div:nth-of-type(1) { order: 3; flex-basis: 100%; }
+  .pf-rail > div:nth-of-type(2) { margin-left: auto; flex-direction: row; align-items: center; gap: 12px; }
+  .pf-rail__logo { padding-bottom: 0; border-bottom: 0; }
+  .pf-rail__section, .pf-rail__user-meta { display: none; }
+  .pf-rail > div:nth-of-type(2) > .pf-rail__section { display: inline; padding: 0; }
+  .pf-rail__user { padding: 0; border-top: 0; }
+  .pf-rail__nav {
+    flex-direction: row; overflow-x: auto; gap: 4px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .pf-rail__nav::-webkit-scrollbar { display: none; }
+  .pf-rail__item { white-space: nowrap; padding: 10px 10px 12px; }
+  .pf-rail__item.is-active::before { left: 10px; right: 10px; top: auto; bottom: 0; width: auto; height: 2px; }
   .pf-rail__item.is-active::after { display: none; }
 }
 
