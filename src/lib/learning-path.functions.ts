@@ -68,26 +68,51 @@ const generateSchema = z.object({
 });
 
 /**
- * Removes previously generated lessons/calendar events for the student's
- * active paths so a re-generation never duplicates the calendar.
+ * Archives the student's previous active paths WITHOUT deleting anything.
+ * - lessons, lesson_results, task_attempts, lesson_materials/tasks stay intact
+ *   and remain linked to the archived path (history is preserved);
+ * - completed lessons keep status "completed";
+ * - unfinished lessons get status "rescheduled" (superseded by the new path),
+ *   their calendar events get status "cancelled" so the calendar shows no duplicates;
+ * - unfinished path items get status "archived".
  */
 async function archivePreviousPaths(sb: any, userId: string, keepPathId?: string) {
-  const { data: paths } = await sb
+  const { data: paths, error } = await sb
     .from("learning_paths")
     .select("id")
     .eq("user_id", userId)
     .neq("status", "archived");
+  if (error) throw new Error(error.message);
   const ids = (paths ?? []).map((p: any) => p.id).filter((id: string) => id !== keepPathId);
   if (ids.length === 0) return;
 
-  const { data: lessons } = await sb.from("lessons").select("id").in("learning_path_id", ids);
-  const lessonIds = (lessons ?? []).map((l: any) => l.id);
-  if (lessonIds.length > 0) {
-    await sb.from("calendar_events").delete().in("lesson_id", lessonIds);
-    await sb.from("lessons").delete().in("id", lessonIds);
+  const { data: lessons, error: lErr } = await sb
+    .from("lessons")
+    .select("id, status")
+    .in("learning_path_id", ids);
+  if (lErr) throw new Error(lErr.message);
+  const openIds = (lessons ?? [])
+    .filter((l: any) => l.status !== "completed")
+    .map((l: any) => l.id);
+
+  if (openIds.length > 0) {
+    const c = await sb
+      .from("calendar_events")
+      .update({ status: "cancelled" })
+      .in("lesson_id", openIds)
+      .neq("status", "completed");
+    if (c.error) throw new Error(c.error.message);
+    const u = await sb.from("lessons").update({ status: "rescheduled" }).in("id", openIds);
+    if (u.error) throw new Error(u.error.message);
   }
-  await sb.from("learning_path_items").delete().in("learning_path_id", ids);
-  await sb.from("learning_paths").update({ status: "archived" }).in("id", ids);
+  const it = await sb
+    .from("learning_path_items")
+    .update({ status: "archived" })
+    .in("learning_path_id", ids)
+    .neq("status", "completed");
+  if (it.error) throw new Error(it.error.message);
+  const p = await sb.from("learning_paths").update({ status: "archived" }).in("id", ids);
+  if (p.error) throw new Error(p.error.message);
 }
 
 export const generateLearningPath = createServerFn({ method: "POST" })
