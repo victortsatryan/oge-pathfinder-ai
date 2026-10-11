@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isAnswerCorrect } from "@/lib/answer-check";
 
 function masteryToStatus(score: number): string {
   if (score === 0) return "not_started";
@@ -224,18 +225,20 @@ export const submitLessonTaskAttempt = createServerFn({ method: "POST" })
     if (taskRes.error) throw new Error(taskRes.error.message);
     if (lessonRes.data.user_id !== context.userId) throw new Error("Forbidden");
 
-    const correct = String(taskRes.data.correct_answer ?? "").toLowerCase().replace(/^"|"$/g, "").trim();
-    const given = data.student_answer.toLowerCase().trim();
-    const isCorrect = correct.length > 0 && correct === given;
-
-    // Upsert attempt by (user, lesson, task)
+    // An answer is final: repeated submits (double click, navigation) return the stored result.
     const { data: existing } = await sb
       .from("task_attempts")
-      .select("id")
+      .select("id, is_correct")
       .eq("user_id", context.userId)
       .eq("lesson_id", data.lesson_id)
       .eq("task_id", data.task_id)
       .maybeSingle();
+    if (existing?.id) {
+      return { is_correct: !!existing.is_correct, already_submitted: true };
+    }
+    if (data.student_answer.trim() === "") throw new Error("Введите ответ");
+
+    const isCorrect = isAnswerCorrect(taskRes.data.correct_answer, data.student_answer) === true;
 
     const row = {
       user_id: context.userId,
