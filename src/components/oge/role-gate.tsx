@@ -9,12 +9,14 @@ import { getMyAccessOptional, type UserRole } from "@/lib/role.functions";
 
 type Props = {
   required: UserRole;
+  /** Extra roles allowed for this specific screen (e.g. teacher viewing a student's lesson). */
+  alsoAllow?: UserRole[];
   children: ReactNode;
 };
 
 // Enforces role-based access in production. In dev/preview it is intentionally
 // open so contributors can test any role without an admin grant.
-export function RoleGate({ required, children }: Props) {
+export function RoleGate({ required, alsoAllow, children }: Props) {
   const devOpen = isDevOpenAccess();
   const fetchAccess = useServerFn(getMyAccessOptional);
   const q = useQuery({
@@ -60,7 +62,9 @@ export function RoleGate({ required, children }: Props) {
     );
   }
 
-  const allowed = roles.includes(required) || roles.includes("admin");
+  const allowed = roles.includes(required) ||
+    roles.includes("admin") ||
+    (alsoAllow ?? []).some((r) => roles.includes(r));
   if (!allowed) {
     return (
       <ErrorScreen

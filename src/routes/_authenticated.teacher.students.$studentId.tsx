@@ -299,7 +299,7 @@ function StudentDetail() {
                   style={{ borderBottom: "1px solid var(--pf-line)" }}
                 >
                   <Link
-                    to="/lesson/$lessonId"
+                    to="/student/lesson/$lessonId"
                     params={{ lessonId: l.id }}
                     className="text-[14px] hover:underline"
                   >
