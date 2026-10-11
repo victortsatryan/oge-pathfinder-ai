@@ -300,7 +300,10 @@ function StudentProfilePage() {
         {/* Темы */}
         {firstSubjectId && (
           <section className="mb-16">
-            <SectionEyebrow section="карта тем" sub="темы и освоение" />
+            <SectionEyebrow section="карта тем" sub="темы программы и уровень освоения" />
+            <p className="mt-3 text-[13px] text-[color:var(--pf-muted)]">
+              Все темы выбранной программы и ваш текущий уровень по каждой. Обновляется после диагностики и занятий.
+            </p>
             {topicProgress.isLoading ? (
               <p className="mt-6 text-sm text-[color:var(--pf-muted)]">Загрузка…</p>
             ) : topicProgress.data.length === 0 ? (

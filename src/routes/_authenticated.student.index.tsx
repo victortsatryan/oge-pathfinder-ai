@@ -75,6 +75,9 @@ function StudentHome() {
         <p className="pf-lead mt-6">
           Маршрут построен по диагностике и текущему прогрессу. Начните с ближайшей точки — карта знаний обновится после занятия.
         </p>
+        <Link to="/student/path" className="pf-btn pf-btn--accent mt-8 inline-flex">
+          Продолжить обучение <ArrowRight className="h-4 w-4" />
+        </Link>
       </header>
 
       {/* Ближайший шаг */}

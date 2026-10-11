@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isAnswerCorrect } from "@/lib/answer-check";
 
 function masteryToStatus(score: number): string {
   if (score === 0) return "not_started";
@@ -150,15 +151,15 @@ export const getLessonDetail = createServerFn({ method: "POST" })
         .eq("id", data.lesson_id)
         .single(),
       sb.from("lesson_materials")
-        .select("id, order_index, is_required, materials(id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes)")
+        .select("id, order_index, is_required, materials(id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes, content_text)")
         .eq("lesson_id", data.lesson_id)
         .order("order_index"),
       sb.from("lesson_tasks")
-        .select("id, order_index, points, is_required, tasks(id, title, prompt, task_type, difficulty, correct_answer, explanation, options)")
+        .select("id, order_index, points, is_required, tasks(id, title, prompt, task_type, difficulty, explanation, options)")
         .eq("lesson_id", data.lesson_id)
         .order("order_index"),
       sb.from("lesson_results").select("*").eq("lesson_id", data.lesson_id).maybeSingle(),
-      sb.from("task_attempts").select("task_id, is_correct, student_answer, mistake_type")
+      sb.from("task_attempts").select("task_id, is_correct, student_answer, mistake_type, correct_answer")
         .eq("lesson_id", data.lesson_id),
     ]);
     if (lessonRes.error) throw new Error(lessonRes.error.message);
@@ -176,6 +177,23 @@ export const getLessonDetail = createServerFn({ method: "POST" })
       (lessonRes.data as any).__progress = prog;
     }
 
+    // Next not-completed step of the same learning path (for "next lesson").
+    let nextPathItemId: string | null = null;
+    const pathItemId = lessonRes.data?.learning_path_item_id as string | null;
+    const pathId = lessonRes.data?.learning_path_id as string | null;
+    if (pathId) {
+      const { data: items } = await sb
+        .from("learning_path_items")
+        .select("id, status, order_index")
+        .eq("learning_path_id", pathId)
+        .order("order_index", { ascending: true });
+      const list = items ?? [];
+      const curIdx = list.findIndex((i: any) => i.id === pathItemId);
+      const next = list.slice(curIdx + 1).find((i: any) => i.status !== "completed")
+        ?? list.find((i: any) => i.id !== pathItemId && i.status !== "completed");
+      nextPathItemId = next?.id ?? null;
+    }
+
     return {
       lesson: lessonRes.data,
       materials: matsRes.data ?? [],
@@ -183,6 +201,7 @@ export const getLessonDetail = createServerFn({ method: "POST" })
       result: resultRes.data,
       attempts: attemptsRes.data ?? [],
       mastery,
+      next_path_item_id: nextPathItemId,
       viewer_is_owner: lessonRes.data?.user_id === context.userId,
     };
   });
@@ -206,18 +225,20 @@ export const submitLessonTaskAttempt = createServerFn({ method: "POST" })
     if (taskRes.error) throw new Error(taskRes.error.message);
     if (lessonRes.data.user_id !== context.userId) throw new Error("Forbidden");
 
-    const correct = String(taskRes.data.correct_answer ?? "").toLowerCase().replace(/^"|"$/g, "").trim();
-    const given = data.student_answer.toLowerCase().trim();
-    const isCorrect = correct.length > 0 && correct === given;
-
-    // Upsert attempt by (user, lesson, task)
+    // An answer is final: repeated submits (double click, navigation) return the stored result.
     const { data: existing } = await sb
       .from("task_attempts")
-      .select("id")
+      .select("id, is_correct")
       .eq("user_id", context.userId)
       .eq("lesson_id", data.lesson_id)
       .eq("task_id", data.task_id)
       .maybeSingle();
+    if (existing?.id) {
+      return { is_correct: !!existing.is_correct, already_submitted: true };
+    }
+    if (data.student_answer.trim() === "") throw new Error("Введите ответ");
+
+    const isCorrect = isAnswerCorrect(taskRes.data.correct_answer, data.student_answer) === true;
 
     const row = {
       user_id: context.userId,
@@ -237,15 +258,10 @@ export const submitLessonTaskAttempt = createServerFn({ method: "POST" })
       mistake_type: isCorrect ? null : "careless_error",
     };
 
-    if (existing?.id) {
-      const upd = await sb.from("task_attempts").update(row).eq("id", existing.id);
-      if (upd.error) throw new Error(upd.error.message);
-    } else {
-      const ins = await sb.from("task_attempts").insert(row);
-      if (ins.error) throw new Error(ins.error.message);
-    }
+    const ins = await sb.from("task_attempts").insert(row);
+    if (ins.error) throw new Error(ins.error.message);
 
-    return { is_correct: isCorrect };
+    return { is_correct: isCorrect, correct_answer: taskRes.data.correct_answer, already_submitted: false };
   });
 
 export const completeLesson = createServerFn({ method: "POST" })
@@ -264,10 +280,21 @@ export const completeLesson = createServerFn({ method: "POST" })
     if (!lesson.student_profile_id) throw new Error("Lesson missing student_profile_id");
     const profileId = lesson.student_profile_id as string;
 
-    const { data: attempts } = await sb
-      .from("task_attempts")
-      .select("is_correct, points_awarded, max_points, task_id, mistake_type")
-      .eq("lesson_id", data.lesson_id);
+    const [{ data: attempts }, { count: taskCount }, { count: materialCount }] = await Promise.all([
+      sb.from("task_attempts")
+        .select("is_correct, points_awarded, max_points, task_id, mistake_type")
+        .eq("lesson_id", data.lesson_id),
+      sb.from("lesson_tasks").select("id", { count: "exact", head: true }).eq("lesson_id", data.lesson_id),
+      sb.from("lesson_materials").select("id", { count: "exact", head: true }).eq("lesson_id", data.lesson_id),
+    ]);
+
+    // Guards: an empty lesson cannot be completed, and every interactive task must be answered.
+    if ((taskCount ?? 0) === 0 && (materialCount ?? 0) === 0) {
+      throw new Error("В занятии нет материалов — завершить его нельзя.");
+    }
+    if ((attempts?.length ?? 0) < (taskCount ?? 0)) {
+      throw new Error("Ответьте на все задания перед завершением.");
+    }
 
     const completed = attempts?.length ?? 0;
     const correct = attempts?.filter((a: any) => a.is_correct).length ?? 0;
@@ -277,11 +304,13 @@ export const completeLesson = createServerFn({ method: "POST" })
     const percent = max > 0 ? Math.round((score / max) * 100) : 0;
 
     const summary =
-      percent < 50
-        ? "Результат низкий. Рекомендуется повторить теорию и выполнить дополнительные задания по этой теме."
-        : percent < 80
-          ? "Хороший результат. Закрепите тему ещё одной практикой."
-          : "Отличный результат. Можно переходить к следующей теме.";
+      completed === 0
+        ? "Теория изучена. Автоматически проверяемых заданий в занятии не было, поэтому уровень освоения темы не изменился."
+        : percent < 50
+          ? "Результат низкий. Рекомендуется повторить теорию и выполнить дополнительные задания по этой теме."
+          : percent < 80
+            ? "Хороший результат. Закрепите тему ещё одной практикой."
+            : "Отличный результат. Можно переходить к следующей теме.";
 
     // Upsert lesson_result
     const { data: existing } = await sb
@@ -310,7 +339,7 @@ export const completeLesson = createServerFn({ method: "POST" })
     }
 
     // Update progress for the topic
-    if (lesson.topic_id) {
+    if (lesson.topic_id && completed > 0) {
       const { data: prog } = await sb
         .from("student_topic_progress")
         .select("id, diagnostic_score, practice_score, attempts_count, mistakes_count, mastery_score")
