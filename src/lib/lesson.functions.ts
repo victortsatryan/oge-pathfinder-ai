@@ -339,7 +339,7 @@ export const completeLesson = createServerFn({ method: "POST" })
     }
 
     // Update progress for the topic
-    if (lesson.topic_id) {
+    if (lesson.topic_id && completed > 0) {
       const { data: prog } = await sb
         .from("student_topic_progress")
         .select("id, diagnostic_score, practice_score, attempts_count, mistakes_count, mastery_score")
