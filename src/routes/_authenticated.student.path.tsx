@@ -79,7 +79,6 @@ function PathPage() {
 
   const items = detail.data?.items ?? [];
   const nextItem = items.find((it) => it.lessons?.status !== "completed");
-  const nextLessonId = nextItem?.lessons?.id ?? null;
 
   return (
     <article className="pf-reader-wide pf-rise">
@@ -118,16 +117,17 @@ function PathPage() {
               ? "Пересобрать маршрут"
               : "Сформировать маршрут"}
         </button>
-        {activeId && nextLessonId && (
-          <Link
-            to="/student/lesson/$lessonId"
-            params={{ lessonId: nextLessonId }}
+        {activeId && nextItem && (
+          <button
+            type="button"
+            onClick={() => openLesson.mutate(nextItem.id)}
+            disabled={openLesson.isPending}
             className="pf-btn pf-btn--accent"
           >
-            Ближайшее занятие →
-          </Link>
+            {openLesson.isPending ? "Открываю…" : "Продолжить обучение →"}
+          </button>
         )}
-        {activeId && !nextLessonId && (
+        {activeId && !nextItem && (
           <button
             onClick={() => buildCalendar.mutate()}
             disabled={buildCalendar.isPending}
