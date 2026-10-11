@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useLocation } from "@tanstack/react-router";
 
 import { RoleShell, type NavItem } from "@/components/oge/role-shell";
 import { RoleGate } from "@/components/oge/role-gate";
@@ -16,9 +16,16 @@ const NAV: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/_authenticated/student")({
-  component: () => (
-    <RoleGate required="student">
+  component: StudentLayout,
+});
+
+function StudentLayout() {
+  const { pathname } = useLocation();
+  // A linked teacher may open a student's lesson (read-only; data access is enforced by RLS).
+  const isLessonView = pathname.startsWith("/student/lesson/");
+  return (
+    <RoleGate required="student" alsoAllow={isLessonView ? ["teacher"] : undefined}>
       <RoleShell title="Ученик" items={NAV} accent="Ученик" />
     </RoleGate>
-  ),
-});
+  );
+}
