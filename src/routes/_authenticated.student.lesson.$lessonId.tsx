@@ -59,6 +59,16 @@ function LessonPage() {
   const lesson: any = q.data?.lesson;
   const materials = q.data?.materials ?? [];
   const readOnly = q.data ? !(q.data as any).viewer_is_owner : false;
+  if (!lesson) {
+    return (
+      <div className="pf-reader py-16">
+        <p className="pf-eyebrow">занятие недоступно</p>
+        <p className="text-[14px] mt-2" style={{ color: "var(--pf-muted)" }}>
+          Занятие не найдено или у вас нет к нему доступа.
+        </p>
+      </div>
+    );
+  }
   const tasks = q.data?.tasks ?? [];
   const result = q.data?.result;
   const attempts = q.data?.attempts ?? [];
