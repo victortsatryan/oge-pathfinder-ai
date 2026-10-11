@@ -61,9 +61,13 @@ export function RoleShell({
           </div>
           <nav className="pf-rail__nav" aria-label="Основная навигация">
             {items.map((it) => {
-              const active =
-                pathname === it.to ||
-                (it.to !== "/" && pathname.startsWith(it.to + "/"));
+              const matches = (to: string) =>
+                pathname === to || (to !== "/" && pathname.startsWith(to + "/"));
+              // Only the most specific matching item is active (so "/student" isn't lit on "/student/path").
+              const best = items
+                .filter((x) => matches(x.to))
+                .sort((a, b) => b.to.length - a.to.length)[0];
+              const active = best?.to === it.to;
               return (
                 <Link
                   key={it.to}
