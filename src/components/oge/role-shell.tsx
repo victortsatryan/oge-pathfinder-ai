@@ -22,7 +22,9 @@ export function RoleShell({
   items: NavItem[];
   accent?: string;
 }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const rawPath = useRouterState({ select: (s) => s.location.pathname });
+  // A lesson is a step of the learning route, so highlight «Мой маршрут» there.
+  const pathname = rawPath.startsWith("/student/lesson/") ? "/student/path" : rawPath;
   const isTeacher = accent === "Преподаватель";
   const { user } = useAuth();
   const studentProfile = useQuery({
