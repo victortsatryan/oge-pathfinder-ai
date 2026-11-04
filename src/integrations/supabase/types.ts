@@ -1081,6 +1081,39 @@ export type Database = {
         }
         Relationships: []
       }
+      extractor_review_decisions: {
+        Row: {
+          choice: string
+          created_at: string
+          custom_text: string | null
+          decision_id: string
+          queue_revision: string
+          source_anchor_sha256: string
+          source_sha256: string
+          updated_at: string
+        }
+        Insert: {
+          choice: string
+          created_at?: string
+          custom_text?: string | null
+          decision_id: string
+          queue_revision: string
+          source_anchor_sha256: string
+          source_sha256: string
+          updated_at?: string
+        }
+        Update: {
+          choice?: string
+          created_at?: string
+          custom_text?: string | null
+          decision_id?: string
+          queue_revision?: string
+          source_anchor_sha256?: string
+          source_sha256?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       learning_objectives: {
         Row: {
           algorithm: string | null
