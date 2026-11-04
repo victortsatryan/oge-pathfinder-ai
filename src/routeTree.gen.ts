@@ -66,6 +66,7 @@ import { Route as AuthenticatedStudentDiagnosticSessionIdRouteImport } from './r
 import { Route as AuthenticatedAdminContentProgramsRouteImport } from './routes/_authenticated.admin.content.programs'
 import { Route as AuthenticatedAdminContentImportRouteImport } from './routes/_authenticated.admin.content.import'
 import { Route as AuthenticatedAdminContentHistoryRouteImport } from './routes/_authenticated.admin.content.history'
+import { Route as AuthenticatedAdminContentExtractorRouteImport } from './routes/_authenticated.admin.content.extractor'
 import { Route as AuthenticatedAdminCommunityIdRouteImport } from './routes/_authenticated.admin.community.$id'
 import { Route as AuthenticatedAdminContentObjectivesIndexRouteImport } from './routes/_authenticated.admin.content.objectives.index'
 import { Route as AuthenticatedAdminContentObjectivesLoIdRouteImport } from './routes/_authenticated.admin.content.objectives.$loId'
@@ -396,6 +397,12 @@ const AuthenticatedAdminContentHistoryRoute =
     path: '/history',
     getParentRoute: () => AuthenticatedAdminContentRoute,
   } as any)
+const AuthenticatedAdminContentExtractorRoute =
+  AuthenticatedAdminContentExtractorRouteImport.update({
+    id: '/extractor',
+    path: '/extractor',
+    getParentRoute: () => AuthenticatedAdminContentRoute,
+  } as any)
 const AuthenticatedAdminCommunityIdRoute =
   AuthenticatedAdminCommunityIdRouteImport.update({
     id: '/community/$id',
@@ -456,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/student/': typeof AuthenticatedStudentIndexRoute
   '/teacher/': typeof AuthenticatedTeacherIndexRoute
   '/admin/community/$id': typeof AuthenticatedAdminCommunityIdRoute
+  '/admin/content/extractor': typeof AuthenticatedAdminContentExtractorRoute
   '/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
@@ -513,6 +521,7 @@ export interface FileRoutesByTo {
   '/student': typeof AuthenticatedStudentIndexRoute
   '/teacher': typeof AuthenticatedTeacherIndexRoute
   '/admin/community/$id': typeof AuthenticatedAdminCommunityIdRoute
+  '/admin/content/extractor': typeof AuthenticatedAdminContentExtractorRoute
   '/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
@@ -576,6 +585,7 @@ export interface FileRoutesById {
   '/_authenticated/student/': typeof AuthenticatedStudentIndexRoute
   '/_authenticated/teacher/': typeof AuthenticatedTeacherIndexRoute
   '/_authenticated/admin/community/$id': typeof AuthenticatedAdminCommunityIdRoute
+  '/_authenticated/admin/content/extractor': typeof AuthenticatedAdminContentExtractorRoute
   '/_authenticated/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/_authenticated/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/_authenticated/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
@@ -639,6 +649,7 @@ export interface FileRouteTypes {
     | '/student/'
     | '/teacher/'
     | '/admin/community/$id'
+    | '/admin/content/extractor'
     | '/admin/content/history'
     | '/admin/content/import'
     | '/admin/content/programs'
@@ -696,6 +707,7 @@ export interface FileRouteTypes {
     | '/student'
     | '/teacher'
     | '/admin/community/$id'
+    | '/admin/content/extractor'
     | '/admin/content/history'
     | '/admin/content/import'
     | '/admin/content/programs'
@@ -758,6 +770,7 @@ export interface FileRouteTypes {
     | '/_authenticated/student/'
     | '/_authenticated/teacher/'
     | '/_authenticated/admin/community/$id'
+    | '/_authenticated/admin/content/extractor'
     | '/_authenticated/admin/content/history'
     | '/_authenticated/admin/content/import'
     | '/_authenticated/admin/content/programs'
@@ -1189,6 +1202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminContentHistoryRouteImport
       parentRoute: typeof AuthenticatedAdminContentRoute
     }
+    '/_authenticated/admin/content/extractor': {
+      id: '/_authenticated/admin/content/extractor'
+      path: '/extractor'
+      fullPath: '/admin/content/extractor'
+      preLoaderRoute: typeof AuthenticatedAdminContentExtractorRouteImport
+      parentRoute: typeof AuthenticatedAdminContentRoute
+    }
     '/_authenticated/admin/community/$id': {
       id: '/_authenticated/admin/community/$id'
       path: '/community/$id'
@@ -1214,6 +1234,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminContentRouteChildren {
+  AuthenticatedAdminContentExtractorRoute: typeof AuthenticatedAdminContentExtractorRoute
   AuthenticatedAdminContentHistoryRoute: typeof AuthenticatedAdminContentHistoryRoute
   AuthenticatedAdminContentImportRoute: typeof AuthenticatedAdminContentImportRoute
   AuthenticatedAdminContentProgramsRoute: typeof AuthenticatedAdminContentProgramsRoute
@@ -1224,6 +1245,8 @@ interface AuthenticatedAdminContentRouteChildren {
 
 const AuthenticatedAdminContentRouteChildren: AuthenticatedAdminContentRouteChildren =
   {
+    AuthenticatedAdminContentExtractorRoute:
+      AuthenticatedAdminContentExtractorRoute,
     AuthenticatedAdminContentHistoryRoute:
       AuthenticatedAdminContentHistoryRoute,
     AuthenticatedAdminContentImportRoute: AuthenticatedAdminContentImportRoute,

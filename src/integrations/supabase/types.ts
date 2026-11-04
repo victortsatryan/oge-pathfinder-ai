@@ -1114,6 +1114,51 @@ export type Database = {
         }
         Relationships: []
       }
+      extractor_staging_units: {
+        Row: {
+          content_text: string
+          imported_at: string
+          imported_by: string
+          is_public: boolean
+          kind: string
+          payload: Json
+          payload_sha256: string
+          source_pages: Json
+          source_sha256: string
+          status: string
+          title: string
+          unit_id: string
+        }
+        Insert: {
+          content_text: string
+          imported_at?: string
+          imported_by: string
+          is_public?: boolean
+          kind: string
+          payload: Json
+          payload_sha256: string
+          source_pages: Json
+          source_sha256: string
+          status?: string
+          title: string
+          unit_id: string
+        }
+        Update: {
+          content_text?: string
+          imported_at?: string
+          imported_by?: string
+          is_public?: boolean
+          kind?: string
+          payload?: Json
+          payload_sha256?: string
+          source_pages?: Json
+          source_sha256?: string
+          status?: string
+          title?: string
+          unit_id?: string
+        }
+        Relationships: []
+      }
       learning_objectives: {
         Row: {
           algorithm: string | null
