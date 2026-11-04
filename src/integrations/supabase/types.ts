@@ -1081,6 +1081,50 @@ export type Database = {
         }
         Relationships: []
       }
+      extractor_job_units: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          material_id: string | null
+          position: number
+          publish_error: string | null
+          publish_state: string
+          raw: Json
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          material_id?: string | null
+          position: number
+          publish_error?: string | null
+          publish_state?: string
+          raw: Json
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          material_id?: string | null
+          position?: number
+          publish_error?: string | null
+          publish_state?: string
+          raw?: Json
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extractor_job_units_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "extractor_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       extractor_jobs: {
         Row: {
           attempts: number
@@ -1096,8 +1140,12 @@ export type Database = {
           progress: number
           publish_report: Json | null
           result: Json | null
+          result_next_offset: number | null
+          result_summary: Json | null
+          result_total_units: number | null
           rights_basis: string
           size_bytes: number
+          stage: string | null
           status: string
           storage_path: string
           subject_id: string | null
@@ -1118,8 +1166,12 @@ export type Database = {
           progress?: number
           publish_report?: Json | null
           result?: Json | null
+          result_next_offset?: number | null
+          result_summary?: Json | null
+          result_total_units?: number | null
           rights_basis?: string
           size_bytes: number
+          stage?: string | null
           status?: string
           storage_path: string
           subject_id?: string | null
@@ -1140,8 +1192,12 @@ export type Database = {
           progress?: number
           publish_report?: Json | null
           result?: Json | null
+          result_next_offset?: number | null
+          result_summary?: Json | null
+          result_total_units?: number | null
           rights_basis?: string
           size_bytes?: number
+          stage?: string | null
           status?: string
           storage_path?: string
           subject_id?: string | null

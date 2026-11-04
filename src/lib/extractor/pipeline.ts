@@ -1,46 +1,63 @@
 // Pure, client-safe logic for the source-file -> Extractor worker -> Pathy pipeline.
-// The worker HTTP contract is defined here (see docs/extractor-worker-contract.md);
-// the Python repository itself was not readable from this environment.
+// HTTP contract: docs/extractor-worker-contract.md (pathy_extractor/worker_service_v06.py).
 
 export const SOURCE_EXTENSIONS = ["pdf", "docx", "txt", "md", "xlsx", "csv", "png", "jpg", "jpeg"] as const;
-export const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
+export const MAX_SOURCE_BYTES = 160 * 1024 * 1024;
+export const RESULT_PAGE_LIMIT = 40; // worker allows <= 50
+export const PUBLISH_BATCH = 30;
+export const RESULT_FORMAT = "pathy-extraction-result-v1";
 
 export function sourceExtension(name: string): string | null {
   const ext = name.toLowerCase().split(".").pop() ?? "";
   return (SOURCE_EXTENSIONS as readonly string[]).includes(ext) ? ext : null;
 }
 
+/** Magic-byte check of the first bytes of the stored object against the extension. */
+export function magicMatches(ext: string, head: Uint8Array): boolean {
+  const s = (n: number[]) => n.every((b, i) => head[i] === b);
+  switch (ext) {
+    case "pdf": return s([0x25, 0x50, 0x44, 0x46]);
+    case "docx": case "xlsx": return s([0x50, 0x4b, 0x03, 0x04]);
+    case "png": return s([0x89, 0x50, 0x4e, 0x47]);
+    case "jpg": case "jpeg": return s([0xff, 0xd8, 0xff]);
+    default: return !head.slice(0, 512).includes(0); // text formats: no NUL bytes
+  }
+}
+
 export type WorkerState = "queued" | "processing" | "succeeded" | "failed";
 
-export function parseWorkerStatus(body: unknown): { status: WorkerState; progress: number; error: string | null; result: unknown } {
+/** GET /v1/jobs/{id} -> { job_id, status: queued|running|succeeded|failed, stage, units, error }. No `result` field. */
+export function parseWorkerStatus(body: unknown): { status: WorkerState; stage: string | null; error: string | null; units: unknown } {
   const b = (body ?? {}) as Record<string, unknown>;
-  const raw = String(b.status ?? "").toLowerCase();
-  const status: WorkerState =
-    ["succeeded", "success", "done", "completed"].includes(raw) ? "succeeded"
-      : ["failed", "error"].includes(raw) ? "failed"
-        : ["running", "processing", "started"].includes(raw) ? "processing" : "queued";
-  const p = Number(b.progress);
-  const progress = status === "succeeded" ? 100 : Number.isFinite(p) ? Math.max(0, Math.min(99, Math.round(p <= 1 && p > 0 ? p * 100 : p))) : 0;
-  return { status, progress, error: status === "failed" ? String(b.error ?? "Ошибка обработчика") : null, result: b.result ?? null };
+  const raw = String(b.status ?? "");
+  const status: WorkerState = raw === "succeeded" ? "succeeded" : raw === "failed" ? "failed" : raw === "running" ? "processing" : "queued";
+  return {
+    status, stage: typeof b.stage === "string" ? b.stage : null,
+    error: status === "failed" ? String(b.error ?? "Ошибка обработчика") : null, units: b.units ?? null,
+  };
 }
 
-/** Units may be at result.units, result.canonical.units or result.canonical_json.units. */
-export function extractUnits(result: unknown): Record<string, unknown>[] {
-  const r = (result ?? {}) as Record<string, any>;
-  const list = r.units ?? r.canonical?.units ?? r.canonical_json?.units ?? [];
-  return Array.isArray(list) ? list.filter((u) => u && typeof u === "object") : [];
-}
+export type ResultPage = { units: Record<string, unknown>[]; next_offset: number | null; total_units: number | null; source_sha256: string | null; summary: unknown };
 
-const REVIEW_STATUSES = ["needs_review", "needs_structure_review", "low_confidence", "conflict", "unresolved", "ocr_conflict"];
-export const CONFIDENCE_THRESHOLD = 0.85;
+/** GET /v1/jobs/{id}/result?offset&limit. Throws on any contract violation instead of guessing. */
+export function parseResultPage(body: unknown): ResultPage {
+  const b = (body ?? {}) as Record<string, any>;
+  if (b.format !== RESULT_FORMAT) throw new Error(`Неизвестный формат результата: ${String(b.format)}`);
+  if (!Array.isArray(b.units)) throw new Error("В результате нет списка units");
+  const n = b.next_offset;
+  if (n !== null && !(Number.isInteger(n) && n >= 0)) throw new Error("Некорректный next_offset");
+  const total = Number.isInteger(b.summary?.total_units) ? b.summary.total_units : null;
+  return {
+    units: b.units.filter((u: unknown) => u && typeof u === "object"), next_offset: n,
+    total_units: total, source_sha256: typeof b.source?.sha256 === "string" ? b.source.sha256 : null, summary: b.summary ?? null,
+  };
+}
 
 export type ClassifiedUnit = {
-  unit_id: string; title: string; kind: string; content_text: string; pages: number[];
-  author: string | null; answer: unknown; topic_id: string | null; explanation: string | null;
-  confidence: number | null; decision: "confident" | "review" | "invalid"; reasons: string[];
+  unit_id: string; title: string; kind: string; material_type: string | null; content_text: string; pages: number[];
+  author: string | null; role: string; related_unit_ids: string[];
+  decision: "confident" | "review" | "private" | "invalid"; reasons: string[];
 };
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function resolveAuthor(unitSource: unknown, jobAuthor: string | null | undefined): string | null {
   const s = (unitSource ?? {}) as Record<string, unknown>;
@@ -54,48 +71,51 @@ export function classifyUnit(u: Record<string, any>, jobAuthor?: string | null):
   const reasons: string[] = [];
   const unit_id = String(u.unit_id ?? "").trim();
   const title = String(u.title ?? "").trim();
-  const content_text = String(u.content_text ?? u.text ?? "").trim();
+  const content_text = String(u.content_text ?? "").trim();
   const pages = Array.isArray(u.pages) ? u.pages.filter((p: unknown) => Number.isInteger(p) && (p as number) > 0) : [];
-  const confRaw = u.confidence ?? u.quality?.confidence;
-  const confidence = typeof confRaw === "number" && Number.isFinite(confRaw) ? confRaw : null;
-  const review = String(u.review_status ?? "").toLowerCase();
-  const issues = Array.isArray(u.issues) ? u.issues : Array.isArray(u.flags) ? u.flags : [];
-  const answer = u.answer ?? u.correct_answer ?? null;
-  const topic_id = typeof u.topic_id === "string" && UUID.test(u.topic_id) ? u.topic_id : null;
-
-  if (!unit_id) reasons.push("Нет unit_id");
-  if (!title) reasons.push("Нет заголовка");
-  if (!content_text) reasons.push("Пустой текст");
-  if (reasons.length) return { unit_id: unit_id || "?", title, kind: String(u.kind ?? ""), content_text, pages, author: null, answer, topic_id, explanation: null, confidence, decision: "invalid", reasons };
-
-  if (u.needs_structure_review === true) reasons.push("Экстрактор пометил: нужна проверка структуры");
-  if (REVIEW_STATUSES.includes(review)) reasons.push(`Статус экстрактора: ${review}`);
-  if (confidence !== null && confidence < CONFIDENCE_THRESHOLD) reasons.push(`Уверенность ${confidence.toFixed(2)} < ${CONFIDENCE_THRESHOLD}`);
-  if (issues.length) reasons.push(`Замечания экстрактора: ${issues.length}`);
-  if (!pages.length) reasons.push("Нет страниц источника");
-
-  return {
-    unit_id, title, kind: String(u.kind ?? "reference"), content_text, pages,
-    author: resolveAuthor(u.source, jobAuthor), answer, topic_id,
-    explanation: typeof u.explanation === "string" ? u.explanation : null,
-    confidence, decision: reasons.length ? "review" : "confident", reasons,
+  const role = String(u.role ?? "");
+  const related_unit_ids = Array.isArray(u.related_unit_ids) ? u.related_unit_ids.map(String) : [];
+  const base = {
+    unit_id: unit_id || "?", title, kind: String(u.kind ?? ""), material_type: typeof u.material_type === "string" ? u.material_type : null,
+    content_text, pages, author: resolveAuthor(u.source, jobAuthor), role, related_unit_ids,
   };
+
+  // Privacy first: teacher-only content (answer keys etc.) is never published, whatever else is true.
+  if (role !== "student_material") {
+    return { ...base, decision: "private", reasons: [role === "teacher_private" ? "Материал только для учителя (ключи/ответы) — не публикуется" : `Неизвестная роль: ${role || "—"}`] };
+  }
+  if (!unit_id) reasons.push("Нет unit_id");
+  if (!content_text) reasons.push("Пустой текст");
+  if (u.usable_for_learning !== true) reasons.push("Экстрактор: не пригодно для обучения");
+  if (reasons.length) return { ...base, decision: "invalid", reasons };
+
+  const rr = Array.isArray(u.review_reasons) ? u.review_reasons.map(String) : [];
+  if (u.requires_manual_review === true || u.review_status === "needs_review") reasons.push("Экстрактор пометил: нужна проверка");
+  for (const r of rr) reasons.push(r);
+  if (!pages.length) reasons.push("Нет страниц источника");
+  return { ...base, decision: reasons.length ? "review" : "confident", reasons };
 }
 
-/** Effective admin choice: confident units publish unless rejected; review units only when accepted. */
+/** Confident units publish unless rejected; review units only when accepted. Private/invalid: never. */
 export function shouldPublish(u: ClassifiedUnit, decision: "accept" | "reject" | undefined): boolean {
-  if (u.decision === "invalid") return false;
+  if (u.decision === "private" || u.decision === "invalid") return false;
   if (decision === "reject") return false;
   return u.decision === "confident" || decision === "accept";
 }
 
-/** A task is created only with an explicit answer AND an explicit topic link — never guessed. */
-export function canCreateTask(u: ClassifiedUnit): boolean {
-  const hasAnswer = u.answer !== null && u.answer !== undefined && String(u.answer).trim() !== "";
-  return hasAnswer && u.topic_id !== null && /exercise|task|задани|упражн/i.test(u.kind);
+/** v0.6 worker sets usable_for_grading:false and answer:null — no graded tasks are created from it. */
+export function canCreateTask(raw: Record<string, any>): boolean {
+  return raw.role === "student_material" && raw.usable_for_grading === true && raw.answer != null && String(raw.answer).trim() !== "";
 }
 
-export function kindToMaterialType(kind: string): string {
+/** Stable identity across re-runs: source SHA + extractor unit id. */
+export function stableUnitKey(sha: string, unitId: string): string {
+  return `${sha}:${unitId}`;
+}
+
+export function kindToMaterialType(kind: string, materialType?: string | null): string {
+  const allowed = ["exercise_set", "textbook_paragraph", "theory", "reference"];
+  if (materialType && allowed.includes(materialType)) return materialType;
   if (/exercise|task|упражн/i.test(kind)) return "exercise_set";
   if (kind === "book_page") return "textbook_paragraph";
   if (/rule|theory|правил/i.test(kind)) return "theory";

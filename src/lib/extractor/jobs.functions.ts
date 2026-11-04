@@ -4,12 +4,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import {
-  MAX_SOURCE_BYTES, canCreateTask, canPublishWithRights, classifyUnit, extractUnits,
-  kindToMaterialType, parseWorkerStatus, shouldPublish, sourceExtension,
+  MAX_SOURCE_BYTES, PUBLISH_BATCH, RESULT_PAGE_LIMIT, canPublishWithRights, classifyUnit,
+  kindToMaterialType, magicMatches, parseResultPage, parseWorkerStatus, shouldPublish, sourceExtension, stableUnitKey,
 } from "./pipeline";
 
 type Sb = SupabaseClient<Database>;
 const BUCKET = "extractor-sources";
+const TIMEOUT_MS = 20_000;
+const PAGES_PER_CALL = 8; // result pages fetched per refresh call, keeps each invocation short
 
 async function assertAdmin(sb: Sb, userId: string) {
   const { data, error } = await sb.rpc("has_role", { _user_id: userId, _role: "admin" });
@@ -17,15 +19,26 @@ async function assertAdmin(sb: Sb, userId: string) {
   if (!data) throw new Error("Доступ только администратору");
 }
 
-function worker() {
+/** Server-only worker config. Requires an external https URL and a token. */
+function worker(): { url: string; token: string } | { error: string } | null {
   const url = process.env["PATHY_EXTRACTOR_API_URL"];
   const token = process.env["PATHY_EXTRACTOR_API_TOKEN"];
-  return url && token ? { url: url.replace(/\/+$/, ""), token } : null;
+  if (!url || !token) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" || ["localhost", "127.0.0.1"].includes(u.hostname)) return { error: "PATHY_EXTRACTOR_API_URL должен быть внешним https-адресом" };
+  } catch { return { error: "PATHY_EXTRACTOR_API_URL некорректен" }; }
+  return { url: url.replace(/\/+$/, ""), token };
 }
 
-async function sha256Hex(buf: ArrayBuffer) {
-  const d = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("");
+async function call(w: { url: string; token: string }, path: string, init?: RequestInit) {
+  const res = await fetch(`${w.url}${path}`, {
+    ...init, signal: AbortSignal.timeout(TIMEOUT_MS),
+    headers: { Authorization: `Bearer ${w.token}`, ...(init?.body ? { "Content-Type": "application/json" } : {}) },
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(`Обработчик ответил ${res.status}`);
+  return body as Record<string, any>;
 }
 
 async function loadJob(sb: Sb, id: string) {
@@ -39,26 +52,18 @@ async function update(sb: Sb, id: string, patch: Database["public"]["Tables"]["e
   if (r.error) throw new Error(r.error.message);
 }
 
-/** Send the stored file to the external worker. Never fakes processing. */
+/** POST /v1/jobs with a signed URL; the worker downloads the file itself and validates the SHA. */
 async function dispatch(sb: Sb, id: string) {
   const job = await loadJob(sb, id);
   const w = worker();
-  if (!w) {
-    await update(sb, id, { status: "worker_not_configured", progress: 0, error: "Обработчик не подключён: не заданы PATHY_EXTRACTOR_API_URL и PATHY_EXTRACTOR_API_TOKEN" });
-    return;
-  }
-  const file = await sb.storage.from(BUCKET).download(job.storage_path);
-  if (file.error) throw new Error("Файл не найден в хранилище: " + file.error.message);
-  const form = new FormData();
-  form.append("file", file.data, job.file_name);
-  form.append("source_sha256", job.file_sha256);
-  form.append("pathy_job_id", job.id);
-  if (job.author) form.append("author", job.author);
+  if (!w) return update(sb, id, { status: "worker_not_configured", progress: 0, error: "Обработчик не подключён: не заданы PATHY_EXTRACTOR_API_URL и PATHY_EXTRACTOR_API_TOKEN" });
+  if ("error" in w) return update(sb, id, { status: "worker_not_configured", error: w.error });
+  const signed = await sb.storage.from(BUCKET).createSignedUrl(job.storage_path, 3600);
+  if (signed.error || !signed.data?.signedUrl) return update(sb, id, { status: "failed", error: "Не удалось создать ссылку на файл: " + (signed.error?.message ?? "") });
   try {
-    const res = await fetch(`${w.url}/v1/jobs`, { method: "POST", headers: { Authorization: `Bearer ${w.token}` }, body: form });
-    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok || !body.job_id) throw new Error(`Обработчик ответил ${res.status}`);
-    await update(sb, id, { status: "queued", progress: 0, error: null, external_job_id: String(body.job_id), attempts: job.attempts + 1 });
+    const body = await call(w, "/v1/jobs", { method: "POST", body: JSON.stringify({ job_id: job.id, source_url: signed.data.signedUrl, source_sha256: job.file_sha256, filename: job.file_name }) });
+    if (body?.job_id !== job.id) throw new Error("Обработчик вернул другой job_id");
+    await update(sb, id, { status: "queued", stage: String(body.stage ?? "queued"), progress: 0, error: null, external_job_id: job.id, attempts: job.attempts + 1, result_next_offset: null, result_total_units: null });
   } catch (e) {
     console.error("extractor dispatch failed", e);
     await update(sb, id, { status: "failed", error: e instanceof Error ? e.message : "Обработчик недоступен", attempts: job.attempts + 1 });
@@ -69,11 +74,12 @@ export const getExtractorJobs = createServerFn({ method: "GET" }).middleware([re
   .handler(async ({ context }) => {
     await assertAdmin(context.supabase, context.userId);
     const [jobs, subjects] = await Promise.all([
-      context.supabase.from("extractor_jobs").select("id,file_name,file_sha256,size_bytes,status,progress,error,author,rights_basis,subject_id,created_at,updated_at,publish_report").order("created_at", { ascending: false }).limit(50),
+      context.supabase.from("extractor_jobs").select("id,file_name,file_sha256,size_bytes,status,stage,progress,error,author,rights_basis,subject_id,created_at,updated_at,publish_report,result_total_units").order("created_at", { ascending: false }).limit(50),
       context.supabase.from("subjects").select("id,name").order("name"),
     ]);
     if (jobs.error) throw new Error(jobs.error.message);
-    return { jobs: jobs.data ?? [], subjects: subjects.data ?? [], workerConfigured: worker() !== null };
+    const w = worker();
+    return { jobs: jobs.data ?? [], subjects: subjects.data ?? [], workerConfigured: !!w && !("error" in w) };
   });
 
 export const registerExtractorUpload = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -85,24 +91,29 @@ export const registerExtractorUpload = createServerFn({ method: "POST" }).middle
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
     await assertAdmin(sb, context.userId);
-    if (!sourceExtension(data.file_name)) throw new Error("Неподдерживаемый тип файла");
-    const prior = await sb.from("extractor_jobs").select("id,status").eq("file_sha256", data.file_sha256).maybeSingle();
+    const ext = sourceExtension(data.file_name);
+    if (!ext) throw new Error("Неподдерживаемый тип файла");
+    if (!data.storage_path.startsWith(`${data.file_sha256}/`)) throw new Error("Путь файла не соответствует SHA-256");
+    const prior = await sb.from("extractor_jobs").select("id").eq("file_sha256", data.file_sha256).maybeSingle();
     if (prior.error) throw new Error(prior.error.message);
     if (prior.data) return { id: prior.data.id, duplicate: true };
-    // Verify the uploaded bytes server-side: the hash from the browser is not trusted.
-    const file = await sb.storage.from(BUCKET).download(data.storage_path);
-    if (file.error) throw new Error("Загруженный файл не найден: " + file.error.message);
-    const buf = await file.data.arrayBuffer();
-    if (buf.byteLength > MAX_SOURCE_BYTES) throw new Error("Файл больше 50 MB");
-    const sha = await sha256Hex(buf);
-    if (sha !== data.file_sha256) throw new Error("SHA-256 файла не совпадает с загруженным");
+    // No full download: check size and magic bytes only. The SHA is verified by the worker against source_sha256.
+    const info = await sb.storage.from(BUCKET).info(data.storage_path);
+    if (info.error || !info.data) throw new Error("Загруженный файл не найден: " + (info.error?.message ?? ""));
+    const size = Number(info.data.size ?? 0);
+    if (!size || size > MAX_SOURCE_BYTES) throw new Error("Файл пустой или больше 160 MB");
+    const signed = await sb.storage.from(BUCKET).createSignedUrl(data.storage_path, 120);
+    if (signed.error) throw new Error(signed.error.message);
+    const head = await fetch(signed.data.signedUrl, { headers: { Range: "bytes=0-511" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const bytes = new Uint8Array(await head.arrayBuffer()).slice(0, 512);
+    if (!magicMatches(ext, bytes)) throw new Error("Содержимое файла не соответствует расширению ." + ext);
     const ins = await sb.from("extractor_jobs").insert({
-      file_sha256: sha, file_name: data.file_name, mime_type: data.mime_type, size_bytes: buf.byteLength,
+      file_sha256: data.file_sha256, file_name: data.file_name, mime_type: data.mime_type, size_bytes: size,
       storage_path: data.storage_path, subject_id: data.subject_id, author: data.author || null, created_by: context.userId,
     }).select("id").single();
     if (ins.error) {
       if (ins.error.code === "23505") {
-        const again = await sb.from("extractor_jobs").select("id").eq("file_sha256", sha).single();
+        const again = await sb.from("extractor_jobs").select("id").eq("file_sha256", data.file_sha256).single();
         return { id: again.data!.id, duplicate: true };
       }
       throw new Error(ins.error.message);
@@ -121,6 +132,35 @@ export const retryExtractorJob = createServerFn({ method: "POST" }).middleware([
     return { ok: true };
   });
 
+/** Pull a bounded number of result pages and persist them; resumes from result_next_offset. */
+async function pullResult(sb: Sb, w: { url: string; token: string }, job: Awaited<ReturnType<typeof loadJob>>) {
+  let offset = job.result_next_offset ?? 0;
+  let total = job.result_total_units;
+  for (let i = 0; i < PAGES_PER_CALL; i++) {
+    const page = parseResultPage(await call(w, `/v1/jobs/${encodeURIComponent(job.id)}/result?offset=${offset}&limit=${RESULT_PAGE_LIMIT}`));
+    if (page.source_sha256 !== job.file_sha256) throw new Error("SHA-256 источника в результате не совпадает с загруженным файлом");
+    total = page.total_units ?? total;
+    if (page.units.length) {
+      const rows = page.units.map((u, k) => ({ job_id: job.id, unit_id: String(u.unit_id ?? `?${offset + k}`), position: offset + k, raw: u as Json }));
+      const ins = await sb.from("extractor_job_units").upsert(rows, { onConflict: "job_id,unit_id", ignoreDuplicates: true });
+      if (ins.error) throw new Error(ins.error.message);
+    }
+    if (page.next_offset === null) {
+      const { count, error } = await sb.from("extractor_job_units").select("id", { count: "exact", head: true }).eq("job_id", job.id);
+      if (error) throw new Error(error.message);
+      if (total === null || count !== total) {
+        return update(sb, job.id, { status: "failed", error: `Получено блоков ${count}, ожидалось ${total ?? "?"}`, result_next_offset: null });
+      }
+      if (total === 0) return update(sb, job.id, { status: "failed", error: "Обработчик вернул 0 блоков" });
+      return update(sb, job.id, { status: "succeeded", progress: 100, error: null, result_next_offset: null, result_total_units: total, result_summary: page.summary as Json });
+    }
+    if (page.next_offset <= offset) throw new Error("next_offset не продвигается");
+    offset = page.next_offset;
+  }
+  const pct = total ? Math.min(99, Math.round((offset / total) * 100)) : 0;
+  await update(sb, job.id, { status: "fetching_result", progress: pct, result_next_offset: offset, result_total_units: total });
+}
+
 export const refreshExtractorJob = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({ id: z.string().uuid() }).parse(v))
   .handler(async ({ data, context }) => {
@@ -128,29 +168,37 @@ export const refreshExtractorJob = createServerFn({ method: "POST" }).middleware
     await assertAdmin(sb, context.userId);
     const job = await loadJob(sb, data.id);
     const w = worker();
-    if (w && job.external_job_id && (job.status === "queued" || job.status === "processing")) {
+    const ok = w && !("error" in w) ? w : null;
+    if (ok && job.external_job_id) {
       try {
-        const res = await fetch(`${w.url}/v1/jobs/${encodeURIComponent(job.external_job_id)}`, { headers: { Authorization: `Bearer ${w.token}` } });
-        if (!res.ok) throw new Error(`Обработчик ответил ${res.status}`);
-        const st = parseWorkerStatus(await res.json());
-        if (st.status === "succeeded" && extractUnits(st.result).length === 0) {
-          await update(sb, job.id, { status: "failed", error: "Обработчик вернул результат без units", result: st.result as Json });
-        } else {
-          await update(sb, job.id, { status: st.status, progress: st.progress, error: st.error, ...(st.status === "succeeded" ? { result: st.result as Json } : {}) });
+        if (job.status === "queued" || job.status === "processing") {
+          const st = parseWorkerStatus(await call(ok, `/v1/jobs/${encodeURIComponent(job.id)}`));
+          if (st.status === "succeeded") {
+            await update(sb, job.id, { status: "fetching_result", stage: st.stage, progress: 0, result_next_offset: 0 });
+            await pullResult(sb, ok, await loadJob(sb, job.id));
+          } else {
+            await update(sb, job.id, { status: st.status, stage: st.stage, error: st.error });
+          }
+        } else if (job.status === "fetching_result") {
+          await pullResult(sb, ok, job);
         }
       } catch (e) {
         console.error("extractor poll failed", e);
-        await update(sb, job.id, { error: "Не удалось получить статус: " + (e instanceof Error ? e.message : "") });
+        await update(sb, job.id, { error: "Не удалось получить данные обработчика: " + (e instanceof Error ? e.message : "") });
       }
     }
     const fresh = await loadJob(sb, data.id);
     const decisions = (fresh.unit_decisions ?? {}) as Record<string, "accept" | "reject">;
-    const units = extractUnits(fresh.result).map((u) => {
-      const c = classifyUnit(u as Record<string, any>, fresh.author);
-      return { ...c, answer: (c.answer ?? null) as Json, content_text: c.content_text.slice(0, 1500), admin: decisions[c.unit_id] ?? null, publish: shouldPublish(c, decisions[c.unit_id]), task: canCreateTask(c) };
+    const rows = await sb.from("extractor_job_units").select("unit_id,raw,publish_state").eq("job_id", fresh.id).order("position").limit(5000);
+    if (rows.error) throw new Error(rows.error.message);
+    const units = (rows.data ?? []).map((r) => {
+      const c = classifyUnit(r.raw as Record<string, any>, fresh.author);
+      return { unit_id: c.unit_id, title: c.title, kind: c.kind, pages: c.pages, role: c.role, decision: c.decision, reasons: c.reasons,
+        content_text: c.decision === "confident" ? "" : c.content_text.slice(0, 600),
+        admin: decisions[c.unit_id] ?? null, publish: shouldPublish(c, decisions[c.unit_id]), state: r.publish_state };
     });
     const { result: _r, ...meta } = fresh;
-    return { job: meta, units, workerConfigured: w !== null };
+    return { job: meta, units, workerConfigured: ok !== null };
   });
 
 export const setExtractorUnitDecision = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -164,7 +212,7 @@ export const setExtractorUnitDecision = createServerFn({ method: "POST" }).middl
     return { ok: true };
   });
 
-/** Idempotent: re-running skips units already imported from this job. Never updates existing rows. */
+/** One batch per call; the client repeats until remaining = 0. Idempotent, never updates existing materials/tasks. */
 export const publishExtractorJob = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({
     id: z.string().uuid(), subject_id: z.string().uuid(),
@@ -175,38 +223,51 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
     await assertAdmin(sb, context.userId);
     if (!canPublishWithRights(data.rights_basis)) throw new Error("Права на использование не подтверждены — публикация заблокирована");
     const job = await loadJob(sb, data.id);
-    if (job.status !== "succeeded" && job.status !== "published") throw new Error("Результат обработки ещё не получен");
-    await update(sb, job.id, { rights_basis: data.rights_basis, subject_id: data.subject_id });
+    if (!["succeeded", "publishing", "published"].includes(job.status)) throw new Error("Результат обработки ещё не получен полностью");
+    await update(sb, job.id, { status: "publishing", rights_basis: data.rights_basis, subject_id: data.subject_id });
     const decisions = (job.unit_decisions ?? {}) as Record<string, "accept" | "reject">;
-    const report = { materials: 0, tasks: 0, existing: 0, skipped: 0, failed: [] as string[] };
-    for (const raw of extractUnits(job.result)) {
-      const u = classifyUnit(raw as Record<string, any>, job.author);
-      if (!shouldPublish(u, decisions[u.unit_id])) { report.skipped++; continue; }
-      const prior = await sb.from("materials").select("id").eq("extractor_metadata->>job_id", job.id).eq("extractor_metadata->>unit_id", u.unit_id).maybeSingle();
-      if (prior.error) { report.failed.push(`${u.unit_id}: ${prior.error.message}`); continue; }
-      if (prior.data) { report.existing++; continue; }
-      const provenance = { job_id: job.id, unit_id: u.unit_id, source_sha256: job.file_sha256, source_file: job.file_name, pages: u.pages, confidence: u.confidence, classification: u.decision, admin_decision: decisions[u.unit_id] ?? null, original_unit: raw as Json };
-      // Visible only to signed-in Pathy users: materials SELECT policy is TO authenticated, anon has no grant.
+    const batch = await sb.from("extractor_job_units").select("id,unit_id,raw").eq("job_id", job.id).eq("publish_state", "pending").order("position").limit(PUBLISH_BATCH);
+    if (batch.error) throw new Error(batch.error.message);
+    const r = { materials: 0, existing: 0, skipped: 0, failed: 0 };
+    for (const row of batch.data ?? []) {
+      const raw = row.raw as Record<string, any>;
+      const u = classifyUnit(raw, job.author);
+      const mark = (publish_state: "published" | "existing" | "skipped" | "failed", extra: { material_id?: string; publish_error?: string } = {}) =>
+        sb.from("extractor_job_units").update({ publish_state, ...extra }).eq("id", row.id);
+      if (!shouldPublish(u, decisions[u.unit_id])) { await mark("skipped"); r.skipped++; continue; }
+      const key = stableUnitKey(job.file_sha256, u.unit_id);
+      const prior = await sb.from("materials").select("id").eq("extractor_metadata->>unit_key", key).maybeSingle();
+      if (prior.data) { await mark("existing", { material_id: prior.data.id }); r.existing++; continue; }
+      const provenance = {
+        unit_key: key, job_id: job.id, unit_id: u.unit_id, source_sha256: job.file_sha256, source_file: job.file_name, pages: u.pages,
+        role: u.role, related_unit_ids: u.related_unit_ids, classification: u.decision, review_reasons: u.reasons,
+        admin_decision: decisions[u.unit_id] ?? null, usable_for_grading: false, original_unit: raw as Json,
+      };
+      // Visible only to signed-in users (materials SELECT is TO authenticated). Learning only, not grading.
       const mat = await sb.from("materials").insert({
-        subject_id: data.subject_id, topic_id: u.topic_id, title: u.title.slice(0, 500), content_text: u.content_text,
-        material_type: kindToMaterialType(u.kind), source_name: u.author, status: "published", is_public: true,
-        license_type: data.rights_basis, license_note: `Источник: ${job.file_name}; стр. ${u.pages.join(", ") || "—"}${u.author ? "; автор: " + u.author : ""}`,
+        subject_id: data.subject_id, topic_id: null, title: (u.title || u.unit_id).slice(0, 500), content_text: u.content_text,
+        material_type: kindToMaterialType(u.kind, u.material_type), source_name: u.author, status: "published", is_public: true,
+        license_type: data.rights_basis, license_note: `Источник: ${job.file_name}; стр. ${u.pages.join(", ") || "—"}${u.author ? "; автор: " + u.author : ""}; автоизвлечено, не проверено для оценивания`,
         created_by: context.userId, extractor_metadata: provenance,
-      });
-      if (mat.error) { report.failed.push(`${u.unit_id}: ${mat.error.message}`); continue; }
-      report.materials++;
-      if (canCreateTask(u)) {
-        const key = `extractor:${job.file_sha256.slice(0, 12)}:${u.unit_id}`.slice(0, 200);
-        const topic = await sb.from("topics").select("id").eq("id", u.topic_id!).maybeSingle();
-        const exists = await sb.from("tasks").select("id").eq("task_key", key).maybeSingle();
-        if (!topic.data || exists.data) continue;
-        const t = await sb.from("tasks").insert({
-          subject_id: data.subject_id, topic_id: u.topic_id, task_key: key, title: u.title.slice(0, 500), prompt: u.content_text,
-          answer_type: "text", correct_answer: u.answer as Json, explanation: u.explanation, source_name: u.author ?? job.file_name, is_published: true,
-        });
-        if (t.error) report.failed.push(`${u.unit_id} (задание): ${t.error.message}`); else report.tasks++;
-      }
+      }).select("id").single();
+      if (mat.error) { await mark("failed", { publish_error: mat.error.message }); r.failed++; continue; }
+      await mark("published", { material_id: mat.data.id }); r.materials++;
+      // No tasks: v0.6 units carry usable_for_grading:false and answer:null (see canCreateTask).
     }
-    await update(sb, job.id, { status: "published", publish_report: report as unknown as Json });
-    return report;
+    const { count } = await sb.from("extractor_job_units").select("id", { count: "exact", head: true }).eq("job_id", job.id).eq("publish_state", "pending");
+    const remaining = count ?? 0;
+    const prev = (job.publish_report ?? { materials: 0, existing: 0, skipped: 0, failed: 0 }) as typeof r;
+    const report = { materials: (prev.materials ?? 0) + r.materials, existing: (prev.existing ?? 0) + r.existing, skipped: (prev.skipped ?? 0) + r.skipped, failed: (prev.failed ?? 0) + r.failed };
+    await update(sb, job.id, { status: remaining ? "publishing" : "published", publish_report: report as unknown as Json });
+    return { ...r, remaining, total: report };
+  });
+
+/** Re-queue skipped units (e.g. after accepting more doubtful blocks). Published ones stay published. */
+export const reopenSkippedUnits = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const r = await context.supabase.from("extractor_job_units").update({ publish_state: "pending" }).eq("job_id", data.id).in("publish_state", ["skipped", "failed"]);
+    if (r.error) throw new Error(r.error.message);
+    return { ok: true };
   });
