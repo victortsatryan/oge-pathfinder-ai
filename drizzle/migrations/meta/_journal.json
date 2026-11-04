@@ -22,6 +22,20 @@
       "when": 1793764629232,
       "tag": "0002_extractor_staging_minimal_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793800244947,
+      "tag": "0003_extractor_source_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793800357454,
+      "tag": "0004_tasks_admin_insert",
+      "breakpoints": true
     }
   ]
 }

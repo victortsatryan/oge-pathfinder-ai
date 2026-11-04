@@ -35,6 +35,7 @@ function ContentLayout() {
         </div>
         <nav className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link to="/admin/content">Dashboard</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content/upload">Загрузка источника</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/import">Импорт</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/content/programs">Программы</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/content/objectives">Learning Objectives</Link></Button>

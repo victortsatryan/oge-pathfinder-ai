@@ -34,11 +34,12 @@ export const importBookBatch = createServerFn({ method: "POST" })
           error: matches ? undefined : "Конфликт с существующим ID; данные не изменены" });
         continue;
       }
-      const author = typeof u.source.author === "string" ? u.source.author : "Д. Э. Розенталь";
+      // Never invent an author: only an explicit source.author is recorded.
+      const author = typeof u.source.author === "string" && u.source.author.trim() ? u.source.author.trim() : null;
       const row = {
         subject_id: subject.data.id, title: u.title.slice(0, 500), content_text: u.content_text,
         material_type: kindToMaterial(u.kind), source_name: author,
-        license_note: "Автор: " + author + "; стр. " + u.pages.join(", ") +
+        license_note: "Автор: " + (author ?? "не указан") + "; стр. " + u.pages.join(", ") +
           "; публичные права на воспроизведение не подтверждены",
         license_type: "permission_unverified", status: "draft", is_public: false,
         created_by: context.userId,

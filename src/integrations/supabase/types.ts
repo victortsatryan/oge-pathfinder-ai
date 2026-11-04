@@ -1081,6 +1081,75 @@ export type Database = {
         }
         Relationships: []
       }
+      extractor_jobs: {
+        Row: {
+          attempts: number
+          author: string | null
+          created_at: string
+          created_by: string
+          error: string | null
+          external_job_id: string | null
+          file_name: string
+          file_sha256: string
+          id: string
+          mime_type: string | null
+          progress: number
+          publish_report: Json | null
+          result: Json | null
+          rights_basis: string
+          size_bytes: number
+          status: string
+          storage_path: string
+          subject_id: string | null
+          unit_decisions: Json
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          author?: string | null
+          created_at?: string
+          created_by: string
+          error?: string | null
+          external_job_id?: string | null
+          file_name: string
+          file_sha256: string
+          id?: string
+          mime_type?: string | null
+          progress?: number
+          publish_report?: Json | null
+          result?: Json | null
+          rights_basis?: string
+          size_bytes: number
+          status?: string
+          storage_path: string
+          subject_id?: string | null
+          unit_decisions?: Json
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          author?: string | null
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          external_job_id?: string | null
+          file_name?: string
+          file_sha256?: string
+          id?: string
+          mime_type?: string | null
+          progress?: number
+          publish_report?: Json | null
+          result?: Json | null
+          rights_basis?: string
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+          subject_id?: string | null
+          unit_decisions?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       extractor_review_decisions: {
         Row: {
           choice: string

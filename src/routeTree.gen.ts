@@ -63,6 +63,7 @@ import { Route as AuthenticatedStudentSubjectsSubjectIdRouteImport } from './rou
 import { Route as AuthenticatedStudentLibraryNewRouteImport } from './routes/_authenticated.student.library.new'
 import { Route as AuthenticatedStudentLessonLessonIdRouteImport } from './routes/_authenticated.student.lesson.$lessonId'
 import { Route as AuthenticatedStudentDiagnosticSessionIdRouteImport } from './routes/_authenticated.student.diagnostic.$sessionId'
+import { Route as AuthenticatedAdminContentUploadRouteImport } from './routes/_authenticated.admin.content.upload'
 import { Route as AuthenticatedAdminContentProgramsRouteImport } from './routes/_authenticated.admin.content.programs'
 import { Route as AuthenticatedAdminContentImportRouteImport } from './routes/_authenticated.admin.content.import'
 import { Route as AuthenticatedAdminContentHistoryRouteImport } from './routes/_authenticated.admin.content.history'
@@ -379,6 +380,12 @@ const AuthenticatedStudentDiagnosticSessionIdRoute =
     path: '/diagnostic/$sessionId',
     getParentRoute: () => AuthenticatedStudentRoute,
   } as any)
+const AuthenticatedAdminContentUploadRoute =
+  AuthenticatedAdminContentUploadRouteImport.update({
+    id: '/upload',
+    path: '/upload',
+    getParentRoute: () => AuthenticatedAdminContentRoute,
+  } as any)
 const AuthenticatedAdminContentProgramsRoute =
   AuthenticatedAdminContentProgramsRouteImport.update({
     id: '/programs',
@@ -467,6 +474,7 @@ export interface FileRoutesByFullPath {
   '/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
+  '/admin/content/upload': typeof AuthenticatedAdminContentUploadRoute
   '/student/diagnostic/$sessionId': typeof AuthenticatedStudentDiagnosticSessionIdRoute
   '/student/lesson/$lessonId': typeof AuthenticatedStudentLessonLessonIdRoute
   '/student/library/new': typeof AuthenticatedStudentLibraryNewRoute
@@ -525,6 +533,7 @@ export interface FileRoutesByTo {
   '/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
+  '/admin/content/upload': typeof AuthenticatedAdminContentUploadRoute
   '/student/diagnostic/$sessionId': typeof AuthenticatedStudentDiagnosticSessionIdRoute
   '/student/lesson/$lessonId': typeof AuthenticatedStudentLessonLessonIdRoute
   '/student/library/new': typeof AuthenticatedStudentLibraryNewRoute
@@ -589,6 +598,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/content/history': typeof AuthenticatedAdminContentHistoryRoute
   '/_authenticated/admin/content/import': typeof AuthenticatedAdminContentImportRoute
   '/_authenticated/admin/content/programs': typeof AuthenticatedAdminContentProgramsRoute
+  '/_authenticated/admin/content/upload': typeof AuthenticatedAdminContentUploadRoute
   '/_authenticated/student/diagnostic/$sessionId': typeof AuthenticatedStudentDiagnosticSessionIdRoute
   '/_authenticated/student/lesson/$lessonId': typeof AuthenticatedStudentLessonLessonIdRoute
   '/_authenticated/student/library/new': typeof AuthenticatedStudentLibraryNewRoute
@@ -653,6 +663,7 @@ export interface FileRouteTypes {
     | '/admin/content/history'
     | '/admin/content/import'
     | '/admin/content/programs'
+    | '/admin/content/upload'
     | '/student/diagnostic/$sessionId'
     | '/student/lesson/$lessonId'
     | '/student/library/new'
@@ -711,6 +722,7 @@ export interface FileRouteTypes {
     | '/admin/content/history'
     | '/admin/content/import'
     | '/admin/content/programs'
+    | '/admin/content/upload'
     | '/student/diagnostic/$sessionId'
     | '/student/lesson/$lessonId'
     | '/student/library/new'
@@ -774,6 +786,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/content/history'
     | '/_authenticated/admin/content/import'
     | '/_authenticated/admin/content/programs'
+    | '/_authenticated/admin/content/upload'
     | '/_authenticated/student/diagnostic/$sessionId'
     | '/_authenticated/student/lesson/$lessonId'
     | '/_authenticated/student/library/new'
@@ -1181,6 +1194,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentDiagnosticSessionIdRouteImport
       parentRoute: typeof AuthenticatedStudentRoute
     }
+    '/_authenticated/admin/content/upload': {
+      id: '/_authenticated/admin/content/upload'
+      path: '/upload'
+      fullPath: '/admin/content/upload'
+      preLoaderRoute: typeof AuthenticatedAdminContentUploadRouteImport
+      parentRoute: typeof AuthenticatedAdminContentRoute
+    }
     '/_authenticated/admin/content/programs': {
       id: '/_authenticated/admin/content/programs'
       path: '/programs'
@@ -1238,6 +1258,7 @@ interface AuthenticatedAdminContentRouteChildren {
   AuthenticatedAdminContentHistoryRoute: typeof AuthenticatedAdminContentHistoryRoute
   AuthenticatedAdminContentImportRoute: typeof AuthenticatedAdminContentImportRoute
   AuthenticatedAdminContentProgramsRoute: typeof AuthenticatedAdminContentProgramsRoute
+  AuthenticatedAdminContentUploadRoute: typeof AuthenticatedAdminContentUploadRoute
   AuthenticatedAdminContentIndexRoute: typeof AuthenticatedAdminContentIndexRoute
   AuthenticatedAdminContentObjectivesLoIdRoute: typeof AuthenticatedAdminContentObjectivesLoIdRoute
   AuthenticatedAdminContentObjectivesIndexRoute: typeof AuthenticatedAdminContentObjectivesIndexRoute
@@ -1252,6 +1273,7 @@ const AuthenticatedAdminContentRouteChildren: AuthenticatedAdminContentRouteChil
     AuthenticatedAdminContentImportRoute: AuthenticatedAdminContentImportRoute,
     AuthenticatedAdminContentProgramsRoute:
       AuthenticatedAdminContentProgramsRoute,
+    AuthenticatedAdminContentUploadRoute: AuthenticatedAdminContentUploadRoute,
     AuthenticatedAdminContentIndexRoute: AuthenticatedAdminContentIndexRoute,
     AuthenticatedAdminContentObjectivesLoIdRoute:
       AuthenticatedAdminContentObjectivesLoIdRoute,
