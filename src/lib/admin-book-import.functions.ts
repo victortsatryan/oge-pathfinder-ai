@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { unitSchema, sourceSha } from "@/lib/extractor/schema";
+import { unitSchema, sourceSha, canonicalJson } from "@/lib/extractor/schema";
 import { kindToMaterial } from "@/lib/extractor/book-mapping";
 
 const batch = z.object({ units: z.array(z.unknown()).min(1).max(20), confirmed: z.literal(true) });
@@ -29,7 +29,7 @@ export const importBookBatch = createServerFn({ method: "POST" })
       if (prior.data) {
         const old = prior.data.extractor_metadata;
         const matches = old?.source_sha256 === sourceSha(u) &&
-          JSON.stringify(old?.original_unit) === JSON.stringify(raw);
+          canonicalJson(old?.original_unit) === canonicalJson(raw);
         reports.push({ unit_id: u.unit_id, status: matches ? "existing" : "failed",
           error: matches ? undefined : "Конфликт с существующим ID; данные не изменены" });
         continue;
