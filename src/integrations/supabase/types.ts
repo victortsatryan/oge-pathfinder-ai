@@ -1091,6 +1091,10 @@ export type Database = {
           publish_error: string | null
           publish_state: string
           raw: Json
+          review_choice: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_text: string | null
           unit_id: string
         }
         Insert: {
@@ -1102,6 +1106,10 @@ export type Database = {
           publish_error?: string | null
           publish_state?: string
           raw: Json
+          review_choice?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_text?: string | null
           unit_id: string
         }
         Update: {
@@ -1113,6 +1121,10 @@ export type Database = {
           publish_error?: string | null
           publish_state?: string
           raw?: Json
+          review_choice?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_text?: string | null
           unit_id?: string
         }
         Relationships: [

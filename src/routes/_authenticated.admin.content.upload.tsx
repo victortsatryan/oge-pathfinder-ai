@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   getExtractorJobs, publishExtractorJob, refreshExtractorJob, registerExtractorUpload,
-  reopenSkippedUnits, retryExtractorJob, setExtractorUnitDecision,
+  getExtractorSourceLink, reopenSkippedUnits, retryExtractorJob, saveExtractorUnitReview, setExtractorUnitDecision,
 } from "@/lib/extractor/jobs.functions";
 import { MAX_SOURCE_BYTES, SOURCE_EXTENSIONS, sourceExtension } from "@/lib/extractor/pipeline";
 
@@ -178,20 +178,14 @@ function JobDetail({ id, subjects, defaultSubject }: { id: string; subjects: { i
       <p className="text-sm">Блоков: {units.length} · уверенных: {units.filter((u) => u.decision === "confident").length} · требуют решения: {review.length} · только для учителя (не публикуются): {units.filter((u) => u.decision === "private").length} · некорректных: {units.filter((u) => u.decision === "invalid").length} · к публикации: {toPublish}. Задания с автопроверкой не создаются: экстрактор не даёт проверенных ответов.</p>
       {review.length > 0 && <h3 className="text-sm font-semibold">Требуют решения</h3>}
       {units.filter((u) => u.decision === "review" || u.decision === "invalid").map((u) => (
-        <div key={u.unit_id} className="rounded border p-2 text-sm space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{u.title || u.unit_id}</span>
-            <span className="text-xs text-muted-foreground">стр. {u.pages.join(", ") || "—"}</span>
-            {u.decision === "review" && (
-              <div className="ml-auto flex gap-1">
-                <Button size="sm" variant={u.admin === "accept" ? "default" : "outline"} onClick={() => setD(u.unit_id, u.admin === "accept" ? null : "accept")}>Принять</Button>
-                <Button size="sm" variant={u.admin === "reject" ? "destructive" : "outline"} onClick={() => setD(u.unit_id, u.admin === "reject" ? null : "reject")}>Отклонить</Button>
-              </div>
-            )}
-          </div>
-          <ul className="text-xs text-destructive list-disc pl-4">{u.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
-          <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{u.content_text}</p>
-        </div>
+        u.decision === "review"
+          ? <UnitReview key={u.unit_id} jobId={id} unit={u} onSaved={() => q.refetch()} />
+          : (
+            <div key={u.unit_id} className="rounded border p-2 text-sm space-y-1">
+              <span className="font-medium">{u.title || u.unit_id}</span>
+              <ul className="text-xs text-destructive list-disc pl-4">{u.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+            </div>
+          )
       ))}
       <details className="text-sm"><summary className="cursor-pointer">Уверенные блоки ({units.filter((u) => u.decision === "confident").length})</summary>
         {units.filter((u) => u.decision === "confident").map((u) => (
@@ -215,6 +209,62 @@ function JobDetail({ id, subjects, defaultSubject }: { id: string; subjects: { i
         </Button>
         <span className="text-xs text-muted-foreground">Видно только вошедшим пользователям Pathy. Существующие материалы и задания не изменяются.</span>
       </div>
+    </div>
+  );
+}
+
+type ReviewUnit = { unit_id: string; title: string; pages: number[]; reasons: string[]; content_text: string; reviewed_text: string | null; review_choice: string | null; reviewed_at: string | null; state: string };
+
+/** Built-in review: full raw OCR (read-only) beside an editable correction. Raw unit is never changed. */
+function UnitReview({ jobId, unit, onSaved }: { jobId: string; unit: ReviewUnit; onSaved: () => void }) {
+  const save = useServerFn(saveExtractorUnitReview);
+  const link = useServerFn(getExtractorSourceLink);
+  const [text, setText] = useState(unit.reviewed_text ?? unit.content_text);
+  const [busy, setBusy] = useState(false);
+  const locked = unit.state === "published";
+  const changed = text.trim() !== unit.content_text.trim();
+  const act = async (choice: "accept_corrected" | "keep_original" | "reject" | null) => {
+    setBusy(true);
+    try {
+      await save({ data: { id: jobId, unit_id: unit.unit_id, choice, reviewed_text: choice === "accept_corrected" || (choice === null && changed) ? text : null } });
+      toast.success("Решение сохранено"); onSaved();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка"); } finally { setBusy(false); }
+  };
+  const open = async (page: number | null) => {
+    const w = window.open("about:blank", "_blank"); if (w) w.opener = null;
+    try { const r = await link({ data: { id: jobId, page } }); if (w) w.location.href = r.url; }
+    catch (e) { w?.close(); toast.error(e instanceof Error ? e.message : "Ошибка"); }
+  };
+  const CHOICE: Record<string, string> = { accept_corrected: "Принято исправленное", keep_original: "Оставлен исходный", reject: "Отклонено" };
+  return (
+    <div className="rounded border p-3 text-sm space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{unit.title || unit.unit_id}</span>
+        <span className="text-xs text-muted-foreground">ID {unit.unit_id} · стр. {unit.pages.join(", ") || "—"}</span>
+        {unit.review_choice && <Badge variant="secondary">{CHOICE[unit.review_choice]}{unit.reviewed_at ? " · " + new Date(unit.reviewed_at).toLocaleString("ru-RU") : ""}</Badge>}
+        {locked && <Badge>Опубликован</Badge>}
+        <div className="ml-auto flex flex-wrap gap-1">
+          {(unit.pages.length ? unit.pages : [null]).slice(0, 4).map((p) => (
+            <Button key={String(p)} size="sm" variant="outline" onClick={() => open(p)}>{p ? `Открыть оригинал, стр. ${p}` : "Открыть оригинал"}</Button>
+          ))}
+        </div>
+      </div>
+      <ul className="text-xs text-destructive list-disc pl-4">{unit.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+      <div className="grid gap-2 md:grid-cols-2">
+        <label className="space-y-1"><span className="text-xs text-muted-foreground">Исходный OCR (не изменяется)</span>
+          <textarea readOnly className="h-64 w-full rounded-md border bg-muted/40 p-2 font-mono text-xs" value={unit.content_text} /></label>
+        <label className="space-y-1"><span className="text-xs text-muted-foreground">Исправленный текст {changed ? "· изменён" : "· совпадает с исходным"}</span>
+          <textarea disabled={locked} className="h-64 w-full rounded-md border bg-background p-2 font-mono text-xs" value={text} onChange={(e) => setText(e.target.value)} /></label>
+      </div>
+      {!locked && (
+        <div className="flex flex-wrap gap-1">
+          <Button size="sm" disabled={busy || !changed || !text.trim()} onClick={() => act("accept_corrected")}>Принять исправленное</Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => act("keep_original")}>Оставить исходный</Button>
+          <Button size="sm" variant="destructive" disabled={busy} onClick={() => act("reject")}>Отклонить</Button>
+          <Button size="sm" variant="ghost" disabled={busy || !changed} onClick={() => act(null)}>Сохранить черновик правки</Button>
+          {unit.review_choice && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(null)}>Снять решение</Button>}
+        </div>
+      )}
     </div>
   );
 }

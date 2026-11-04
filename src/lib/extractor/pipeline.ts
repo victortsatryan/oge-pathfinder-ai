@@ -125,3 +125,25 @@ export function kindToMaterialType(kind: string, materialType?: string | null): 
 export function canPublishWithRights(rights: string): boolean {
   return rights === "own" || rights === "licensed" || rights === "public_domain";
 }
+
+export type ReviewChoice = "accept_corrected" | "keep_original" | "reject";
+
+/**
+ * Text + status used at publication. Human-corrected text is used only on an explicit
+ * "accept_corrected"; confident units always use the untouched raw text. Private/invalid never publish.
+ */
+export function effectivePublication(
+  u: ClassifiedUnit, choice: ReviewChoice | null | undefined, reviewedText: string | null | undefined,
+  legacy?: "accept" | "reject",
+): { publish: boolean; text: string; review_status: string } {
+  const no = { publish: false, text: "", review_status: "not_published" };
+  if (u.decision === "private" || u.decision === "invalid") return no;
+  if (choice === "reject") return no;
+  if (choice === "accept_corrected") {
+    const t = (reviewedText ?? "").trim();
+    return t ? { publish: true, text: t, review_status: "human_corrected" } : no;
+  }
+  if (choice === "keep_original") return { publish: true, text: u.content_text, review_status: "human_approved_original" };
+  if (!shouldPublish(u, legacy)) return no;
+  return { publish: true, text: u.content_text, review_status: u.decision === "confident" ? "auto_extracted_unverified" : "human_approved_original" };
+}

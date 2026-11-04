@@ -4,8 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import {
-  MAX_SOURCE_BYTES, PUBLISH_BATCH, RESULT_PAGE_LIMIT, canPublishWithRights, classifyUnit,
-  kindToMaterialType, magicMatches, parseResultPage, parseWorkerStatus, shouldPublish, sourceExtension, stableUnitKey,
+  MAX_SOURCE_BYTES, PUBLISH_BATCH, RESULT_PAGE_LIMIT, canPublishWithRights, classifyUnit, effectivePublication,
+  kindToMaterialType, magicMatches, parseResultPage, parseWorkerStatus, sourceExtension, stableUnitKey,
 } from "./pipeline";
 
 type Sb = SupabaseClient<Database>;
@@ -189,13 +189,16 @@ export const refreshExtractorJob = createServerFn({ method: "POST" }).middleware
     }
     const fresh = await loadJob(sb, data.id);
     const decisions = (fresh.unit_decisions ?? {}) as Record<string, "accept" | "reject">;
-    const rows = await sb.from("extractor_job_units").select("unit_id,raw,publish_state").eq("job_id", fresh.id).order("position").limit(5000);
+    const rows = await sb.from("extractor_job_units").select("unit_id,raw,publish_state,reviewed_text,review_choice,reviewed_at").eq("job_id", fresh.id).order("position").limit(5000);
     if (rows.error) throw new Error(rows.error.message);
     const units = (rows.data ?? []).map((r) => {
       const c = classifyUnit(r.raw as Record<string, any>, fresh.author);
       return { unit_id: c.unit_id, title: c.title, kind: c.kind, pages: c.pages, role: c.role, decision: c.decision, reasons: c.reasons,
-        content_text: c.decision === "confident" ? "" : c.content_text.slice(0, 600),
-        admin: decisions[c.unit_id] ?? null, publish: shouldPublish(c, decisions[c.unit_id]), state: r.publish_state };
+        // Full OCR text for units needing review (no truncation); confident units are not edited.
+        content_text: c.decision === "confident" ? "" : c.content_text,
+        reviewed_text: r.reviewed_text, review_choice: r.review_choice, reviewed_at: r.reviewed_at,
+        admin: decisions[c.unit_id] ?? null,
+        publish: effectivePublication(c, r.review_choice as any, r.reviewed_text, decisions[c.unit_id]).publish, state: r.publish_state };
     });
     const { result: _r, ...meta } = fresh;
     return { job: meta, units, workerConfigured: ok !== null };
@@ -212,6 +215,46 @@ export const setExtractorUnitDecision = createServerFn({ method: "POST" }).middl
     return { ok: true };
   });
 
+/** Persist a human review for one unit of this job. Raw OCR (raw) is never modified. */
+export const saveExtractorUnitReview = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({
+    id: z.string().uuid(), unit_id: z.string().min(1).max(500),
+    choice: z.enum(["accept_corrected", "keep_original", "reject"]).nullable(), reviewed_text: z.string().max(200_000).nullable(),
+  }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    await assertAdmin(sb, context.userId);
+    const job = await loadJob(sb, data.id);
+    const row = await sb.from("extractor_job_units").select("id,raw,publish_state").eq("job_id", job.id).eq("unit_id", data.unit_id).maybeSingle();
+    if (row.error) throw new Error(row.error.message);
+    if (!row.data) throw new Error("Блок не найден в этой обработке");
+    const raw = row.data.raw as Record<string, any>;
+    if (raw?.source?.sha256 && raw.source.sha256 !== job.file_sha256) throw new Error("SHA блока не совпадает с источником обработки");
+    const c = classifyUnit(raw, job.author);
+    if (c.decision === "private") throw new Error("Материал только для учителя — публикация невозможна");
+    if (row.data.publish_state === "published") throw new Error("Блок уже опубликован; опубликованные материалы не изменяются");
+    const text = data.reviewed_text?.trim() ? data.reviewed_text : null;
+    if (data.choice === "accept_corrected" && !text) throw new Error("Пустой исправленный текст");
+    const up = await sb.from("extractor_job_units").update({
+      reviewed_text: text, review_choice: data.choice, reviewed_by: context.userId, reviewed_at: new Date().toISOString(),
+      ...(row.data.publish_state === "skipped" ? { publish_state: "pending" } : {}),
+    }).eq("id", row.data.id);
+    if (up.error) throw new Error(up.error.message);
+    return { ok: true };
+  });
+
+/** Short-lived (5 min) signed link to the private source, admin only, never stored. */
+export const getExtractorSourceLink = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ id: z.string().uuid(), page: z.number().int().positive().nullable() }).parse(v))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const job = await loadJob(context.supabase, data.id);
+    const s = await context.supabase.storage.from(BUCKET).createSignedUrl(job.storage_path, 300);
+    if (s.error || !s.data?.signedUrl) throw new Error("Не удалось открыть оригинал: " + (s.error?.message ?? ""));
+    const isPdf = /\.pdf$/i.test(job.file_name);
+    return { url: s.data.signedUrl + (isPdf && data.page ? `#page=${data.page}` : "") };
+  });
+
 /** One batch per call; the client repeats until remaining = 0. Idempotent, never updates existing materials/tasks. */
 export const publishExtractorJob = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({
@@ -226,7 +269,7 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
     if (!["succeeded", "publishing", "published"].includes(job.status)) throw new Error("Результат обработки ещё не получен полностью");
     await update(sb, job.id, { status: "publishing", rights_basis: data.rights_basis, subject_id: data.subject_id });
     const decisions = (job.unit_decisions ?? {}) as Record<string, "accept" | "reject">;
-    const batch = await sb.from("extractor_job_units").select("id,unit_id,raw").eq("job_id", job.id).eq("publish_state", "pending").order("position").limit(PUBLISH_BATCH);
+    const batch = await sb.from("extractor_job_units").select("id,unit_id,raw,reviewed_text,review_choice,reviewed_by,reviewed_at").eq("job_id", job.id).eq("publish_state", "pending").order("position").limit(PUBLISH_BATCH);
     if (batch.error) throw new Error(batch.error.message);
     const r = { materials: 0, existing: 0, skipped: 0, failed: 0 };
     for (const row of batch.data ?? []) {
@@ -234,20 +277,23 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
       const u = classifyUnit(raw, job.author);
       const mark = (publish_state: "published" | "existing" | "skipped" | "failed", extra: { material_id?: string; publish_error?: string } = {}) =>
         sb.from("extractor_job_units").update({ publish_state, ...extra }).eq("id", row.id);
-      if (!shouldPublish(u, decisions[u.unit_id])) { await mark("skipped"); r.skipped++; continue; }
+      const eff = effectivePublication(u, row.review_choice as any, row.reviewed_text, decisions[u.unit_id]);
+      if (!eff.publish) { await mark("skipped"); r.skipped++; continue; }
       const key = stableUnitKey(job.file_sha256, u.unit_id);
       const prior = await sb.from("materials").select("id").eq("extractor_metadata->>unit_key", key).maybeSingle();
       if (prior.data) { await mark("existing", { material_id: prior.data.id }); r.existing++; continue; }
       const provenance = {
         unit_key: key, job_id: job.id, unit_id: u.unit_id, source_sha256: job.file_sha256, source_file: job.file_name, pages: u.pages,
         role: u.role, related_unit_ids: u.related_unit_ids, classification: u.decision, review_reasons: u.reasons,
-        admin_decision: decisions[u.unit_id] ?? null, usable_for_grading: false, original_unit: raw as Json,
+        admin_decision: decisions[u.unit_id] ?? null, usable_for_grading: false, review_status: eff.review_status,
+        original_ocr_text: u.content_text, original_unit: raw as Json,
+        human_correction: row.review_choice ? { choice: row.review_choice, text: row.review_choice === "accept_corrected" ? row.reviewed_text : null, by: row.reviewed_by, at: row.reviewed_at } : null,
       };
       // Visible only to signed-in users (materials SELECT is TO authenticated). Learning only, not grading.
       const mat = await sb.from("materials").insert({
-        subject_id: data.subject_id, topic_id: null, title: (u.title || u.unit_id).slice(0, 500), content_text: u.content_text,
+        subject_id: data.subject_id, topic_id: null, title: (u.title || u.unit_id).slice(0, 500), content_text: eff.text,
         material_type: kindToMaterialType(u.kind, u.material_type), source_name: u.author, status: "published", is_public: true,
-        license_type: data.rights_basis, license_note: `Источник: ${job.file_name}; стр. ${u.pages.join(", ") || "—"}${u.author ? "; автор: " + u.author : ""}; автоизвлечено, не проверено для оценивания`,
+        license_type: data.rights_basis, license_note: `Источник: ${job.file_name}; стр. ${u.pages.join(", ") || "—"}${u.author ? "; автор: " + u.author : ""}; ${eff.review_status === "human_corrected" ? "исправлено вручную" : "автоизвлечено"}, не проверено для оценивания`,
         created_by: context.userId, extractor_metadata: provenance,
       }).select("id").single();
       if (mat.error) { await mark("failed", { publish_error: mat.error.message }); r.failed++; continue; }

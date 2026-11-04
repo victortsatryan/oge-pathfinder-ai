@@ -62,3 +62,25 @@ describe("extractor pipeline", () => {
     expect(() => parseResultPage({ format: "pathy-extraction-result-v1", units: [], next_offset: "x" })).toThrow();
   });
 });
+
+import { effectivePublication } from "../src/lib/extractor/pipeline";
+describe("built-in review", () => {
+  const flagged = classifyUnit({ ...good, requires_manual_review: true, review_reasons: ["ocr"] });
+  it("confident units use untouched raw text without action", () => {
+    expect(effectivePublication(classifyUnit(good), null, "чужой текст")).toEqual({ publish: true, text: "Текст", review_status: "auto_extracted_unverified" });
+  });
+  it("flagged units do not publish without a human choice", () => {
+    expect(effectivePublication(flagged, null, "Исправлено").publish).toBe(false);
+  });
+  it("uses corrected text only on explicit accept_corrected", () => {
+    expect(effectivePublication(flagged, "accept_corrected", "Исправлено")).toMatchObject({ publish: true, text: "Исправлено", review_status: "human_corrected" });
+    expect(effectivePublication(flagged, "keep_original", "Исправлено")).toMatchObject({ text: "Текст", review_status: "human_approved_original" });
+    expect(effectivePublication(flagged, "accept_corrected", "  ").publish).toBe(false);
+    expect(effectivePublication(flagged, "reject", "x").publish).toBe(false);
+  });
+  it("teacher_private never publishes even after a manual choice", () => {
+    const p = classifyUnit({ ...good, role: "teacher_private", content_text: "27. Ответ: б" });
+    expect(effectivePublication(p, "accept_corrected", "27. Ответ: б").publish).toBe(false);
+    expect(effectivePublication(p, "keep_original", null, "accept").publish).toBe(false);
+  });
+});
