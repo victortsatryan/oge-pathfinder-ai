@@ -9,6 +9,7 @@ import { amIAdmin, listImportLogs, previewImport, runImport } from "@/lib/admin-
 import { formatRowIssues, normalizeRow } from "@/lib/admin-import-normalize";
 import { isDevOpenAccess } from "@/lib/admin-access";
 import { useAuth } from "@/hooks/use-auth";
+import { ExtractorBookImportPanel } from "@/components/oge/extractor-book-import-panel";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,6 +90,7 @@ function ImportPage() {
   const qc = useQueryClient();
 
   const [rows, setRows] = useState<Row[]>([]);
+  const [extractorFile, setExtractorFile] = useState<unknown | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -187,6 +189,7 @@ function ImportPage() {
 
   function handleFile(file: File) {
     setFileName(file.name);
+    setExtractorFile(null);
     setPreview(null);
     setReport(null);
     setParseErrors([]);
@@ -196,6 +199,12 @@ function ImportPage() {
       if (file.name.toLowerCase().endsWith(".json")) {
         try {
           const parsed: unknown = JSON.parse(text);
+          if (parsed && typeof parsed === "object" && "format" in parsed && parsed.format === "pathy-extractor-audit-staging-v1") {
+            setRows([]);
+            setFormat("json");
+            setExtractorFile(parsed);
+            return;
+          }
           const arr = Array.isArray(parsed)
             ? parsed
             : Array.isArray((parsed as { materials?: unknown })?.materials)
@@ -264,8 +273,8 @@ function ImportPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Загрузить файл</CardTitle>
-          <CardDescription>CSV или JSON. Колонки: {EXPECTED_HEADERS.join(", ")}</CardDescription>
+          <CardTitle>Импорт материалов</CardTitle>
+          <CardDescription>CSV/JSON материалов или JSON книги из Pathy Extractor. Для книги не нужны поля PCS, учебные цели или конструирование заданий.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -276,6 +285,15 @@ function ImportPage() {
           {fileName ? (
             <p className="text-sm text-muted-foreground">{fileName} — {rows.length} строк</p>
           ) : null}
+
+          {extractorFile !== null && (
+            <ExtractorBookImportPanel
+              book={extractorFile}
+              filename={fileName}
+              canWrite={Boolean(user) && Boolean(adminQ.data?.isAdmin)}
+              onReset={() => { setExtractorFile(null); setFileName(""); }}
+            />
+          )}
 
           {rows.length > 0 && (
             <>
