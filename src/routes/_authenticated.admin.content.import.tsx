@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -39,6 +39,20 @@ function ImportPage() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result ?? ""));
+        // The Extractor audit format is deliberately not PCS. Show a clear
+        // destination instead of sending it through PCS validation.
+        if (parsed?.format === "pathy-extractor-audit-staging-v1") {
+          setJson(null);
+          setPreview({
+            ok: false,
+            extractorFile: true,
+            errors: [{
+              path: "format",
+              message: "Это файл Pathy Extractor, а не модуль PCS. Загрузите его в разделе «Extractor: черновики».",
+            }],
+          });
+          return;
+        }
         setJson(parsed);
         previewMut.mutate(parsed);
       } catch (e: any) {
@@ -53,7 +67,10 @@ function ImportPage() {
       <Card>
         <CardHeader>
           <CardTitle>Импорт PCS JSON</CardTitle>
-          <CardDescription>Загрузите .json файл образовательного модуля</CardDescription>
+          <CardDescription>
+            Только образовательные модули PCS. Для PDF-книг и структурированных материалов используйте{" "}
+            <Link className="underline" to="/admin/content/extractor">Extractor: черновики</Link>.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input type="file" accept=".json,application/json"
@@ -69,10 +86,20 @@ function ImportPage() {
           <CardHeader><CardTitle>Ошибки валидации</CardTitle></CardHeader>
           <CardContent>
             <ul className="text-sm space-y-1">
-              {preview.errors.map((e: any, i: number) => (
+              {(Array.isArray(preview.errors) ? preview.errors : [{
+                path: "root",
+                message: "Сервис вернул неполные сведения об ошибке. Проверьте формат JSON.",
+              }]).map((e: any, i: number) => (
                 <li key={i} className="text-destructive"><b>{e.path || "root"}:</b> {e.message}</li>
               ))}
             </ul>
+            {preview.extractorFile && (
+              <p className="mt-3 text-sm">
+                <Link className="underline font-medium" to="/admin/content/extractor">
+                  Перейти к импорту Extractor
+                </Link>
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
