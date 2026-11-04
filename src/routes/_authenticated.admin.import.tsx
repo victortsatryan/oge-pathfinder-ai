@@ -10,6 +10,7 @@ import { formatRowIssues, normalizeRow } from "@/lib/admin-import-normalize";
 import { isDevOpenAccess } from "@/lib/admin-access";
 import { useAuth } from "@/hooks/use-auth";
 import { ExtractorBookImportPanel } from "@/components/oge/extractor-book-import-panel";
+import { PcsImportPanel } from "@/components/oge/pcs-import-panel";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,6 +92,7 @@ function ImportPage() {
 
   const [rows, setRows] = useState<Row[]>([]);
   const [extractorFile, setExtractorFile] = useState<unknown | null>(null);
+  const [pcsFile, setPcsFile] = useState<unknown | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -190,6 +192,7 @@ function ImportPage() {
   function handleFile(file: File) {
     setFileName(file.name);
     setExtractorFile(null);
+    setPcsFile(null);
     setPreview(null);
     setReport(null);
     setParseErrors([]);
@@ -203,6 +206,12 @@ function ImportPage() {
             setRows([]);
             setFormat("json");
             setExtractorFile(parsed);
+            return;
+          }
+          if (parsed && typeof parsed === "object" && "schema_version" in parsed && "pcs_version" in parsed) {
+            setRows([]);
+            setFormat("json");
+            setPcsFile(parsed);
             return;
           }
           const arr = Array.isArray(parsed)
@@ -292,6 +301,15 @@ function ImportPage() {
               filename={fileName}
               canWrite={Boolean(user) && Boolean(adminQ.data?.isAdmin)}
               onReset={() => { setExtractorFile(null); setFileName(""); }}
+            />
+          )}
+
+          {pcsFile !== null && (
+            <PcsImportPanel
+              json={pcsFile}
+              filename={fileName}
+              canWrite={Boolean(user) && Boolean(adminQ.data?.isAdmin)}
+              onReset={() => { setPcsFile(null); setFileName(""); }}
             />
           )}
 
