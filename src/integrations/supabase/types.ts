@@ -2010,6 +2010,7 @@ export type Database = {
           description: string | null
           difficulty: number
           estimated_time_minutes: number | null
+          extractor_metadata: Json | null
           file_url: string | null
           grade: string | null
           id: string
@@ -2037,6 +2038,7 @@ export type Database = {
           description?: string | null
           difficulty?: number
           estimated_time_minutes?: number | null
+          extractor_metadata?: Json | null
           file_url?: string | null
           grade?: string | null
           id?: string
@@ -2064,6 +2066,7 @@ export type Database = {
           description?: string | null
           difficulty?: number
           estimated_time_minutes?: number | null
+          extractor_metadata?: Json | null
           file_url?: string | null
           grade?: string | null
           id?: string
