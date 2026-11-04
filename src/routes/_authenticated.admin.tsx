@@ -81,20 +81,22 @@ function AdminLayout() {
           <p className="pf-eyebrow mb-3">содержимое платформы</p>
           <h1 className="pf-h1">Редакция</h1>
         </div>
-        <button
-          onClick={async () => {
-            try {
-              window.localStorage.removeItem("educaite-demo-role");
-            } catch {
-              /* noop */
-            }
-            await signOut();
-            window.location.href = "/auth";
-          }}
-          className="pf-btn pf-btn--ghost"
-        >
-          <LogOut className="h-4 w-4" /> Выйти
-        </button>
+        {user ? (
+          <button
+            onClick={async () => {
+              try { window.localStorage.removeItem("educaite-demo-role"); } catch { /* noop */ }
+              await signOut();
+              window.location.href = "/auth";
+            }}
+            className="pf-btn pf-btn--ghost"
+          >
+            <LogOut className="h-4 w-4" /> Выйти
+          </button>
+        ) : (
+          <Link className="pf-btn pf-btn--ghost" to="/auth">
+            Войти как администратор
+          </Link>
+        )}
       </header>
 
       {/* Навигация — mono-полоса */}
