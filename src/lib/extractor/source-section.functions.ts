@@ -19,13 +19,13 @@ async function getSourceSections(sb: any, jobId: string) {
   const units: SourceTextUnit[] = [];
   for (let offset = 0; offset < 5000; offset += 500) {
     const page = await sb.from("materials")
-      .select("id,title,content_text,derived_kind:extractor_metadata->>derived_kind")
+      .select("id,title,content_text,extractor_metadata")
       .eq("extractor_metadata->>job_id", job.id)
       .order("created_at", { ascending: true })
       .range(offset, offset + 499);
     if (page.error) throw new Error(page.error.message);
     for (const m of page.data ?? []) {
-      if (!m.derived_kind) units.push({ id: m.id, title: m.title, content_text: m.content_text });
+      if (!(m.extractor_metadata as Record<string, unknown> | null)?.derived_kind) units.push({ id: m.id, title: m.title, content_text: m.content_text });
     }
     if ((page.data ?? []).length < 500) break;
   }
