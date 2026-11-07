@@ -1,5 +1,6 @@
 -- Curriculum topics are not limited to exam tasks. Teachers can ADD their own public topic
 -- but cannot edit or delete pre-existing admin/teacher topics.
+drop policy if exists "topics teacher insert own" on public.topics;
 create policy "topics teacher insert own"
 on public.topics for insert to authenticated
 with check (
@@ -24,6 +25,7 @@ alter table public.material_topic_links enable row level security;
 grant select,insert,delete on public.material_topic_links to authenticated;
 revoke all on public.material_topic_links from anon;
 
+drop policy if exists "material_topic_links read authenticated" on public.material_topic_links;
 create policy "material_topic_links read authenticated"
 on public.material_topic_links for select to authenticated
 using (
@@ -33,6 +35,7 @@ using (
   )
   or public.has_role((select auth.uid()), 'admin'::public.app_role)
 );
+drop policy if exists "material_topic_links insert admin verified subjects" on public.material_topic_links;
 create policy "material_topic_links insert admin verified subjects"
 on public.material_topic_links for insert to authenticated
 with check (
@@ -44,6 +47,7 @@ with check (
     where m.id = material_id and m.status = 'published' and m.is_public = true
   )
 );
+drop policy if exists "material_topic_links delete admin" on public.material_topic_links;
 create policy "material_topic_links delete admin"
 on public.material_topic_links for delete to authenticated
 using (public.has_role((select auth.uid()), 'admin'::public.app_role));
