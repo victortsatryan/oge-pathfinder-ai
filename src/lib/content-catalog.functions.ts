@@ -78,7 +78,7 @@ export const getPublishedContentCatalog = createServerFn({ method: "POST" })
     const sb = context.supabase;
     await requireEditor(sb, context.userId);
     let q = sb.from("materials")
-      .select("id,title,subject_id,topic_id,material_type,source_name,created_at,extractor_metadata,subjects(name),topics(title)", { count: "exact" })
+      .select("id,title,subject_id,topic_id,material_type,source_name,created_at,extractor_unit_key:extractor_metadata->>unit_key,derived_kind:extractor_metadata->>derived_kind,quality_status:extractor_metadata->>quality_status,source_file:extractor_metadata->>source_file,subjects(name),topics(title)", { count: "exact" })
       .eq("status", "published").eq("is_public", true)
       .order("created_at", { ascending: false })
       .range(data.offset, data.offset + 49);
@@ -93,7 +93,10 @@ export const getPublishedContentCatalog = createServerFn({ method: "POST" })
         material_type: m.material_type, source_name: m.source_name,
         subject_name: (m.subjects as any)?.name ?? null,
         topic_title: (m.topics as any)?.title ?? null,
-        origin: m.extractor_metadata ? "Python Extractor" : "PCS / редакция",
+        origin: m.extractor_unit_key ? "Python Extractor" : "PCS / редакция",
+        source_file: m.source_file,
+        quality: m.quality_status ?? (m.extractor_unit_key ? "legacy_unverified" : null),
+        derived_kind: m.derived_kind,
       })),
     };
   });
