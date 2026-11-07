@@ -180,7 +180,7 @@ export const linkMaterialToApprovedTopic = createServerFn({ method: "POST" })
     if (existing.data) return { existing: true, visible_in_lessons: material.data.status === "published" && material.data.is_public };
     const inserted = await (sb as any).from("material_topic_links").insert({
       material_id: data.material_id, topic_id: data.topic_id,
-      link_type: "curriculum", link_source: "explicit_admin", linked_by: context.userId,
+      link_type: "explains", link_source: "explicit_admin", linked_by: context.userId,
     });
     if (inserted.error) throw new Error(inserted.error.message);
     return { existing: false, visible_in_lessons: material.data.status === "published" && material.data.is_public };
