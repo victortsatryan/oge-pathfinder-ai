@@ -1,27 +1,33 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getPublishedContentCatalog, getTopicCatalogEditor } from "@/lib/content-catalog.functions";
+import { getPublishedContentCatalog, getTopicCatalogEditor, linkMaterialToApprovedTopic } from "@/lib/content-catalog.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function PublishedMaterialsCatalog({ isAdmin = false }: { isAdmin?: boolean }) {
   const list = useServerFn(getPublishedContentCatalog);
   const topicList = useServerFn(getTopicCatalogEditor);
+  const linkTopic = useServerFn(linkMaterialToApprovedTopic);
+  const queryClient = useQueryClient();
+  const [includeDrafts, setIncludeDrafts] = useState(false);
+  const [source, setSource] = useState("");
+  const [chosenTopics, setChosenTopics] = useState<Record<string, string>>({});
+  const [linkError, setLinkError] = useState("");
   const [subject, setSubject] = useState("");
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [offset, setOffset] = useState(0);
   const catalog = useQuery({ queryKey: ["catalog-subjects"], queryFn: () => topicList() });
   const q = useQuery({
-    queryKey: ["published-catalog", subject, submittedSearch, offset],
-    queryFn: () => list({ data: { subject_id: subject || null, search: submittedSearch, offset } }),
+    queryKey: ["published-catalog", subject, submittedSearch, source, includeDrafts && isAdmin, offset],
+    queryFn: () => list({ data: { subject_id: subject || null, search: submittedSearch, source, include_drafts: isAdmin && includeDrafts, offset } }),
   });
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold">Опубликованные учебные материалы</h2>
+        <h2 className="text-lg font-semibold">{isAdmin && includeDrafts ? "Библиотека материалов: включая закрытые черновики" : "Опубликованные учебные материалы"}</h2>
         <p className="text-sm text-muted-foreground">
           Здесь вместе отображаются материалы из Pathy Extractor и редакционного импорта.
           Загрузка источника создаёт материалы в библиотеке, но не создаёт автоматически новые темы,
@@ -34,12 +40,15 @@ export function PublishedMaterialsCatalog({ isAdmin = false }: { isAdmin?: boole
           <option value="">Все предметы</option>
           {(catalog.data?.subjects ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+        {isAdmin && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeDrafts} onChange={e => { setIncludeDrafts(e.target.checked); setOffset(0); }} />Показать закрытые черновики</label>}
+        {isAdmin && <Input className="max-w-xs" placeholder="Источник (Розенталь, Дощинский…)" value={source} onChange={e => { setSource(e.target.value); setOffset(0); }} />}
         <Input className="max-w-sm" placeholder="Поиск по названию" value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { setSubmittedSearch(search.trim()); setOffset(0); } }} />
         <Button variant="outline" onClick={() => { setSubmittedSearch(search.trim()); setOffset(0); }}>Найти</Button>
       </div>
       {q.isError && <p className="text-sm text-destructive">{String(q.error)}</p>}
+      {linkError && <p role="alert" className="text-sm text-destructive">{linkError}</p>}
       <p className="text-sm text-muted-foreground">Найдено: {q.data?.count ?? "…"} · на странице: {q.data?.materials.length ?? 0}</p>
       <div className="divide-y rounded-md border">
         {(q.data?.materials ?? []).map((m) => (
@@ -51,9 +60,28 @@ export function PublishedMaterialsCatalog({ isAdmin = false }: { isAdmin?: boole
               <span className="text-xs text-muted-foreground">{m.origin}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {m.subject_name ?? "—"} · {m.topic_title ?? "Без темы"} · {m.material_type}
+              {m.subject_name ?? "—"} · {m.topic_title ?? "Без темы"} · {m.material_type} · {m.status}{!m.is_public ? " · закрыт" : ""}
               {m.source_name ? " · " + m.source_name : ""}
             </p>
+            {isAdmin && (
+              <div className="flex flex-wrap items-center gap-2 py-1">
+                <span className="text-xs text-muted-foreground">{m.quality ?? "Качество не подтверждено"} · {m.license_type ?? "Права не уточнены"}</span>
+                <select aria-label={"Утверждённая тема для " + m.title} className="h-8 max-w-xs rounded border bg-background px-2 text-xs"
+                  value={chosenTopics[m.id] ?? ""} onChange={e => setChosenTopics(v => ({ ...v, [m.id]: e.target.value }))}>
+                  <option value="">Выбрать утверждённую тему</option>
+                  {(catalog.data?.topics ?? []).filter(t => t.subject_id === m.subject_id && t.is_public && t.review_status === "approved")
+                    .map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                </select>
+                <Button variant="outline" size="sm" disabled={!chosenTopics[m.id]} onClick={async () => {
+                  setLinkError("");
+                  try {
+                    await linkTopic({ data: { material_id: m.id, topic_id: chosenTopics[m.id] } });
+                    await queryClient.invalidateQueries({ queryKey: ["published-catalog"] });
+                  } catch (e) { setLinkError(String(e)); }
+                }}>Связать с темой</Button>
+                {m.status !== "published" || !m.is_public ? <span className="text-xs text-muted-foreground">Черновик не появится в уроке до отдельной проверки и публикации</span> : null}
+              </div>
+            )}
             {isAdmin && m.origin === "Python Extractor" && !m.topic_id && (
               <p className="text-xs text-muted-foreground">
                 Нужна тематическая привязка. <Link to="/admin/content/upload" className="underline">Открыть загрузки источников</Link>
