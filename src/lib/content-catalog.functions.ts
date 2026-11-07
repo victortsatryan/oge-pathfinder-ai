@@ -23,12 +23,14 @@ export const getTopicCatalogEditor = createServerFn({ method: "GET" })
       sb.from("subjects").select("id,name").eq("is_public", true).order("name").limit(100),
       sb.from("topics").select("id,subject_id,title,description,parent_topic_id,topic_type,is_public,created_by,source_standard")
         .order("title").limit(1000),
-      sb.from("curriculum_topic_meta").select("topic_id,review_status,grade_bands,catalog_key").limit(1500),
+      (sb as any).from("curriculum_topic_meta").select("topic_id,review_status,grade_bands,catalog_key").limit(1500),
     ]);
     if (s.error) throw new Error(s.error.message);
     if (t.error) throw new Error(t.error.message);
     if (m.error) throw new Error(m.error.message);
-    const reviews = new Map((m.data ?? []).map((x) => [x.topic_id,x]));
+    const reviews = new Map<string, { review_status: string; grade_bands: string[]; catalog_key: string }>(
+      (m.data ?? []).map((x: any) => [x.topic_id, x]),
+    );
     return {
       role, subjects: s.data ?? [],
       topics: (t.data ?? []).map((x) => ({
