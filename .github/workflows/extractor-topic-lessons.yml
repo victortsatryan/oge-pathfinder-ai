@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feat/extractor-topic-lesson-linking-20261107
+      - main
   pull_request:
     branches:
       - main
