@@ -20,7 +20,7 @@ export const getTopicCatalogEditor = createServerFn({ method: "GET" })
     const sb = context.supabase;
     const role = await requireEditor(sb, context.userId);
     const [s, t] = await Promise.all([
-      sb.from("subjects").select("id,name").order("name").limit(100),
+      sb.from("subjects").select("id,name").eq("is_public", true).order("name").limit(100),
       sb.from("topics").select("id,subject_id,title,description,parent_topic_id,topic_type,is_public,created_by")
         .order("title").limit(1000),
     ]);
@@ -78,7 +78,7 @@ export const getPublishedContentCatalog = createServerFn({ method: "POST" })
     const sb = context.supabase;
     await requireEditor(sb, context.userId);
     let q = sb.from("materials")
-      .select("id,title,subject_id,topic_id,material_type,source_name,created_at,extractor_unit_key:extractor_metadata->>unit_key,derived_kind:extractor_metadata->>derived_kind,quality_status:extractor_metadata->>quality_status,source_file:extractor_metadata->>source_file,subjects(name),topics(title)", { count: "exact" })
+      .select("id,title,subject_id,topic_id,material_type,source_name,created_at,extractor_unit_key:extractor_metadata->>unit_key,derived_kind:extractor_metadata->>derived_kind,quality_status:extractor_metadata->>quality_status,source_file:extractor_metadata->>source_file,subjects(name),topics:topics!materials_topic_id_fkey(title)", { count: "exact" })
       .eq("status", "published").eq("is_public", true)
       .order("created_at", { ascending: false })
       .range(data.offset, data.offset + 49);
