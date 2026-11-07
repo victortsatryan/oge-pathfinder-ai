@@ -254,7 +254,9 @@ export const generateLearningPath = createServerFn({ method: "POST" })
         firstLessonId = first.id;
         if (first.topic_id) {
           const [matsRes, tasksRes] = await Promise.all([
-            sb.from("materials").select("id").eq("topic_id", first.topic_id).eq("is_public", true).order("difficulty").limit(4),
+            sb.from("materials").select("id").eq("topic_id", first.topic_id)
+              .eq("subject_id", first.subject_id).eq("status", "published").eq("is_public", true)
+              .order("difficulty").limit(4),
             sb.from("tasks").select("id").eq("topic_id", first.topic_id).eq("is_published", true).limit(5),
           ]);
           const mats = matsRes.data ?? [];
