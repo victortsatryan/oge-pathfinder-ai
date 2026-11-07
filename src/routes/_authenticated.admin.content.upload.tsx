@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   getExtractorJobs, publishExtractorJob, refreshExtractorJob, registerExtractorUpload,
-  getExtractorSourceLink, getPublishedExtractorMaterials, reopenSkippedUnits, retryExtractorJob, saveExtractorUnitReview,
+  getExtractorSourceLink, getPublishedExtractorMaterials, addPublishedExtractorMaterialTopicLinks,
+  reopenSkippedUnits, retryExtractorJob, saveExtractorUnitReview,
   setExtractorUnitDecision, setPublishedExtractorMaterialsTopic,
 } from "@/lib/extractor/jobs.functions";
 import { MAX_SOURCE_BYTES, SOURCE_EXTENSIONS, sourceExtension } from "@/lib/extractor/pipeline";
@@ -227,7 +228,7 @@ function PublishedTopicLinker({ jobId, topics }: {
   topics: { id: string; title: string; subject_id: string }[];
 }) {
   const query = useServerFn(getPublishedExtractorMaterials);
-  const save = useServerFn(setPublishedExtractorMaterialsTopic);
+  const save = useServerFn(addPublishedExtractorMaterialTopicLinks);
   const qc = useQueryClient();
   const [selected, setSelected] = useState<string[]>([]);
   const [target, setTarget] = useState("");
@@ -237,10 +238,10 @@ function PublishedTopicLinker({ jobId, topics }: {
     queryFn: () => query({ data: { job_id: jobId } }),
   });
   const mutation = useMutation({
-    mutationFn: (topicId: string | null) =>
+    mutationFn: (topicId: string) =>
       save({ data: { job_id: jobId, material_ids: selected, topic_id: topicId } }),
     onSuccess: (result) => {
-      toast.success(`Привязано материалов: ${result.updated}`);
+      toast.success(`Созданы тематические связи для ${result.linked} материалов`);
       setSelected([]);
       q.refetch();
       qc.invalidateQueries({ queryKey: ["extractor-jobs"] });
@@ -259,7 +260,7 @@ function PublishedTopicLinker({ jobId, topics }: {
       <h3 className="font-semibold text-sm">Привязка опубликованных материалов к темам</h3>
       <p className="text-xs text-muted-foreground">
         Книга может охватывать много тем. Выделяйте только относящиеся к выбранной теме блоки.
-        После назначения материалы появятся в тематической библиотеке и будут подбираться в уроки
+        К одному материалу можно добавить несколько тем. После назначения материалы появятся в тематической библиотеке и будут подбираться в уроки
         этого предмета. Никаких экзаменационных ответов и оценочных заданий не создаётся.
       </p>
       {q.isLoading && <p className="text-sm">Загрузка опубликованных материалов…</p>}
@@ -267,7 +268,7 @@ function PublishedTopicLinker({ jobId, topics }: {
       {q.data && <>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">Опубликовано: {materials.length}</Badge>
-          <Badge variant="secondary">С темой: {materials.filter((m) => m.topic_id).length}</Badge>
+          <Badge variant="secondary">С темой: {materials.filter((m) => m.topic_ids.length > 0).length}</Badge>
           <Badge variant="outline">Требуют просмотра: {materials.filter((m) => m.needs_content_review).length}</Badge>
         </div>
         <Input placeholder="Поиск по названию или тексту" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -290,7 +291,7 @@ function PublishedTopicLinker({ jobId, topics }: {
                 <span className="font-medium break-words">{m.title}</span>
                 <span className="block text-xs text-muted-foreground">
                   {m.material_type} · {m.characters} символов
-                  {m.topic_id ? " · " + (allowedTopics.find((t) => t.id === m.topic_id)?.title ?? "Назначена тема") : " · Без темы"}
+                  {m.topic_ids.length ? " · " + m.topic_ids.map((id) => allowedTopics.find((t) => t.id === id)?.title ?? "Тема").join(", ") : " · Без темы"}
                 </span>
                 {m.needs_content_review && <span className="block text-xs text-destructive">Короткий/сомнительный фрагмент — проверьте перед привязкой</span>}
                 <span className="block truncate text-xs text-muted-foreground">{m.preview}</span>
@@ -306,10 +307,7 @@ function PublishedTopicLinker({ jobId, topics }: {
             {allowedTopics.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
           </select>
           <Button size="sm" disabled={!selected.length || !target || mutation.isPending} onClick={() => mutation.mutate(target)}>
-            Назначить тему выбранным
-          </Button>
-          <Button size="sm" variant="outline" disabled={!selected.length || mutation.isPending} onClick={() => mutation.mutate(null)}>
-            Снять привязку выбранных
+            Добавить тематическую связь
           </Button>
         </div>
       </>}
