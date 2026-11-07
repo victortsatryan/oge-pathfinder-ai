@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isAnswerCorrect } from "@/lib/answer-check";
-import { LESSON_THEORY_MATERIAL_TYPES } from "@/lib/extractor/topic-linking";
+import { LESSON_THEORY_MATERIAL_TYPES, getLinkedMaterialIds, materialTopicOrFilter } from "@/lib/extractor/topic-linking";
 
 function masteryToStatus(score: number): string {
   if (score === 0) return "not_started";
@@ -81,11 +81,13 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
 
     const picked: { id: string }[] = [];
     if (item.topic_id) {
+      const linkedIds = await getLinkedMaterialIds(sb, item.topic_id);
+      const topicFilter = materialTopicOrFilter(item.topic_id, linkedIds);
       const [{ data: theory }, { data: practice }] = await Promise.all([
         sb
           .from("materials")
           .select("id, difficulty")
-          .eq("topic_id", item.topic_id)
+          .or(topicFilter)
           .eq("status", "published")
           .eq("is_public", true)
           .eq("subject_id", item.subject_id)
@@ -95,7 +97,7 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
         sb
           .from("materials")
           .select("id, difficulty")
-          .eq("topic_id", item.topic_id)
+          .or(topicFilter)
           .eq("status", "published")
           .eq("is_public", true)
           .eq("subject_id", item.subject_id)
