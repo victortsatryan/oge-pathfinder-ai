@@ -32,7 +32,7 @@ function cleanedTitle(s: string) {
 }
 function plausibleTitle(t: string) {
   const letters = (t.match(/[а-яё]/gi) ?? []).length;
-  return letters >= 6 && t.length >= 7 && t.length <= 110 && !/^(?:\d+|\W+)$/u.test(t);
+  return letters >= 6 && t.length >= 7 && t.length <= 110 && !/(?:^\d+$|^[^\p{L}\p{N}]+$)/u.test(t);
 }
 
 export function parseSourceSections(units: SourceTextUnit[]): SectionCandidate[] {
