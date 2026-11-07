@@ -16,6 +16,7 @@ import {
   setExtractorUnitDecision, setPublishedExtractorMaterialsTopic,
 } from "@/lib/extractor/jobs.functions";
 import { MAX_SOURCE_BYTES, SOURCE_EXTENSIONS, sourceExtension } from "@/lib/extractor/pipeline";
+import { applySourceTopicSections, previewSourceTopicSections } from "@/lib/extractor/source-section.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/content/upload")({
   head: () => ({ meta: [
@@ -216,11 +217,76 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
         <span className="text-xs text-muted-foreground">Видно только вошедшим пользователям Pathy. Существующие материалы и задания не изменяются.</span>
         <p className="w-full text-xs text-muted-foreground">Тема (необязательно) назначается только материалам, публикуемым в этой партии, и только по вашему выбору. Экзаменационные задания, ключи ответов, уроки и события календаря не создаются. Если книга охватывает несколько тем, оставьте «Без темы».</p>
       </div>
+      {job.status === "published" && <SourceTopicSections jobId={id} />}
       {job.status === "published" && <PublishedTopicLinker jobId={id} topics={topics} />}
     </div>
   );
 }
 
+
+
+/** Conservative source-driven § segmentation. Creates only headings with supporting evidence. */
+function SourceTopicSections({ jobId }: { jobId: string }) {
+  const previewFn = useServerFn(previewSourceTopicSections);
+  const applyFn = useServerFn(applySourceTopicSections);
+  const qc = useQueryClient();
+  const [progress, setProgress] = useState("");
+  const preview = useQuery({ queryKey: ["source-section-preview", jobId], queryFn: () => previewFn({ data: { job_id: jobId } }) });
+  const apply = useMutation({
+    mutationFn: async () => {
+      let totalCreated = 0;
+      for (let i = 0; i < 100; i++) {
+        const r = await applyFn({ data: { job_id: jobId } });
+        totalCreated += r.created_materials;
+        setProgress(`Выделено материалов: ${totalCreated}; осталось: ${r.remaining}`);
+        if (!r.remaining) return { totalCreated, manual_review: r.manual_review };
+      }
+      throw new Error("Пакетная обработка не завершена, повторите запуск");
+    },
+    onSuccess: (result) => {
+      setProgress("");
+      toast.success(`Параграфов выделено: ${result.totalCreated}; спорных: ${result.manual_review}`);
+      qc.invalidateQueries({ queryKey: ["source-section-preview", jobId] });
+      qc.invalidateQueries({ queryKey: ["extractor-published-topics", jobId] });
+      qc.invalidateQueries({ queryKey: ["published-catalog"] });
+      qc.invalidateQueries({ queryKey: ["topics-editor"] });
+    },
+    onError: (e) => { setProgress(""); toast.error(e instanceof Error ? e.message : "Ошибка разделения источника"); },
+  });
+  return (
+    <section className="rounded-md border p-4 space-y-3">
+      <h3 className="font-semibold text-sm">Разделение учебника на темы</h3>
+      <p className="text-sm text-muted-foreground">
+        Параграфы выделяются из исходного текста по напечатанным номерам §.
+        Создаются учебные темы, а не задания ЕГЭ. Сомнительные границы остаются на ручную проверку;
+        первоначальные OCR-блоки, ответы и маршруты не изменяются.
+      </p>
+      {preview.isError && <p className="text-sm text-destructive">{String(preview.error)}</p>}
+      {preview.data && <>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <Badge variant="secondary">Найдено: {preview.data.total}</Badge>
+          <Badge>Уверенно: {preview.data.ready}</Badge>
+          <Badge variant="outline">На проверку: {preview.data.review}</Badge>
+        </div>
+        <div className="max-h-64 overflow-y-auto divide-y rounded-md border">
+          {preview.data.sections.map((s) => (
+            <div key={s.number} className="p-2 text-sm">
+              <span className="font-medium">§ {s.number}. {s.title}</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {s.imported ? "Добавлен" : s.confidence === "high" ? "Можно добавить" : "Нужна проверка"}
+                {" · "}{s.characters} символов
+              </span>
+              {s.review_reason && <p className="text-xs text-destructive">{s.review_reason}</p>}
+            </div>
+          ))}
+        </div>
+        <Button disabled={!preview.data.ready || apply.isPending} onClick={() => apply.mutate()}>
+          {apply.isPending ? progress || "Разделение…" : "Создать темы и материалы из подтверждённых §"}
+        </Button>
+      </>}
+    </section>
+  );
+}
 
 /** Link individual published blocks from a multi-topic book to verified catalog topics. */
 function PublishedTopicLinker({ jobId, topics }: {
