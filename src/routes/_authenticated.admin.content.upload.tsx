@@ -147,6 +147,7 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
   const refresh = useServerFn(refreshExtractorJob);
   const decide = useServerFn(setExtractorUnitDecision);
   const publish = useServerFn(publishExtractorJob);
+  const autoSectionsAfterPublish = useServerFn(applySourceTopicSections);
   const [subject, setSubject] = useState(defaultSubject ?? "");
   const [rights, setRights] = useState<"unknown" | "own" | "licensed" | "public_domain">("unknown");
   const q = useQuery({
@@ -166,7 +167,31 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
       setPubPct(null);
       return r.total;
     },
-    onSuccess: (t) => { toast.success(`Материалов: ${t.materials}, уже было: ${t.existing}, пропущено: ${t.skipped}, ошибок: ${t.failed}`); qc.invalidateQueries({ queryKey: ["extractor-jobs"] }); q.refetch(); },
+    onSuccess: async (t) => {
+      toast.success(`Материалов: ${t.materials}, уже было: ${t.existing}, пропущено: ${t.skipped}, ошибок: ${t.failed}`);
+      qc.invalidateQueries({ queryKey: ["extractor-jobs"] });
+      q.refetch();
+      // After a successful source publication, automatically derive only supported
+      // numbered source paragraphs; ambiguous sections stay in editorial review.
+      try {
+        let made = 0;
+        for (let i = 0; i < 100; i++) {
+          const r = await autoSectionsAfterPublish({ data: { job_id: id } });
+          made += r.created_materials;
+          if (!r.remaining) {
+            if (made) toast.success(`Из подтверждённых параграфов создано учебных материалов: ${made}`);
+            qc.invalidateQueries({ queryKey: ["published-catalog"] });
+            qc.invalidateQueries({ queryKey: ["source-section-preview", id] });
+            qc.invalidateQueries({ queryKey: ["topics-editor"] });
+            break;
+          }
+          if (i === 99) throw new Error("Требуется продолжить пакетную обработку разделов");
+        }
+      } catch (e) {
+        toast.warning("Источник опубликован, но авторазметка тем требует проверки: " +
+          (e instanceof Error ? e.message : String(e)));
+      }
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Ошибка публикации"),
   });
   if (q.isLoading) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
