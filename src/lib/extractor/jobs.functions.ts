@@ -7,6 +7,7 @@ import {
   MAX_SOURCE_BYTES, PUBLISH_BATCH, RESULT_PAGE_LIMIT, canPublishWithRights, classifyUnit, effectivePublication,
   kindToMaterialType, magicMatches, parseResultPage, parseWorkerStatus, sourceExtension, stableUnitKey,
 } from "./pipeline";
+import { needsContentReview, topicBelongsToSubject } from "./topic-linking";
 
 type Sb = SupabaseClient<Database>;
 const BUCKET = "extractor-sources";
@@ -335,4 +336,104 @@ export const reopenSkippedUnits = createServerFn({ method: "POST" }).middleware(
     const r = await context.supabase.from("extractor_job_units").update({ publish_state: "pending" }).eq("job_id", data.id).in("publish_state", ["skipped", "failed"]);
     if (r.error) throw new Error(r.error.message);
     return { ok: true };
+  });
+
+/**
+ * Admin-only list of already published extractor material blocks.
+ * This is a separate workflow from publication: one textbook can cover many topics.
+ */
+export const getPublishedExtractorMaterials = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ job_id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    await assertAdmin(sb, context.userId);
+    const job = await loadJob(sb, data.job_id);
+    const res = await sb.from("materials")
+      .select("id,title,material_type,topic_id,subject_id,content_text")
+      .eq("extractor_metadata->>job_id", job.id)
+      .eq("status", "published").eq("is_public", true)
+      .order("created_at", { ascending: true }).limit(500);
+    if (res.error) throw new Error(res.error.message);
+    return {
+      job_id: job.id,
+      subject_id: job.subject_id,
+      materials: (res.data ?? []).map((m) => ({
+        id: m.id, title: m.title, material_type: m.material_type,
+        topic_id: m.topic_id, characters: (m.content_text ?? "").trim().length,
+        preview: (m.content_text ?? "").trim().slice(0, 150),
+        needs_content_review: needsContentReview(m.title, m.content_text),
+      })),
+    };
+  });
+
+/**
+ * Bulk map explicit, selected published units to one existing topic.
+ * Never guess a topic from book/filename and never modify the OCR, grade keys,
+ * existing lessons, or user paths. A remap of a material used in a lesson is denied.
+ */
+export const setPublishedExtractorMaterialsTopic = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({
+    job_id: z.string().uuid(),
+    material_ids: z.array(z.string().uuid()).min(1).max(25)
+      .refine((ids) => new Set(ids).size === ids.length, "Повторяющиеся ID материалов"),
+    topic_id: z.string().uuid().nullable(),
+  }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    await assertAdmin(sb, context.userId);
+    const job = await loadJob(sb, data.job_id);
+    if (job.status !== "published" || !job.subject_id) {
+      throw new Error("Назначение тем доступно только после публикации с выбранным предметом");
+    }
+    if (data.topic_id) {
+      const t = await sb.from("topics").select("id,subject_id").eq("id", data.topic_id).maybeSingle();
+      if (t.error) throw new Error(t.error.message);
+      if (!t.data || !topicBelongsToSubject(job.subject_id, t.data.subject_id)) {
+        throw new Error("Тема не найдена или принадлежит другому предмету");
+      }
+    }
+    const selected = await sb.from("materials")
+      .select("id,subject_id,topic_id,extractor_metadata,status,is_public")
+      .in("id", data.material_ids)
+      .eq("extractor_metadata->>job_id", job.id);
+    if (selected.error) throw new Error(selected.error.message);
+    if ((selected.data ?? []).length !== data.material_ids.length) {
+      throw new Error("Не все выбранные материалы принадлежат этой обработке");
+    }
+    const rows = selected.data ?? [];
+    for (const m of rows) {
+      const meta = m.extractor_metadata as Record<string, any> | null;
+      if (m.subject_id !== job.subject_id || m.status !== "published" || !m.is_public ||
+          meta?.source_sha256 !== job.file_sha256) {
+        throw new Error("Материал не прошёл проверку происхождения, предмета или статуса");
+      }
+    }
+    const changed = rows.filter((m) => m.topic_id !== data.topic_id);
+    if (!changed.length) return { updated: 0, unchanged: rows.length };
+    // Avoid leaving stale links when an existing lesson already uses the material.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const linked = await supabaseAdmin.from("lesson_materials")
+      .select("material_id").in("material_id", changed.map((m) => m.id)).limit(1);
+    if (linked.error) throw new Error(linked.error.message);
+    if ((linked.data ?? []).length) {
+      throw new Error("Один из материалов уже включён в урок. Сначала нужно проверить его существующую привязку.");
+    }
+    const at = new Date().toISOString();
+    for (const m of changed) {
+      const meta = m.extractor_metadata as Record<string, any>;
+      const record = { topic_id: data.topic_id, by: context.userId, at, mode: "explicit_admin_material" };
+      const history = Array.isArray(meta.topic_assignment_history) ? meta.topic_assignment_history : [];
+      const next = {
+        ...meta, topic_assignment: data.topic_id ? record : null,
+        topic_assignment_history: [...history, record],
+      };
+      const updated = await sb.from("materials")
+        .update({ topic_id: data.topic_id, extractor_metadata: next as Json })
+        .eq("id", m.id).eq("subject_id", job.subject_id)
+        .select("id").single();
+      if (updated.error) throw new Error(updated.error.message);
+    }
+    return { updated: changed.length, unchanged: rows.length - changed.length };
   });
