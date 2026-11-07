@@ -414,6 +414,7 @@ export const listSubjects = createServerFn({ method: "GET" }).handler(async () =
   const { data } = await supabaseAdmin
     .from("subjects")
     .select("id, name, slug, sort_order")
+    .eq("is_public", true)
     .order("sort_order", { ascending: true });
   return { subjects: (data ?? []).map((s) => ({ id: s.id, name: s.name, slug: s.slug })) };
 });
