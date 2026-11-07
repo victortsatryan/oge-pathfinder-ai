@@ -286,19 +286,6 @@ export const RU_FRP_2025_DRAFT = [
     ]
   },
   {
-    "key": "ru25-literacy-009",
-    "sectionCode": "literacy",
-    "section": "Обучение грамоте и письмо",
-    "title": "Буквы и звуки",
-    "bands": [
-      "1-4"
-    ],
-    "aliases": [],
-    "sourceUrls": [
-      "https://edsoo.ru/wp-content/uploads/2025/07/2025_noo_frp_russkij-yazyk_1-4.pdf"
-    ]
-  },
-  {
     "key": "ru25-literacy-010",
     "sectionCode": "literacy",
     "section": "Обучение грамоте и письмо",
@@ -335,7 +322,8 @@ export const RU_FRP_2025_DRAFT = [
       "10-11"
     ],
     "aliases": [
-      "ЗВУКИ И БУКВЫ"
+      "ЗВУКИ И БУКВЫ",
+      "Буквы и звуки"
     ],
     "sourceUrls": [
       "https://edsoo.ru/wp-content/uploads/2025/07/2025_noo_frp_russkij-yazyk_1-4.pdf",
@@ -508,7 +496,8 @@ export const RU_FRP_2025_DRAFT = [
     ],
     "aliases": [
       "Орфоэпия",
-      "ОРФОЭПИЯ"
+      "ОРФОЭПИЯ",
+      "Орфоэпические нормы русского языка"
     ],
     "sourceUrls": [
       "https://edsoo.ru/wp-content/uploads/2025/07/2025_noo_frp_russkij-yazyk_1-4.pdf",
@@ -2964,7 +2953,9 @@ export const RU_FRP_2025_DRAFT = [
       "5-9",
       "10-11"
     ],
-    "aliases": [],
+    "aliases": [
+      "Синтаксические нормы русского языка"
+    ],
     "sourceUrls": [
       "https://edsoo.ru/wp-content/uploads/2025/07/2025_noo_frp_russkij-yazyk_1-4.pdf",
       "https://edsoo.ru/wp-content/uploads/2025/09/01_frp_russkij-yazyk_5-9-klassy_itog-na-sajt_1-2.pdf",
@@ -3704,21 +3695,6 @@ export const RU_FRP_2025_DRAFT = [
     ]
   },
   {
-    "key": "ru25-style-009",
-    "sectionCode": "style",
-    "section": "Стилистика и культура речи",
-    "title": "Орфоэпические нормы русского языка",
-    "bands": [
-      "5-9",
-      "10-11"
-    ],
-    "aliases": [],
-    "sourceUrls": [
-      "https://edsoo.ru/wp-content/uploads/2025/09/01_frp_russkij-yazyk_5-9-klassy_itog-na-sajt_1-2.pdf",
-      "https://edsoo.ru/wp-content/uploads/2025/07/2025_soo_frp_russkij-yazyk_10_11.pdf"
-    ]
-  },
-  {
     "key": "ru25-style-010",
     "sectionCode": "style",
     "section": "Стилистика и культура речи",
@@ -3738,21 +3714,6 @@ export const RU_FRP_2025_DRAFT = [
     "sectionCode": "style",
     "section": "Стилистика и культура речи",
     "title": "Грамматические нормы русского языка",
-    "bands": [
-      "5-9",
-      "10-11"
-    ],
-    "aliases": [],
-    "sourceUrls": [
-      "https://edsoo.ru/wp-content/uploads/2025/09/01_frp_russkij-yazyk_5-9-klassy_itog-na-sajt_1-2.pdf",
-      "https://edsoo.ru/wp-content/uploads/2025/07/2025_soo_frp_russkij-yazyk_10_11.pdf"
-    ]
-  },
-  {
-    "key": "ru25-style-012",
-    "sectionCode": "style",
-    "section": "Стилистика и культура речи",
-    "title": "Синтаксические нормы русского языка",
     "bands": [
       "5-9",
       "10-11"
