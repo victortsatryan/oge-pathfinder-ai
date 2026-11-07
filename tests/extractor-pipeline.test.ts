@@ -56,8 +56,8 @@ describe("extractor pipeline", () => {
   it("parses the real status and paginated result contract", () => {
     expect(parseWorkerStatus({ status: "running", stage: "ocr" })).toMatchObject({ status: "processing", stage: "ocr" });
     expect(parseWorkerStatus({ status: "succeeded", units: { total_units: 2 } }).status).toBe("succeeded");
-    const p = parseResultPage({ format: "pathy-extraction-result-v1", source: { sha256: "x" }, summary: { total_units: 45 }, units: [good], next_offset: 20 });
-    expect(p).toMatchObject({ next_offset: 20, total_units: 45, source_sha256: "x" });
+    const p = parseResultPage({ format: "pathy-extraction-result-v1", source: { sha256: "a".repeat(64) }, summary: { total_units: 45 }, units: [good], next_offset: 20 });
+    expect(p).toMatchObject({ next_offset: 20, total_units: 45, source_sha256: "a".repeat(64) });
     expect(() => parseResultPage({ format: "other", units: [] })).toThrow();
     expect(() => parseResultPage({ format: "pathy-extraction-result-v1", units: [], next_offset: "x" })).toThrow();
   });

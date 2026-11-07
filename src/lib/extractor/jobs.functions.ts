@@ -114,7 +114,8 @@ export const registerExtractorUpload = createServerFn({ method: "POST" }).middle
     if (ins.error) {
       if (ins.error.code === "23505") {
         const again = await sb.from("extractor_jobs").select("id").eq("file_sha256", data.file_sha256).single();
-        return { id: again.data!.id, duplicate: true };
+        if (again.error || !again.data) throw new Error("Не удалось найти повторную загрузку");
+        return { id: again.data.id, duplicate: true };
       }
       throw new Error(ins.error.message);
     }
@@ -137,11 +138,11 @@ async function pullResult(sb: Sb, w: { url: string; token: string }, job: Awaite
   let offset = job.result_next_offset ?? 0;
   let total = job.result_total_units;
   for (let i = 0; i < PAGES_PER_CALL; i++) {
-    const page = parseResultPage(await call(w, `/v1/jobs/${encodeURIComponent(job.id)}/result?offset=${offset}&limit=${RESULT_PAGE_LIMIT}`));
+    const page = parseResultPage(await call(w, `/v1/jobs/${encodeURIComponent(job.id)}/result?offset=${offset}&limit=${RESULT_PAGE_LIMIT}`), { sha: job.file_sha256, offset, total });
     if (page.source_sha256 !== job.file_sha256) throw new Error("SHA-256 источника в результате не совпадает с загруженным файлом");
     total = page.total_units ?? total;
     if (page.units.length) {
-      const rows = page.units.map((u, k) => ({ job_id: job.id, unit_id: String(u.unit_id ?? `?${offset + k}`), position: offset + k, raw: u as Json }));
+      const rows = page.units.map((u, k) => ({ job_id: job.id, unit_id: String(u.unit_id), position: offset + k, raw: u as Json }));
       const ins = await sb.from("extractor_job_units").upsert(rows, { onConflict: "job_id,unit_id", ignoreDuplicates: true });
       if (ins.error) throw new Error(ins.error.message);
     }
@@ -274,6 +275,7 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
     const r = { materials: 0, existing: 0, skipped: 0, failed: 0 };
     for (const row of batch.data ?? []) {
       const raw = row.raw as Record<string, any>;
+      if (raw?.source?.sha256 !== job.file_sha256) throw new Error("SHA блока не совпадает с источником обработки");
       const u = classifyUnit(raw, job.author);
       const mark = (publish_state: "published" | "existing" | "skipped" | "failed", extra: { material_id?: string; publish_error?: string } = {}) =>
         sb.from("extractor_job_units").update({ publish_state, ...extra }).eq("id", row.id);
@@ -281,6 +283,7 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
       if (!eff.publish) { await mark("skipped"); r.skipped++; continue; }
       const key = stableUnitKey(job.file_sha256, u.unit_id);
       const prior = await sb.from("materials").select("id").eq("extractor_metadata->>unit_key", key).maybeSingle();
+      if (prior.error) throw new Error(prior.error.message);
       if (prior.data) { await mark("existing", { material_id: prior.data.id }); r.existing++; continue; }
       const provenance = {
         unit_key: key, job_id: job.id, unit_id: u.unit_id, source_sha256: job.file_sha256, source_file: job.file_name, pages: u.pages,
@@ -296,11 +299,18 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
         license_type: data.rights_basis, license_note: `Источник: ${job.file_name}; стр. ${u.pages.join(", ") || "—"}${u.author ? "; автор: " + u.author : ""}; ${eff.review_status === "human_corrected" ? "исправлено вручную" : "автоизвлечено"}, не проверено для оценивания`,
         created_by: context.userId, extractor_metadata: provenance,
       }).select("id").single();
-      if (mat.error) { await mark("failed", { publish_error: mat.error.message }); r.failed++; continue; }
+      if (mat.error) {
+        if (mat.error.code === "23505") {
+          const existing = await sb.from("materials").select("id").eq("extractor_metadata->>unit_key", key).maybeSingle();
+          if (!existing.error && existing.data) { await mark("existing", { material_id: existing.data.id }); r.existing++; continue; }
+        }
+        await mark("failed", { publish_error: mat.error.message }); r.failed++; continue;
+      }
       await mark("published", { material_id: mat.data.id }); r.materials++;
       // No tasks: v0.6 units carry usable_for_grading:false and answer:null (see canCreateTask).
     }
-    const { count } = await sb.from("extractor_job_units").select("id", { count: "exact", head: true }).eq("job_id", job.id).eq("publish_state", "pending");
+    const { count, error: countError } = await sb.from("extractor_job_units").select("id", { count: "exact", head: true }).eq("job_id", job.id).eq("publish_state", "pending");
+    if (countError || count === null) throw new Error("Не удалось подтвердить завершение публикации");
     const remaining = count ?? 0;
     const prev = (job.publish_report ?? { materials: 0, existing: 0, skipped: 0, failed: 0 }) as typeof r;
     const report = { materials: (prev.materials ?? 0) + r.materials, existing: (prev.existing ?? 0) + r.existing, skipped: (prev.skipped ?? 0) + r.skipped, failed: (prev.failed ?? 0) + r.failed };

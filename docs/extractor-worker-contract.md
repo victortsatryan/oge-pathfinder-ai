@@ -33,6 +33,11 @@ There is no `result` field.
 Pathy pulls up to 8 pages per poll (status `fetching_result`), stores units in `extractor_job_units`
 (unique `job_id, unit_id`), checks `source.sha256` on every page, and marks the job `succeeded` only when
 `next_offset = null` and the stored count equals `summary.total_units`. Otherwise `failed`.
+Each unit must have a nonempty stable `unit_id` and `source.sha256` matching the page source.
+Malformed units, duplicate identities within a page, unknown status values, invalid hashes/totals,
+changing totals and non-contiguous pagination are rejected, not silently normalized or dropped.
+Publication rechecks the unit source SHA. The original source-file hash is still verified by the worker,
+not by Pathy's range-header check; this needs live verification after the worker is configured.
 
 ## Pathy rules
 - `role != "student_material"` (e.g. `teacher_private`) → never published, admin "accept" cannot override.
@@ -48,3 +53,12 @@ Pathy pulls up to 8 pages per poll (status `fetching_result`), stores units in `
 ## Upload
 Browser computes SHA-256, uploads via resumable TUS (6 MB chunks) to the private bucket (limit 160 MB) at
 `<sha256>/<name>`. Server checks path/SHA prefix, object size and magic bytes (first 512 bytes), not the full hash.
+Supported extensions: PDF/DOCX/TXT/MD/XLSX/CSV/PNG/JPG/JPEG. HTML is not currently accepted.
+
+## Built-in review and downstream scope
+Flagged units support full OCR text plus `accept_corrected`, `keep_original` or `reject`.
+Raw OCR remains unchanged; teacher-private and invalid units cannot be published by any choice.
+Confident units require no per-unit review. Rights confirmation still gates the publication batch.
+The older `extractor_review_decisions` and staging drafts are a separate archive, not rewritten here.
+New materials currently receive `topic_id: null`; related unit IDs are provenance, not topic/task links.
+Publication creates no topics, graded tasks, lessons, teacher assignments or calendar events.

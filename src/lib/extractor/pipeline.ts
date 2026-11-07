@@ -30,6 +30,7 @@ export type WorkerState = "queued" | "processing" | "succeeded" | "failed";
 export function parseWorkerStatus(body: unknown): { status: WorkerState; stage: string | null; error: string | null; units: unknown } {
   const b = (body ?? {}) as Record<string, unknown>;
   const raw = String(b.status ?? "");
+  if (!["queued", "running", "succeeded", "failed"].includes(raw)) throw new Error("Неизвестный статус обработчика");
   const status: WorkerState = raw === "succeeded" ? "succeeded" : raw === "failed" ? "failed" : raw === "running" ? "processing" : "queued";
   return {
     status, stage: typeof b.stage === "string" ? b.stage : null,
@@ -40,16 +41,35 @@ export function parseWorkerStatus(body: unknown): { status: WorkerState; stage: 
 export type ResultPage = { units: Record<string, unknown>[]; next_offset: number | null; total_units: number | null; source_sha256: string | null; summary: unknown };
 
 /** GET /v1/jobs/{id}/result?offset&limit. Throws on any contract violation instead of guessing. */
-export function parseResultPage(body: unknown): ResultPage {
+export function parseResultPage(body: unknown, expected?: { sha: string; offset: number; total: number | null }): ResultPage {
   const b = (body ?? {}) as Record<string, any>;
   if (b.format !== RESULT_FORMAT) throw new Error(`Неизвестный формат результата: ${String(b.format)}`);
   if (!Array.isArray(b.units)) throw new Error("В результате нет списка units");
   const n = b.next_offset;
   if (n !== null && !(Number.isInteger(n) && n >= 0)) throw new Error("Некорректный next_offset");
-  const total = Number.isInteger(b.summary?.total_units) ? b.summary.total_units : null;
+  const total = b.summary?.total_units;
+  if (!Number.isSafeInteger(total) || total < 0) throw new Error("Некорректный total_units");
+  const sha = b.source?.sha256;
+  if (typeof sha !== "string" || !/^[0-9a-f]{64}$/.test(sha)) throw new Error("Некорректный SHA-256 источника");
+  const ids = new Set<string>();
+  for (const u of b.units) {
+    if (!u || typeof u !== "object" || Array.isArray(u)) throw new Error("Некорректный блок результата");
+    if (typeof u.unit_id !== "string" || !u.unit_id.trim() || u.unit_id !== u.unit_id.trim()) throw new Error("Нет стабильного unit_id");
+    if (ids.has(u.unit_id)) throw new Error("Повтор unit_id на странице");
+    ids.add(u.unit_id);
+    if (u.source?.sha256 !== sha) throw new Error("SHA блока не совпадает с источником результата");
+  }
+  if (expected) {
+    if (sha !== expected.sha) throw new Error("SHA-256 источника в результате не совпадает с загруженным файлом");
+    if (expected.total !== null && expected.total !== total) throw new Error("total_units изменился между страницами");
+    const end = expected.offset + b.units.length;
+    if (b.units.length > RESULT_PAGE_LIMIT || end > total || (n === null ? end !== total : n !== end || n <= expected.offset || n >= total)) {
+      throw new Error("Некорректная последовательность страниц результата");
+    }
+  }
   return {
-    units: b.units.filter((u: unknown) => u && typeof u === "object"), next_offset: n,
-    total_units: total, source_sha256: typeof b.source?.sha256 === "string" ? b.source.sha256 : null, summary: b.summary ?? null,
+    units: b.units, next_offset: n,
+    total_units: total, source_sha256: sha, summary: b.summary ?? null,
   };
 }
 
@@ -104,8 +124,8 @@ export function shouldPublish(u: ClassifiedUnit, decision: "accept" | "reject" |
 }
 
 /** v0.6 worker sets usable_for_grading:false and answer:null — no graded tasks are created from it. */
-export function canCreateTask(raw: Record<string, any>): boolean {
-  return raw.role === "student_material" && raw.usable_for_grading === true && raw.answer != null && String(raw.answer).trim() !== "";
+export function canCreateTask(_raw: Record<string, any>): boolean {
+  return false; // v0.6 is learning-only; even a supplied answer is not grading authorization.
 }
 
 /** Stable identity across re-runs: source SHA + extractor unit id. */
