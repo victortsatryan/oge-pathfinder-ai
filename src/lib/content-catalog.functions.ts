@@ -85,15 +85,20 @@ export const getPublishedContentCatalog = createServerFn({ method: "POST" })
     subject_id: z.string().uuid().nullable().optional(),
     search: z.string().trim().max(150).default(""),
     offset: z.number().int().min(0).max(100000).default(0),
+    include_drafts: z.boolean().default(false),
+    source: z.string().trim().max(150).default(""),
   }).parse(v))
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
-    await requireEditor(sb, context.userId);
+    const role = await requireEditor(sb, context.userId);
+    if (data.include_drafts && role !== "admin") throw new Error("Черновики доступны только администратору");
     let q = sb.from("materials")
-      .select("id,title,subject_id,topic_id,material_type,source_name,created_at,extractor_unit_key:extractor_metadata->>unit_key,derived_kind:extractor_metadata->>derived_kind,quality_status:extractor_metadata->>quality_status,source_file:extractor_metadata->>source_file,subjects(name),topics:topics!materials_topic_id_fkey(title)", { count: "exact" })
-      .eq("status", "published").eq("is_public", true)
-      .order("created_at", { ascending: false })
+      .select("id,title,subject_id,topic_id,material_type,source_name,created_at,status,is_public,license_type,extractor_unit_key:extractor_metadata->>unit_key,derived_kind:extractor_metadata->>derived_kind,quality_status:extractor_metadata->>quality_status,source_file:extractor_metadata->>source_file,subjects(name),topics:topics!materials_topic_id_fkey(title)", { count: "exact" })
+       .order("created_at", { ascending: false })
       .range(data.offset, data.offset + 49);
+    if (!data.include_drafts) q = q.eq("status", "published").eq("is_public", true);
+    else q = q.in("status", ["published", "draft", "reviewed"]);
+    if (data.source) q = q.ilike("source_name", "%" + data.source.replace(/[%_,]/g, " ").trim() + "%");
     if (data.subject_id) q = q.eq("subject_id", data.subject_id);
     if (data.search) q = q.ilike("title", "%" + data.search.replace(/[%_,]/g, " ").trim() + "%");
     const res = await q;
@@ -103,6 +108,7 @@ export const getPublishedContentCatalog = createServerFn({ method: "POST" })
       materials: (res.data ?? []).map((m) => ({
         id: m.id, title: m.title, subject_id: m.subject_id, topic_id: m.topic_id,
         material_type: m.material_type, source_name: m.source_name,
+        status: m.status, is_public: m.is_public, license_type: m.license_type,
         subject_name: (m.subjects as any)?.name ?? null,
         topic_title: (m.topics as any)?.title ?? null,
         origin: m.extractor_unit_key ? "Python Extractor" : "PCS / редакция",
@@ -143,4 +149,39 @@ export const reviewCurriculumTopic = createServerFn({ method: "POST" })
       .eq("topic_id",data.topic_id);
     if (alias.error) throw new Error(alias.error.message);
     return { topic_id:data.topic_id,status:data.decision };
+  });
+
+
+/** Explicit, auditable curriculum linkage, without publication or changes to past lessons. */
+export const linkMaterialToApprovedTopic = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({
+    material_id: z.string().uuid(),
+    topic_id: z.string().uuid(),
+  }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    const role = await requireEditor(sb, context.userId);
+    if (role !== "admin") throw new Error("Связывание материалов разрешено только администратору");
+    const [material, topic, review] = await Promise.all([
+      sb.from("materials").select("id,subject_id,status,is_public").eq("id", data.material_id).maybeSingle(),
+      sb.from("topics").select("id,subject_id,is_public").eq("id", data.topic_id).maybeSingle(),
+      (sb as any).from("curriculum_topic_meta").select("review_status").eq("topic_id", data.topic_id).maybeSingle(),
+    ]);
+    if (material.error || topic.error || review.error) throw new Error("Ошибка проверки материала или темы");
+    if (!material.data || !topic.data) throw new Error("Материал или тема не найдены");
+    if (material.data.subject_id !== topic.data.subject_id) throw new Error("Тема другого предмета");
+    if (!topic.data.is_public || review.data?.review_status !== "approved") {
+      throw new Error("Можно назначать только утверждённые темы учебной программы");
+    }
+    const existing = await (sb as any).from("material_topic_links")
+      .select("material_id").eq("material_id", data.material_id).eq("topic_id", data.topic_id).maybeSingle();
+    if (existing.error) throw new Error(existing.error.message);
+    if (existing.data) return { existing: true, visible_in_lessons: material.data.status === "published" && material.data.is_public };
+    const inserted = await (sb as any).from("material_topic_links").insert({
+      material_id: data.material_id, topic_id: data.topic_id,
+      link_type: "curriculum", link_source: "explicit_admin", linked_by: context.userId,
+    });
+    if (inserted.error) throw new Error(inserted.error.message);
+    return { existing: false, visible_in_lessons: material.data.status === "published" && material.data.is_public };
   });
