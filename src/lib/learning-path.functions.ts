@@ -154,7 +154,7 @@ export const generateLearningPath = createServerFn({ method: "POST" })
           .in("topic_id",sourceTopicIds).eq("review_status","approved")
       : { data: [], error: null };
     if (reviewed.error) throw new Error(reviewed.error.message);
-    const eligibleIds = (reviewed.data ?? []).map((r) => r.topic_id);
+    const eligibleIds = (reviewed.data ?? []).map((r: {topic_id: string}) => r.topic_id);
     const sourceTopics = eligibleIds.length
       ? await sb.from("topics").select("id,title,subject_id")
           .in("id",eligibleIds).eq("is_public",true)
