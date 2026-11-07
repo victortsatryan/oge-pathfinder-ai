@@ -79,3 +79,12 @@ export function parseSourceSections(units: SourceTextUnit[]): SectionCandidate[]
   }
   return result.sort((a, b) => a.number - b.number);
 }
+
+/** Keep all source units, but prevent OCR artifacts from silently being treated as lesson-ready. */
+export function sourceUnitQuality(text: string | null | undefined, title: string, kind: string): string {
+  const s = (text ?? "").trim();
+  if (s.length < 100) return "needs_review_short_ocr";
+  if (s.length > 12000) return "needs_review_merged_sections";
+  if (kind === "artifact" || /^[^\\p{L}\\p{N}]+$/u.test(title.trim())) return "needs_review_artifact";
+  return "source_ocr_unverified";
+}
