@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getLinkedMaterialIds, materialTopicOrFilter } from "@/lib/extractor/topic-linking";
 
 const listSchema = z.object({
   subject_id: z.string().uuid().optional(),
@@ -23,7 +24,7 @@ export const listMaterials = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(data.limit);
     if (data.subject_id) q = q.eq("subject_id", data.subject_id);
-    if (data.topic_id) q = q.eq("topic_id", data.topic_id);
+    if (data.topic_id) q = q.or(materialTopicOrFilter(data.topic_id, await getLinkedMaterialIds(context.supabase, data.topic_id)));
     if (data.material_type) q = q.eq("material_type", data.material_type);
     if (data.difficulty) q = q.eq("difficulty", data.difficulty);
     if (data.search?.trim()) q = q.ilike("title", `%${data.search.trim()}%`);
@@ -37,10 +38,11 @@ export const getTopicOverview = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ topic_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
+    const topicFilter = materialTopicOrFilter(data.topic_id, await getLinkedMaterialIds(sb, data.topic_id));
     const [topicRes, matsRes, tasksRes, testsRes] = await Promise.all([
       sb.from("topics").select("id, title, description, subject_id, subjects(name)").eq("id", data.topic_id).single(),
       sb.from("materials").select("id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes")
-        .eq("topic_id", data.topic_id).eq("status", "published").order("difficulty"),
+        .or(topicFilter).eq("status", "published").eq("is_public", true).order("difficulty"),
       sb.from("tasks").select("id, title, prompt, task_type, difficulty, source_name")
         .eq("topic_id", data.topic_id).eq("is_published", true).limit(20),
       sb.from("tests").select("id, title, description, test_type, duration_minutes, difficulty")
@@ -101,11 +103,13 @@ export const getRecommendedMaterials = createServerFn({ method: "POST" })
       maxDifficulty = 5;
     }
 
+    const topicFilter = materialTopicOrFilter(data.topic_id, await getLinkedMaterialIds(sb, data.topic_id));
     const { data: mats, error } = await sb
       .from("materials")
       .select("id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes")
-      .eq("topic_id", data.topic_id)
+      .or(topicFilter)
       .eq("status", "published")
+      .eq("is_public", true)
       .in("material_type", preferredTypes)
       .lte("difficulty", maxDifficulty)
       .order("difficulty")

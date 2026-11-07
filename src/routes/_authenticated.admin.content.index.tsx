@@ -29,6 +29,14 @@ function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="text-sm text-muted-foreground space-y-1">
+        <p><b>Загрузка источника</b> — PDF/DOCX через Python Extractor, обработка и ручное ревью.</p>
+        <p><b>Материалы Pathy</b> — все опубликованные материалы, включая извлечённые из книг.</p>
+        <p><b>Управление темами</b> — создание учебных тем независимо от ЕГЭ и ОГЭ.</p>
+        <p><b>Дерево программ</b> — иерархия разделов, тем и учебных целей; <b>CSV / PCS импорт</b> — отдельная загрузка структурированных данных.</p>
+        <p><b>Результаты обучения (Learning Objectives)</b> — что ученик должен освоить, а не сами упражнения.</p>
+        <p><b>Журнал CSV / PCS</b> — история структурированных импортов, отдельно от загрузок учебников.</p>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {Object.entries(LABELS).map(([k, label]) => (
           <Card key={k}>

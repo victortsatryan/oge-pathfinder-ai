@@ -12,12 +12,13 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 const NAV = [
-  { label: "Studio", to: "/admin/content" },
-  { label: "Импорт", to: "/admin/import" },
-  { label: "Материал", to: "/admin/new" },
-  { label: "Community", to: "/admin/community" },
-  { label: "Источники", to: "/admin/sources" },
-  { label: "Diagnostics", to: "/admin/routes" },
+  { label: "Редактор контента", to: "/admin/content" },
+  { label: "CSV / PCS", to: "/admin/import" },
+  { label: "Новый материал", to: "/admin/new" },
+  { label: "Все материалы", to: "/admin/content/materials" },
+  { label: "Сообщество", to: "/admin/community" },
+  { label: "Справочник источников", to: "/admin/sources" },
+  { label: "Диагностика", to: "/admin/routes" },
   { label: "Dev nav", to: "/dev/navigation" },
 ] as const;
 

@@ -355,10 +355,21 @@ export const getPublishedExtractorMaterials = createServerFn({ method: "POST" })
       .eq("status", "published").eq("is_public", true)
       .order("created_at", { ascending: true }).limit(500);
     if (res.error) throw new Error(res.error.message);
+    const ids = (res.data ?? []).map((m) => m.id);
+    const links = ids.length ? await (sb as any).from("material_topic_links")
+      .select("material_id,topic_id").in("material_id", ids) : { data: [], error: null };
+    if (links.error) throw new Error(links.error.message);
+    const linkMap = new Map<string, string[]>();
+    for (const link of links.data ?? []) {
+      const prior = linkMap.get(link.material_id) ?? [];
+      prior.push(link.topic_id);
+      linkMap.set(link.material_id, prior);
+    }
     return {
       job_id: job.id,
       subject_id: job.subject_id,
       materials: (res.data ?? []).map((m) => ({
+        topic_ids: Array.from(new Set([...(m.topic_id ? [m.topic_id] : []), ...(linkMap.get(m.id) ?? [])])),
         id: m.id, title: m.title, material_type: m.material_type,
         topic_id: m.topic_id, characters: (m.content_text ?? "").trim().length,
         preview: (m.content_text ?? "").trim().slice(0, 150),
@@ -436,4 +447,59 @@ export const setPublishedExtractorMaterialsTopic = createServerFn({ method: "POS
       if (updated.error) throw new Error(updated.error.message);
     }
     return { updated: changed.length, unchanged: rows.length - changed.length };
+  });
+
+/** Add a second (or third) topic without replacing the legacy primary association. */
+export const addPublishedExtractorMaterialTopicLinks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({
+    job_id: z.string().uuid(),
+    material_ids: z.array(z.string().uuid()).min(1).max(25)
+      .refine((ids) => new Set(ids).size === ids.length, "Повторяющиеся ID"),
+    topic_id: z.string().uuid(),
+  }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    await assertAdmin(sb, context.userId);
+    const job = await loadJob(sb, data.job_id);
+    if (job.status !== "published" || !job.subject_id) throw new Error("Сначала завершите публикацию исходника");
+    const t = await sb.from("topics").select("id,subject_id").eq("id", data.topic_id).maybeSingle();
+    if (t.error || !t.data || !topicBelongsToSubject(job.subject_id, t.data.subject_id)) {
+      throw new Error("Выбранная тема отсутствует или относится к другому предмету");
+    }
+    const source = await sb.from("materials")
+      .select("id,subject_id,topic_id,extractor_metadata,status,is_public")
+      .in("id", data.material_ids).eq("extractor_metadata->>job_id", job.id);
+    if (source.error) throw new Error(source.error.message);
+    if ((source.data ?? []).length !== data.material_ids.length) throw new Error("Есть материалы из другой обработки");
+    for (const m of source.data ?? []) {
+      const meta = m.extractor_metadata as Record<string, any> | null;
+      if (m.subject_id !== job.subject_id || m.status !== "published" || !m.is_public || meta?.source_sha256 !== job.file_sha256) {
+        throw new Error("Невозможно привязать материал с неподтверждённым происхождением");
+      }
+    }
+    const links = data.material_ids.map((id) => ({
+      material_id: id, topic_id: data.topic_id, link_type: "explains",
+      link_source: "explicit_admin", linked_by: context.userId,
+    }));
+    const ins = await (sb as any).from("material_topic_links").upsert(links, {
+      onConflict: "material_id,topic_id", ignoreDuplicates: true,
+    });
+    if (ins.error) throw new Error(ins.error.message);
+    // Preserve the first association for older screens, but never replace a different topic.
+    let firstAssignments = 0;
+    for (const m of source.data ?? []) {
+      if (m.topic_id) continue;
+      const meta = m.extractor_metadata as Record<string, any>;
+      const at = new Date().toISOString();
+      const update = await sb.from("materials").update({
+        topic_id: data.topic_id,
+        extractor_metadata: { ...meta, topic_assignment: {
+          topic_id: data.topic_id, by: context.userId, at, mode: "explicit_admin_first_topic",
+        } } as Json,
+      }).eq("id", m.id).is("topic_id", null).select("id");
+      if (update.error) throw new Error(update.error.message);
+      firstAssignments += update.data?.length ?? 0;
+    }
+    return { linked: data.material_ids.length, primary_topics_added: firstAssignments };
   });

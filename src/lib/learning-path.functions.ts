@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { RELEASE_SUBJECT_IDS } from "@/lib/release-scope";
+import { getLinkedMaterialIds, materialTopicOrFilter } from "@/lib/extractor/topic-linking";
 
 
 const STATUS_TO_PRIORITY: Record<string, number> = {
@@ -253,8 +254,10 @@ export const generateLearningPath = createServerFn({ method: "POST" })
       if (first) {
         firstLessonId = first.id;
         if (first.topic_id) {
+          const linkedIds = await getLinkedMaterialIds(sb, first.topic_id);
+          const topicFilter = materialTopicOrFilter(first.topic_id, linkedIds);
           const [matsRes, tasksRes] = await Promise.all([
-            sb.from("materials").select("id").eq("topic_id", first.topic_id)
+            sb.from("materials").select("id").or(topicFilter)
               .eq("subject_id", first.subject_id).eq("status", "published").eq("is_public", true)
               .order("difficulty").limit(4),
             sb.from("tasks").select("id").eq("topic_id", first.topic_id).eq("is_published", true).limit(5),
