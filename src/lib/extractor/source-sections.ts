@@ -17,6 +17,7 @@ export interface SectionCandidate {
   evidence: string;
   confidence: "high" | "review";
   review_reason: string | null;
+  raw_heading_truncated?: boolean;
 }
 const HEADING = /(?:^|\n)[ \t]*[$§][ \t]*(\d{1,3})\.[ \t]*([^\n]{4,115})/g;
 const SMALL_WORDS = new Set(["и", "его", "ее", "её", "на", "по", "в", "во", "к", "с", "со", "для", "их", "при", "из", "как", "языка", "слова"]);
@@ -44,6 +45,7 @@ export function parseSourceSections(units: SourceTextUnit[]): SectionCandidate[]
       const hit = hits[i];
       const number = Number(hit[1]);
       const title = cleanedTitle(hit[2]);
+      const rawHeadingTruncated = /[,;:–—-]\s*$/.test(hit[2].trim());
       const start = hit.index ?? 0;
       const end = i + 1 < hits.length ? hits[i + 1].index ?? text.length : text.length;
       const sectionText = text.slice(start, end).trim();
@@ -56,6 +58,7 @@ export function parseSourceSections(units: SourceTextUnit[]): SectionCandidate[]
         evidence: "$/§ " + number + ". " + title,
         confidence: validLength ? "high" : "review",
         review_reason: validLength ? null : "short_or_oversized_ocr_section",
+        raw_heading_truncated: rawHeadingTruncated,
       });
     }
   }
@@ -70,7 +73,8 @@ export function parseSourceSections(units: SourceTextUnit[]): SectionCandidate[]
       c.title !== selected.title && !coherentTitles(c.title, selected.title));
     const closestTitle = [...group].filter((c) => coherentTitles(c.title, selected.title) || c.title === selected.title)
       .sort((a, b) => b.title.length - a.title.length)[0]?.title ?? selected.title;
-    const reason = conflict ? "conflicting_section_headings" : selected.review_reason;
+    const reason = conflict ? "conflicting_section_headings" :
+      group.some((c) => c.raw_heading_truncated) ? "truncated_section_heading" : selected.review_reason;
     result.push({
       ...selected, number, title: closestTitle,
       confidence: reason ? "review" : "high",
