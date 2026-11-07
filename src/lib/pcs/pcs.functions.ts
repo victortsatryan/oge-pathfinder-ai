@@ -214,7 +214,7 @@ export const pcsProgramTree = createServerFn({ method: "GET" })
     const sb = context.supabase as any;
     await assertAdmin(sb, context.userId);
     const [{ data: subjects }, { data: topics }, { data: los }] = await Promise.all([
-      sb.from("subjects").select("id,name,slug").order("name"),
+      sb.from("subjects").select("id,name,slug").eq("is_public", true).order("name"),
       sb.from("topics").select("id,subject_id,title,topic_type,parent_topic_id,sort_order").order("sort_order"),
       sb.from("learning_objectives").select("id,topic_id,title,status,version").order("sort_order"),
     ]);
