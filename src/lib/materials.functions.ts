@@ -19,7 +19,7 @@ export const listMaterials = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     let q = context.supabase
       .from("materials")
-      .select("id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes, topic_id, subject_id, subjects(name), topics(title)")
+      .select("id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes, topic_id, subject_id, subjects(name), topics:topics!materials_topic_id_fkey(title)")
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(data.limit);
@@ -138,7 +138,7 @@ export const getMaterialDetail = createServerFn({ method: "POST" })
     const { data: row, error } = await context.supabase
       .from("materials")
       .select(
-        "id, title, description, material_type, content_text, source_name, source_url, video_url, file_url, image_url, difficulty, estimated_time_minutes, topic_id, subject_id, subjects(name), topics(title)",
+        "id, title, description, material_type, content_text, source_name, source_url, video_url, file_url, image_url, difficulty, estimated_time_minutes, topic_id, subject_id, subjects(name), topics:topics!materials_topic_id_fkey(title)",
       )
       .eq("id", data.material_id)
       .maybeSingle();

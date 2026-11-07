@@ -77,7 +77,7 @@ export const getExtractorJobs = createServerFn({ method: "GET" }).middleware([re
     await assertAdmin(context.supabase, context.userId);
     const [jobs, subjects, topics] = await Promise.all([
       context.supabase.from("extractor_jobs").select("id,file_name,file_sha256,size_bytes,status,stage,progress,error,author,rights_basis,subject_id,created_at,updated_at,publish_report,result_total_units").order("created_at", { ascending: false }).limit(50),
-      context.supabase.from("subjects").select("id,name").order("name"),
+      context.supabase.from("subjects").select("id,name").eq("is_public", true).order("name"),
       context.supabase.from("topics").select("id,title,subject_id").order("sort_order").limit(2000),
     ]);
     if (jobs.error) throw new Error(jobs.error.message);
