@@ -76,7 +76,7 @@ export const getMyProgress = createServerFn({ method: "GET" })
     const { userId } = context;
 
     const [{ data: subjects }, { data: attempts }, { data: lessons }] = await Promise.all([
-      supabaseAdmin.from("subjects").select("id, name, slug, color_token").order("sort_order"),
+      supabaseAdmin.from("subjects").select("id, name, slug, color_token").eq("is_public", true).order("sort_order"),
       supabaseAdmin
         .from("task_attempts")
         .select("subject_id, is_correct, score, submitted_at")
