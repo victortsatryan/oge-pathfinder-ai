@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Json } from "@/integrations/supabase/types";
+import { matchCurriculumHeading, type CurriculumMatchTopic } from "@/lib/curriculum/catalog-matcher";
 import { parseSourceSections, type SectionCandidate, type SourceTextUnit } from "./source-sections";
 
 async function assertAdmin(sb: any, userId: string) {
@@ -32,28 +33,58 @@ async function getSourceSections(sb: any, jobId: string) {
   return { job, sections: parseSourceSections(units) };
 }
 
+async function getCurriculumCatalog(sb: any, subjectId: string): Promise<CurriculumMatchTopic[]> {
+  const topicQuery = await sb.from("topics").select("id,title,is_public")
+    .eq("subject_id", subjectId).limit(1500);
+  if (topicQuery.error) throw new Error(topicQuery.error.message);
+  const meta = await sb.from("curriculum_topic_meta")
+    .select("topic_id,review_status").limit(1500);
+  if (meta.error) throw new Error(meta.error.message);
+  const aliases = await sb.from("curriculum_topic_aliases")
+    .select("topic_id,alias_text,is_approved").eq("subject_id", subjectId).limit(2000);
+  if (aliases.error) throw new Error(aliases.error.message);
+  const metaMap = new Map<string, string>((meta.data ?? []).map((m: any) =>
+    [m.topic_id, m.review_status]));
+  return (topicQuery.data ?? []).filter((t: any) => metaMap.has(t.id)).map((t: any) => ({
+    id: t.id, title: t.title,
+    review_status: (metaMap.get(t.id) ?? "draft") as "draft" | "approved" | "retired",
+    aliases: (aliases.data ?? []).filter((a: any) => a.topic_id === t.id && a.is_approved)
+      .map((a: any) => a.alias_text),
+  }));
+}
+
 export const previewSourceTopicSections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({ job_id: z.string().uuid() }).parse(v))
   .handler(async ({ context, data }) => {
-    await assertAdmin(context.supabase, context.userId);
-    const { sections } = await getSourceSections(context.supabase as any, data.job_id);
-    const seen = await (context.supabase as any).from("materials")
-      .select("id,extractor_metadata").eq("extractor_metadata->>job_id", data.job_id)
-      .eq("extractor_metadata->>derived_kind", "numbered_section")
-      .limit(500);
-    if (seen.error) throw new Error(seen.error.message);
-    const existing = new Set((seen.data ?? []).map((m: any) => Number(m.extractor_metadata?.section_number)));
+    const sb = context.supabase as any;
+    await assertAdmin(sb, context.userId);
+    const { job, sections } = await getSourceSections(sb, data.job_id);
+    const catalog = await getCurriculumCatalog(sb, job.subject_id);
+    const existingResult = await sb.from("materials").select("extractor_metadata")
+      .eq("extractor_metadata->>job_id", data.job_id)
+      .eq("extractor_metadata->>derived_kind","numbered_section").limit(500);
+    if (existingResult.error) throw new Error(existingResult.error.message);
+    const existing = new Set((existingResult.data ?? [])
+      .map((m: any) => Number(m.extractor_metadata?.section_number)));
+    const rows = sections.map((sec) => {
+      const match = matchCurriculumHeading(sec.title, catalog);
+      const confident = sec.confidence === "high";
+      return {
+        number: sec.number, title: sec.title,
+        confidence: sec.confidence, characters: sec.text.length,
+        preview: sec.text.slice(0,130), review_reason: sec.review_reason,
+        imported: existing.has(sec.number),
+        match_status: match.status,
+        topic_id: confident && match.status === "approved_exact" ? match.topic_id : null,
+        candidate_ids: match.candidate_ids,
+      };
+    });
     return {
-      total: sections.length,
-      ready: sections.filter((s) => s.confidence === "high").length,
-      review: sections.filter((s) => s.confidence === "review").length,
-      sections: sections.map((s) => ({
-        number: s.number, title: s.title, confidence: s.confidence,
-        review_reason: s.review_reason, characters: s.text.length,
-        preview: s.text.slice(0, 130),
-        imported: existing.has(s.number),
-      })),
+      total: rows.length,
+      ready: rows.filter((s) => s.topic_id !== null).length,
+      review: rows.filter((s) => s.topic_id === null).length,
+      sections: rows,
     };
   });
 
@@ -65,82 +96,82 @@ export const applySourceTopicSections = createServerFn({ method: "POST" })
     const sb = context.supabase as any;
     await assertAdmin(sb, context.userId);
     const { job, sections } = await getSourceSections(sb, data.job_id);
-    const high = sections.filter((s) => s.confidence === "high");
-    const topicsRes = await sb.from("topics").select("id,title").eq("subject_id", job.subject_id).limit(2000);
-    if (topicsRes.error) throw new Error(topicsRes.error.message);
-    const byTitle = new Map<string, string>((topicsRes.data ?? []).map((x: any) =>
-      [x.title.normalize("NFKC").toLocaleLowerCase("ru").trim(), x.id]));
-    let inserted = 0, existing = 0, topicsCreated = 0, linked = 0;
+    const catalog = await getCurriculumCatalog(sb, job.subject_id);
+    const matches = sections.filter((s) => s.confidence === "high").map((s) =>
+      ({ section: s, match: matchCurriculumHeading(s.title, catalog) }))
+      .filter((r) => r.match.status === "approved_exact" && !!r.match.topic_id);
+    let created_materials = 0, linked = 0, existing = 0;
     const BATCH = 6;
-    const pending: SectionCandidate[] = [];
-    for (const s of high) {
-      const unitKey = job.file_sha256 + ":source-section:v1:" + s.number;
-      const already = await sb.from("materials").select("id")
-        .eq("extractor_metadata->>unit_key", unitKey).maybeSingle();
-      if (already.error) throw new Error(already.error.message);
-      if (already.data) existing++;
-      else pending.push(s);
+    const pending: typeof matches = [];
+    for (const entry of matches) {
+      const key = job.file_sha256 + ":source-section:v1:" + entry.section.number;
+      const prior = await sb.from("materials")
+        .select("id,topic_id,extractor_metadata")
+        .eq("extractor_metadata->>unit_key", key).maybeSingle();
+      if (prior.error) throw new Error(prior.error.message);
+      const linkedAlready = prior.data ? await sb.from("material_topic_links")
+        .select("material_id").eq("material_id",prior.data.id)
+        .eq("topic_id",entry.match.topic_id).maybeSingle() : { data: null, error: null };
+      if (linkedAlready.error) throw new Error(linkedAlready.error.message);
+      if (linkedAlready.data) existing++;
+      else pending.push(entry);
     }
-    for (const section of pending.slice(0, BATCH)) {
-      const key = section.title.normalize("NFKC").toLocaleLowerCase("ru").trim();
-      let topicId = byTitle.get(key);
-      if (!topicId) {
-        const t = await sb.from("topics").insert({
-          subject_id: job.subject_id, title: section.title,
-          topic_type: "topic", is_public: true, created_by: context.userId,
-          source_standard: "textbook_numbered_heading",
-          description: "Тема из § " + section.number + " источника «" + job.file_name + "». OCR не проверен для оценивания.",
+    for (const { section, match } of pending.slice(0,BATCH)) {
+      const topicId = match.topic_id!;
+      const key = job.file_sha256 + ":source-section:v1:" + section.number;
+      let material = await sb.from("materials").select("id,topic_id,extractor_metadata")
+        .eq("extractor_metadata->>unit_key", key).maybeSingle();
+      if (material.error) throw new Error(material.error.message);
+      if (!material.data) {
+        const meta: Record<string, unknown> = {
+          unit_key: key, unit_id: "section:" + section.number, job_id: job.id,
+          source_sha256: job.file_sha256, source_file: job.file_name,
+          derived_kind: "numbered_section", section_number: section.number,
+          origin_material_id: section.origin_material_id,
+          offset_start: section.offset_start, offset_end: section.offset_end,
+          heading_evidence: section.evidence, quality_status: "auto_structured",
+          review_status: "auto_structured_ocr_unverified",
+          usable_for_grading: false, source_text_verified: false,
+          topic_assignment: { topic_id: topicId, by: context.userId,
+            mode: "approved_catalog_exact", at: new Date().toISOString() },
+        };
+        const added = await sb.from("materials").insert({
+          subject_id: job.subject_id, topic_id: topicId,
+          title: "§ " + section.number + ". " + section.title,
+          content_text: section.text, material_type: "textbook_paragraph",
+          source_name: job.author ?? job.file_name, status: "published", is_public: true,
+          license_type: job.rights_basis,
+          license_note: "Извлечено из " + job.file_name + "; OCR не проверен для оценивания",
+          created_by: context.userId, extractor_metadata: meta as Json,
         }).select("id").single();
-        if (t.error) {
-          if (t.error.code !== "23505") throw new Error(t.error.message);
-          const duplicate = await sb.from("topics").select("id").eq("subject_id", job.subject_id).eq("title", section.title).single();
-          if (duplicate.error) throw new Error(duplicate.error.message);
-          topicId = duplicate.data.id;
-        } else {
-          topicId = t.data.id;
-          topicsCreated++;
-        }
-        byTitle.set(key, topicId!);
+        if (added.error) throw new Error(added.error.message);
+        material = { data: { id: added.data.id, topic_id: topicId, extractor_metadata: meta }, error: null };
+        created_materials++;
       }
-      const unitKey = job.file_sha256 + ":source-section:v1:" + section.number;
-      const meta: Record<string, unknown> = {
-        unit_key: unitKey, unit_id: "section:" + section.number, job_id: job.id,
-        source_sha256: job.file_sha256, source_file: job.file_name, derived_kind: "numbered_section",
-        section_number: section.number, origin_material_id: section.origin_material_id,
-        offset_start: section.offset_start, offset_end: section.offset_end,
-        heading_evidence: section.evidence, quality_status: "auto_structured",
-        review_status: "auto_structured_ocr_unverified",
-        usable_for_grading: false, source_text_verified: false,
-        topic_assignment: { topic_id: topicId, by: context.userId, mode: "source_heading_auto", at: new Date().toISOString() },
-      };
-      const res = await sb.from("materials").insert({
-        subject_id: job.subject_id, topic_id: topicId, title: "§ " + section.number + ". " + section.title,
-        content_text: section.text, material_type: "textbook_paragraph",
-        source_name: job.author ?? job.file_name, status: "published", is_public: true,
-        license_type: job.rights_basis, license_note: "Автоматически выделено из " + job.file_name +
-          " по заголовку параграфа. Содержимое OCR не проверено для оценивания.",
-        created_by: context.userId, extractor_metadata: meta as Json,
-      }).select("id").single();
-      if (res.error) {
-        if (res.error.code === "23505") {
-          const prior = await sb.from("materials").select("id")
-            .eq("extractor_metadata->>unit_key", unitKey).maybeSingle();
-          if (!prior.error && prior.data) { existing++; continue; }
-        }
-        throw new Error(res.error.message);
-      }
-      inserted++;
       const link = await sb.from("material_topic_links").upsert({
-        material_id: res.data.id, topic_id: topicId, link_type: "explains",
-        link_source: "exact_heading", linked_by: context.userId,
-      }, { onConflict: "material_id,topic_id", ignoreDuplicates: true });
+        material_id: material.data.id, topic_id: topicId,
+        link_type: "explains", link_source: "exact_heading", linked_by: context.userId,
+      }, { onConflict:"material_id,topic_id",ignoreDuplicates:true });
       if (link.error) throw new Error(link.error.message);
       linked++;
+      // Existing source-derived primary topic may be a retired arbitrary heading.
+      const primaryTopic = material.data.topic_id ? catalog.find((x) => x.id === material.data.topic_id) : null;
+      if (primaryTopic?.review_status !== "approved") {
+        const priorMeta = (material.data.extractor_metadata ?? {}) as Record<string, any>;
+        const updated = await sb.from("materials").update({
+          topic_id: topicId,
+          extractor_metadata: { ...priorMeta, topic_assignment: {
+            topic_id: topicId, by: context.userId,
+            mode: "approved_catalog_exact", at: new Date().toISOString(),
+          } } as Json,
+        }).eq("id",material.data.id);
+        if (updated.error) throw new Error(updated.error.message);
+      }
     }
     return {
-      created_materials: inserted, created_topics: topicsCreated, linked,
+      created_materials, created_topics: 0, linked,
       already_imported: existing,
-      remaining: Math.max(0, pending.length - BATCH),
-      manual_review: sections.filter((s) => s.confidence === "review").length,
+      remaining: Math.max(0,pending.length-BATCH),
+      manual_review: sections.length-matches.length,
     };
   });

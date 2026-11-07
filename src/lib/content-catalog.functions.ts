@@ -19,14 +19,26 @@ export const getTopicCatalogEditor = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sb = context.supabase;
     const role = await requireEditor(sb, context.userId);
-    const [s, t] = await Promise.all([
+    const [s, t, m] = await Promise.all([
       sb.from("subjects").select("id,name").eq("is_public", true).order("name").limit(100),
-      sb.from("topics").select("id,subject_id,title,description,parent_topic_id,topic_type,is_public,created_by")
+      sb.from("topics").select("id,subject_id,title,description,parent_topic_id,topic_type,is_public,created_by,source_standard")
         .order("title").limit(1000),
+      (sb as any).from("curriculum_topic_meta").select("topic_id,review_status,grade_bands,catalog_key").limit(1500),
     ]);
     if (s.error) throw new Error(s.error.message);
     if (t.error) throw new Error(t.error.message);
-    return { role, subjects: s.data ?? [], topics: t.data ?? [] };
+    if (m.error) throw new Error(m.error.message);
+    const reviews = new Map<string, { review_status: string; grade_bands: string[]; catalog_key: string }>(
+      (m.data ?? []).map((x: any) => [x.topic_id, x]),
+    );
+    return {
+      role, subjects: s.data ?? [],
+      topics: (t.data ?? []).map((x) => ({
+        ...x, review_status: reviews.get(x.id)?.review_status ?? null,
+        grade_bands: reviews.get(x.id)?.grade_bands ?? [],
+        catalog_key: reviews.get(x.id)?.catalog_key ?? null,
+      })),
+    };
   });
 
 export const createCatalogTopic = createServerFn({ method: "POST" })
@@ -99,4 +111,36 @@ export const getPublishedContentCatalog = createServerFn({ method: "POST" })
         derived_kind: m.derived_kind,
       })),
     };
+  });
+
+/** Curriculum approval is a deliberate administrator decision, not OCR classification. */
+export const reviewCurriculumTopic = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({
+    topic_id: z.string().uuid(),
+    decision: z.enum(["approved","draft"]),
+  }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    const admin = await sb.rpc("has_role",{_user_id:context.userId,_role:"admin"});
+    if (admin.error || !admin.data) throw new Error("Утверждать темы может только администратор");
+    const t = await sb.from("topics").select("id,subject_id,source_standard")
+      .eq("id",data.topic_id).single();
+    if (t.error || !t.data) throw new Error("Тема не найдена");
+    if (t.data.source_standard !== "frp_ru_2025_working") {
+      throw new Error("Эта операция разрешена только для каталога ФРП");
+    }
+    const m = await (sb as any).from("curriculum_topic_meta")
+      .update({review_status:data.decision,reviewer_id:context.userId,
+        reviewed_at:new Date().toISOString()})
+      .eq("topic_id",data.topic_id).select("topic_id").single();
+    if (m.error) throw new Error(m.error.message);
+    const updated = await sb.from("topics").update({is_public:data.decision==="approved"})
+      .eq("id",data.topic_id);
+    if (updated.error) throw new Error(updated.error.message);
+    const alias = await (sb as any).from("curriculum_topic_aliases")
+      .update({is_approved:data.decision==="approved"})
+      .eq("topic_id",data.topic_id);
+    if (alias.error) throw new Error(alias.error.message);
+    return { topic_id:data.topic_id,status:data.decision };
   });

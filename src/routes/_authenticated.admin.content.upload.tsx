@@ -171,15 +171,15 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
       toast.success(`Материалов: ${t.materials}, уже было: ${t.existing}, пропущено: ${t.skipped}, ошибок: ${t.failed}`);
       qc.invalidateQueries({ queryKey: ["extractor-jobs"] });
       q.refetch();
-      // After a successful source publication, automatically derive only supported
-      // numbered source paragraphs; ambiguous sections stay in editorial review.
+      // Link only exact matching APPROVED curriculum topics; never create a new
+      // topic from a paragraph, footnote or OCR title.
       try {
         let made = 0;
         for (let i = 0; i < 100; i++) {
           const r = await autoSectionsAfterPublish({ data: { job_id: id } });
           made += r.created_materials;
           if (!r.remaining) {
-            if (made) toast.success(`Из подтверждённых параграфов создано учебных материалов: ${made}`);
+            if (made) toast.success(`Подтверждённых учебных материалов добавлено: ${made}`);
             qc.invalidateQueries({ queryKey: ["published-catalog"] });
             qc.invalidateQueries({ queryKey: ["source-section-preview", id] });
             qc.invalidateQueries({ queryKey: ["topics-editor"] });
@@ -188,7 +188,7 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
           if (i === 99) throw new Error("Требуется продолжить пакетную обработку разделов");
         }
       } catch (e) {
-        toast.warning("Источник опубликован, но авторазметка тем требует проверки: " +
+        toast.warning("Источник опубликован; сопоставление с утверждёнными темами требует проверки: " +
           (e instanceof Error ? e.message : String(e)));
       }
     },
@@ -282,15 +282,16 @@ function SourceTopicSections({ jobId }: { jobId: string }) {
     <section className="rounded-md border p-4 space-y-3">
       <h3 className="font-semibold text-sm">Разделение учебника на темы</h3>
       <p className="text-sm text-muted-foreground">
-        Параграфы выделяются из исходного текста по напечатанным номерам §.
-        Создаются учебные темы, а не задания ЕГЭ. Сомнительные границы остаются на ручную проверку;
-        первоначальные OCR-блоки, ответы и маршруты не изменяются.
+        Параграфы выделяются из текста по печатным заголовкам, но не становятся учебными темами.
+        Автоматическая привязка возможна только к уже утверждённым темам программы при точном совпадении названия.
+        Черновики программы, примечания, неоднозначные границы и ошибки OCR остаются на редакционное ревью.
+        Исходные OCR-блоки и маршруты не изменяются.
       </p>
       {preview.isError && <p className="text-sm text-destructive">{String(preview.error)}</p>}
       {preview.data && <>
         <div className="flex flex-wrap gap-2 text-sm">
           <Badge variant="secondary">Найдено: {preview.data.total}</Badge>
-          <Badge>Уверенно: {preview.data.ready}</Badge>
+          <Badge>Совпало с утверждённой темой: {preview.data.ready}</Badge>
           <Badge variant="outline">На проверку: {preview.data.review}</Badge>
         </div>
         <div className="max-h-64 overflow-y-auto divide-y rounded-md border">
@@ -298,7 +299,9 @@ function SourceTopicSections({ jobId }: { jobId: string }) {
             <div key={s.number} className="p-2 text-sm">
               <span className="font-medium">§ {s.number}. {s.title}</span>
               <span className="ml-2 text-xs text-muted-foreground">
-                {s.imported ? "Добавлен" : s.confidence === "high" ? "Можно добавить" : "Нужна проверка"}
+                {s.topic_id ? (s.imported ? "Материал существует — можно связать с темой" : "Можно связать") :
+                  s.match_status === "draft_exact" ? "Совпадает с черновиком — ждёт утверждения" :
+                  s.match_status === "ambiguous" ? "Несколько совпадений — ревью" : "Нужна проверка"}
                 {" · "}{s.characters} символов
               </span>
               {s.review_reason && <p className="text-xs text-destructive">{s.review_reason}</p>}
@@ -306,7 +309,7 @@ function SourceTopicSections({ jobId }: { jobId: string }) {
           ))}
         </div>
         <Button disabled={!preview.data.ready || apply.isPending} onClick={() => apply.mutate()}>
-          {apply.isPending ? progress || "Разделение…" : "Создать темы и материалы из подтверждённых §"}
+          {apply.isPending ? progress || "Сопоставление…" : "Связать с утверждёнными темами"}
         </Button>
       </>}
     </section>

@@ -147,8 +147,17 @@ export const generateLearningPath = createServerFn({ method: "POST" })
     if (sourceRows.error) throw new Error(sourceRows.error.message);
     const sourceTopicIds = [...new Set((sourceRows.data ?? [])
       .map((m) => m.topic_id).filter((id): id is string => Boolean(id)))];
-    const sourceTopics = sourceTopicIds.length
-      ? await sb.from("topics").select("id,title,subject_id").in("id", sourceTopicIds).eq("is_public", true)
+    // A paragraph heading is NOT a curriculum topic. Only topics explicitly
+    // approved by curriculum editors may be offered as new route candidates.
+    const reviewed = sourceTopicIds.length
+      ? await (sb as any).from("curriculum_topic_meta").select("topic_id")
+          .in("topic_id",sourceTopicIds).eq("review_status","approved")
+      : { data: [], error: null };
+    if (reviewed.error) throw new Error(reviewed.error.message);
+    const eligibleIds = (reviewed.data ?? []).map((r: {topic_id: string}) => r.topic_id);
+    const sourceTopics = eligibleIds.length
+      ? await sb.from("topics").select("id,title,subject_id")
+          .in("id",eligibleIds).eq("is_public",true)
       : { data: [], error: null };
     if (sourceTopics.error) throw new Error(sourceTopics.error.message);
     const topicProgress = withUnstartedSourceTopics(progress ?? [],

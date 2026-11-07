@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { createCatalogTopic, getTopicCatalogEditor } from "@/lib/content-catalog.functions";
+import { createCatalogTopic, getTopicCatalogEditor, reviewCurriculumTopic } from "@/lib/content-catalog.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function TopicCatalogEditor() {
   const catalog = useServerFn(getTopicCatalogEditor);
   const create = useServerFn(createCatalogTopic);
+  const review = useServerFn(reviewCurriculumTopic);
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["topics-editor"], queryFn: () => catalog() });
   const [subject, setSubject] = useState("");
@@ -17,6 +18,12 @@ export function TopicCatalogEditor() {
   const [description, setDescription] = useState("");
   const [kind, setKind] = useState<"topic" | "section" | "subtopic">("topic");
   const [filter, setFilter] = useState("");
+  const [onlyDraft, setOnlyDraft] = useState(false);
+  const decide = useMutation({
+    mutationFn: (value: { topic_id: string; decision: "approved" | "draft" }) => review({ data: value }),
+    onSuccess: () => { toast.success("Статус темы обновлён"); qc.invalidateQueries({ queryKey: ["topics-editor"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Ошибка утверждения"),
+  });
   const save = useMutation({
     mutationFn: () => create({ data: {
       subject_id: subject, title: title.trim(), description: description.trim() || null,
@@ -32,6 +39,7 @@ export function TopicCatalogEditor() {
   });
   const topics = (q.data?.topics ?? []).filter((t) =>
     (!subject || t.subject_id === subject) &&
+    (!onlyDraft || t.review_status === "draft") &&
     (!filter || (t.title + " " + (t.description ?? "")).toLocaleLowerCase("ru").includes(filter.toLocaleLowerCase("ru"))),
   );
   const existing = (q.data?.topics ?? []).find((t) =>
@@ -80,6 +88,8 @@ export function TopicCatalogEditor() {
       <section className="space-y-3">
         <h3 className="font-medium">Каталог существующих тем ({topics.length})</h3>
         <Input placeholder="Поиск темы" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={onlyDraft} onChange={(e) => setOnlyDraft(e.target.checked)} /> Только черновики программы</label>
+        <p className="text-xs text-muted-foreground">Каталог ФРП 1–11 классов — рабочая нормализация для методологического ревью. Только администратор утверждает темы; до этого они недоступны для автоматического включения в маршрут.</p>
         <div className="max-h-96 divide-y overflow-y-auto rounded border">
           {topics.map((t) => (
             <div key={t.id} className="px-3 py-2 text-sm">
@@ -89,6 +99,24 @@ export function TopicCatalogEditor() {
                 {t.topic_type === "section" ? " раздел" : t.topic_type === "subtopic" ? " подтема" : " тема"}
                 {t.parent_topic_id ? " · в разделе: " + (q.data?.topics.find((p) => p.id === t.parent_topic_id)?.title ?? "—") : ""}
               </div>
+              {t.review_status && (
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span className={t.review_status === "approved" ? "text-green-700" : "text-amber-700"}>
+                    {t.review_status === "approved" ? "Утверждена" : t.review_status === "retired" ? "Архив" : "Черновик ФРП"}
+                  </span>
+                  <span className="text-muted-foreground">{t.grade_bands.join(", ")}</span>
+                  {q.data?.role === "admin" && t.source_standard === "frp_ru_2025_working" && (
+                    <Button size="sm" variant="outline" disabled={decide.isPending}
+                      onClick={() => decide.mutate({
+                        topic_id: t.id, decision: t.review_status === "approved" ? "draft" : "approved",
+                      })}>
+                      {t.review_status === "approved" ? "Вернуть в черновики" : "Утвердить тему"}
+                    </Button>
+                  )}
+                </div>
+              )}
+              {t.source_standard === "textbook_numbered_heading" &&
+                <p className="mt-1 text-xs text-muted-foreground">Архивный OCR-заголовок: не каноническая учебная тема</p>}
               {t.description && <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>}
             </div>
           ))}
