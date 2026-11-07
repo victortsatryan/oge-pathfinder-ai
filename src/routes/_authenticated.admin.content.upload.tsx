@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   getExtractorJobs, publishExtractorJob, refreshExtractorJob, registerExtractorUpload,
-  getExtractorSourceLink, reopenSkippedUnits, retryExtractorJob, saveExtractorUnitReview, setExtractorUnitDecision,
+  getExtractorSourceLink, getPublishedExtractorMaterials, reopenSkippedUnits, retryExtractorJob, saveExtractorUnitReview,
+  setExtractorUnitDecision, setPublishedExtractorMaterialsTopic,
 } from "@/lib/extractor/jobs.functions";
 import { MAX_SOURCE_BYTES, SOURCE_EXTENSIONS, sourceExtension } from "@/lib/extractor/pipeline";
 
@@ -214,7 +215,105 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
         <span className="text-xs text-muted-foreground">Видно только вошедшим пользователям Pathy. Существующие материалы и задания не изменяются.</span>
         <p className="w-full text-xs text-muted-foreground">Тема (необязательно) назначается только материалам, публикуемым в этой партии, и только по вашему выбору. Экзаменационные задания, ключи ответов, уроки и события календаря не создаются. Если книга охватывает несколько тем, оставьте «Без темы».</p>
       </div>
+      {job.status === "published" && <PublishedTopicLinker jobId={id} topics={topics} />}
     </div>
+  );
+}
+
+
+/** Link individual published blocks from a multi-topic book to verified catalog topics. */
+function PublishedTopicLinker({ jobId, topics }: {
+  jobId: string;
+  topics: { id: string; title: string; subject_id: string }[];
+}) {
+  const query = useServerFn(getPublishedExtractorMaterials);
+  const save = useServerFn(setPublishedExtractorMaterialsTopic);
+  const qc = useQueryClient();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [target, setTarget] = useState("");
+  const [search, setSearch] = useState("");
+  const q = useQuery({
+    queryKey: ["extractor-published-topics", jobId],
+    queryFn: () => query({ data: { job_id: jobId } }),
+  });
+  const mutation = useMutation({
+    mutationFn: (topicId: string | null) =>
+      save({ data: { job_id: jobId, material_ids: selected, topic_id: topicId } }),
+    onSuccess: (result) => {
+      toast.success(`Привязано материалов: ${result.updated}`);
+      setSelected([]);
+      q.refetch();
+      qc.invalidateQueries({ queryKey: ["extractor-jobs"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Ошибка назначения темы"),
+  });
+  const materials = q.data?.materials ?? [];
+  const shown = materials.filter((m) =>
+    (m.title + " " + m.preview).toLocaleLowerCase("ru").includes(search.toLocaleLowerCase("ru").trim()),
+  );
+  const eligibleVisible = shown.filter((m) => !m.needs_content_review).slice(0, 25);
+  const allowedTopics = topics.filter((t) => t.subject_id === q.data?.subject_id);
+
+  return (
+    <section className="space-y-3 rounded-md border p-3">
+      <h3 className="font-semibold text-sm">Привязка опубликованных материалов к темам</h3>
+      <p className="text-xs text-muted-foreground">
+        Книга может охватывать много тем. Выделяйте только относящиеся к выбранной теме блоки.
+        После назначения материалы появятся в тематической библиотеке и будут подбираться в уроки
+        этого предмета. Никаких экзаменационных ответов и оценочных заданий не создаётся.
+      </p>
+      {q.isLoading && <p className="text-sm">Загрузка опубликованных материалов…</p>}
+      {q.isError && <p className="text-sm text-destructive">{String(q.error)}</p>}
+      {q.data && <>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">Опубликовано: {materials.length}</Badge>
+          <Badge variant="secondary">С темой: {materials.filter((m) => m.topic_id).length}</Badge>
+          <Badge variant="outline">Требуют просмотра: {materials.filter((m) => m.needs_content_review).length}</Badge>
+        </div>
+        <Input placeholder="Поиск по названию или тексту" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setSelected(eligibleVisible.map((m) => m.id))}>
+            Выделить до 25 подходящих из списка
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>Снять выделение</Button>
+          <span className="text-xs text-muted-foreground">Выбрано: {selected.length} / 25</span>
+        </div>
+        <div className="max-h-80 space-y-2 overflow-y-auto rounded-md border p-2">
+          {shown.map((m) => (
+            <label key={m.id} className="flex items-start gap-2 border-b pb-2 text-sm">
+              <input aria-label={`Выбрать ${m.title}`} type="checkbox"
+                className="mt-1" checked={selected.includes(m.id)}
+                disabled={mutation.isPending || (!selected.includes(m.id) && selected.length >= 25)}
+                onChange={(e) => setSelected((current) =>
+                  e.target.checked ? [...current, m.id] : current.filter((id) => id !== m.id))} />
+              <span className="min-w-0 flex-1">
+                <span className="font-medium break-words">{m.title}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {m.material_type} · {m.characters} символов
+                  {m.topic_id ? " · " + (allowedTopics.find((t) => t.id === m.topic_id)?.title ?? "Назначена тема") : " · Без темы"}
+                </span>
+                {m.needs_content_review && <span className="block text-xs text-destructive">Короткий/сомнительный фрагмент — проверьте перед привязкой</span>}
+                <span className="block truncate text-xs text-muted-foreground">{m.preview}</span>
+              </span>
+            </label>
+          ))}
+          {!shown.length && <p className="text-sm text-muted-foreground">Ничего не найдено.</p>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select aria-label="Тема для выбранных материалов" className="h-9 min-w-48 rounded-md border bg-background px-2 text-sm"
+            value={target} onChange={(e) => setTarget(e.target.value)}>
+            <option value="">Выберите тему</option>
+            {allowedTopics.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+          </select>
+          <Button size="sm" disabled={!selected.length || !target || mutation.isPending} onClick={() => mutation.mutate(target)}>
+            Назначить тему выбранным
+          </Button>
+          <Button size="sm" variant="outline" disabled={!selected.length || mutation.isPending} onClick={() => mutation.mutate(null)}>
+            Снять привязку выбранных
+          </Button>
+        </div>
+      </>}
+    </section>
   );
 }
 

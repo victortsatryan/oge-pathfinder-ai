@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { SectionEyebrow } from "@/components/oge/section-eyebrow";
+import { LESSON_THEORY_MATERIAL_TYPES } from "@/lib/extractor/topic-linking";
 import {
   getLessonDetail,
   submitLessonTaskAttempt,
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/student/lesson/$lessonId")
   ),
 });
 
-const THEORY_TYPES = new Set(["theory", "video", "article", "reference", "scheme"]);
+const THEORY_TYPES = new Set<string>(LESSON_THEORY_MATERIAL_TYPES);
 
 type Step =
   | { kind: "theory"; key: string; mat: any }
@@ -53,7 +54,17 @@ function LessonPage() {
 
   const q = useQuery({
     queryKey: ["lesson", lessonId],
-    queryFn: () => fetchDetail({ data: { lesson_id: lessonId } }),
+    queryFn: async () => {
+      const initial = await fetchDetail({ data: { lesson_id: lessonId } });
+      // Existing planned lessons pick up newly topic-linked materials when opened.
+      // Never change completed or other users' lessons; rebuild is idempotent.
+      if (initial.viewer_is_owner && initial.lesson?.learning_path_item_id &&
+          !["completed", "rescheduled"].includes(initial.lesson.status)) {
+        await buildLesson({ data: { path_item_id: initial.lesson.learning_path_item_id } });
+        return fetchDetail({ data: { lesson_id: lessonId } });
+      }
+      return initial;
+    },
   });
 
   const [stepIdx, setStepIdx] = useState(0);

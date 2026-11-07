@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isAnswerCorrect } from "@/lib/answer-check";
+import { LESSON_THEORY_MATERIAL_TYPES } from "@/lib/extractor/topic-linking";
 
 function masteryToStatus(score: number): string {
   if (score === 0) return "not_started";
@@ -22,6 +23,7 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
       .from("learning_path_items")
       .select("*")
       .eq("id", data.path_item_id)
+      .eq("user_id", context.userId)
       .single();
     if (iErr) throw new Error(iErr.message);
 
@@ -30,6 +32,7 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
       .from("lessons")
       .select("id")
       .eq("learning_path_item_id", data.path_item_id)
+      .eq("user_id", context.userId)
       .maybeSingle();
     let lessonId = existing.data?.id as string | undefined;
 
@@ -84,7 +87,9 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
           .select("id, difficulty")
           .eq("topic_id", item.topic_id)
           .eq("status", "published")
-          .in("material_type", ["theory", "video", "article", "reference", "scheme"])
+          .eq("is_public", true)
+          .eq("subject_id", item.subject_id)
+          .in("material_type", [...LESSON_THEORY_MATERIAL_TYPES])
           .order("difficulty", { ascending: true, nullsFirst: true })
           .limit(theoryCount),
         sb
@@ -92,6 +97,8 @@ export const buildLessonFromPathItem = createServerFn({ method: "POST" })
           .select("id, difficulty")
           .eq("topic_id", item.topic_id)
           .eq("status", "published")
+          .eq("is_public", true)
+          .eq("subject_id", item.subject_id)
           .in("material_type", ["task", "practice", "exercise_set", "test"])
           .order("difficulty", { ascending: true, nullsFirst: true })
           .limit(practiceCount),
