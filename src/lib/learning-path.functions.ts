@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { RELEASE_SUBJECT_IDS } from "@/lib/release-scope";
 import { getLinkedMaterialIds, materialTopicOrFilter } from "@/lib/extractor/topic-linking";
+import { withUnstartedSourceTopics } from "@/lib/extractor/curriculum-routing";
 
 
 const STATUS_TO_PRIORITY: Record<string, number> = {
@@ -132,7 +133,30 @@ export const generateLearningPath = createServerFn({ method: "POST" })
       .in("subject_id", subjectIds);
     if (pErr) throw new Error(pErr.message);
 
-    const weak = (progress ?? [])
+    // Only verified, published source paragraphs can introduce new curriculum
+    // themes in a NEW route. Never modify existing progress or active paths.
+    const sourceRows = await sb.from("materials")
+      .select("topic_id,subject_id")
+      .in("subject_id", subjectIds)
+      .eq("status", "published")
+      .eq("is_public", true)
+      .eq("extractor_metadata->>derived_kind", "numbered_section")
+      .eq("extractor_metadata->>quality_status", "auto_structured")
+      .not("topic_id", "is", null)
+      .limit(2000);
+    if (sourceRows.error) throw new Error(sourceRows.error.message);
+    const sourceTopicIds = [...new Set((sourceRows.data ?? [])
+      .map((m) => m.topic_id).filter((id): id is string => Boolean(id)))];
+    const sourceTopics = sourceTopicIds.length
+      ? await sb.from("topics").select("id,title,subject_id").in("id", sourceTopicIds).eq("is_public", true)
+      : { data: [], error: null };
+    if (sourceTopics.error) throw new Error(sourceTopics.error.message);
+    const topicProgress = withUnstartedSourceTopics(progress ?? [],
+      (sourceTopics.data ?? []).map((t) => ({
+        topic_id: t.id, subject_id: t.subject_id, title: t.title,
+      })));
+
+    const weak = topicProgress
       .filter((p: any) => p.status !== "mastered")
       .map((p: any) => ({
         ...p,
