@@ -8,21 +8,21 @@ This is the canonical active sequence, retained in the app repo so the work is n
 - Pathy user configured server secrets; at least one live 5.25 MB source was subsequently processed.
 - **Ops limit:** one always-allocated instance incurs ongoing costs; worker jobs live on ephemeral local storage and do not survive service restart.
 
-## 2. Real E2E: upload → extraction → Supabase → UI — PARTIALLY ACCEPTED
+## 2. Real E2E: upload → extraction → Supabase → UI — TECHNICAL PIPELINE ACCEPTED; ROLE UI RECEIPT OPEN
 - Actual book: `1881_Учебник-Русский-язык-10-11-класс-Гольцова-Шамшин-Мищерина-часть-1.pdf`.
 - Pathy job `7aa99060-02c6-435d-87a9-743f3b207a7e`, status `published`.
-- 91 materials published, 61 skipped, 7 failed publication due to `uniq_materials_dedup`.
-- All 91 published materials have `topic_id = null`, so no topic-based lesson membership was verified; some OCR blocks are extremely short, requiring editorial review.
-- Do **not** count this as completed educational E2E until lesson/route visibility and role access have been tested with a real signed-in user.
+- 91 original materials published, 68 skipped, **0 failed** after source-bound dedup audit; all 159 raw source units preserved. Source-key uniqueness replaces OCR title collision.
+- All 91 source OCR blocks retain their original classification/IDs; 39 short and 3 oversized blocks are flagged for editorial quality review. 14 additional conservatively segmented paragraphs are published with 14 curriculum topics and 14 evidence-backed material-topic links. The other 4 numbered paragraphs await review.
+- Actual upload, worker processing, Supabase persistence, publication, topic/link creation and database queries are proven. Teacher/admin/student live UI visibility, production publish revision and authenticated lesson rendering still need a real signed-in acceptance receipt; do not conflate technical E2E with final release acceptance.
 
-## 3. Automatic curricular linking — IN PROGRESS
+## 3. Automatic curricular linking — IMPLEMENTED; FINAL LESSON/ROUTE USER RECEIPT OPEN
 - Keep conceptual **curriculum themes** separate from **exam question numbers** (ЕГЭ / ОГЭ).
 - Admin and teacher must be able to create subjects' curricular themes without overwriting legacy topics.
 - One published material may link to multiple topics; distinguish primary legacy `materials.topic_id` from additive `material_topic_links`.
 - Use existing `topic_prerequisites` for prerequisites (currently empty); model further relations (related / assessed_by / reinforces) with explicit provenance and review, no guessed grading keys.
 - Show actual published materials in an independent catalog; do not conflate with CSV/PCS imports, source registry, or community candidates.
-- Confident automated link should require verifiable headings/structure, match the correct subject, and support review; never guess from a 1-character OCR fragment or assign the whole textbook to one EGE question.
-- Validate in one real student lesson, then across a learning path. Do not auto-modify existing mastery, attempts, grading, teacher assignments, calendar or user history.
+- High-confidence automatic topic/material creation is in the app, based solely on numbered § headings; low-confidence cases show up in admin source preview for review. On the actual book: 14 topics and 14 links created; four ambiguous section numbers excluded. No auto-generated answer keys. Newly generated routes include source-derived topics as not_started candidates even with no earlier diagnostics.
+- Validate in one real signed-in student lesson, then generate a new learning path. Existing 78 lessons were deliberately untouched: no retrospective user-progress changes. Never auto-modify existing mastery, attempts, grading, teacher assignments, calendar or user history.
 
 ## 4. 201-case Review — PENDING
 - Locate and provide the actual 201-case source-bound review file for the user's manual inspection.
@@ -32,9 +32,12 @@ This is the canonical active sequence, retained in the app repo so the work is n
 ## 5. Independent quality & release gates — PENDING
 - Independent optical/source sample validation including Doshinsky multi-column and answer table boundaries.
 - Carry forward two previously unresolved edge cases.
-- Resolve 7 duplicate-key publication errors without losing raw source units.
+- Seven duplicate-key publication errors reconciled into audited, preserved skipped units; verify repeat-upload/idempotency as final smoke gate.
 - Confirm supported formats, student/teacher/admin permissions, source provenance, idempotency, and topic/lesson/calendar E2E.
 - Four historical ZIP archives are *not* release blockers; unpacked materials in repository supersede them.
+
+## Copyright/provenance caution
+- Goltsova OCR includes a 2014 copyright notice while the job was marked `public_domain`. This database label alone is **not** evidence of public-domain status. Verify authorization to distribute before public release.
 
 ## Release discipline
 - Python extractor private repository and rules in GitHub are source of truth for parser changes.
