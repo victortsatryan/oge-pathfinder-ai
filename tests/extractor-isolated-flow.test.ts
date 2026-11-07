@@ -13,6 +13,9 @@ import { publishExtractorJob, refreshExtractorJob, saveExtractorUnitReview, getE
 const sha = "a".repeat(64);
 const jobId = "11111111-1111-4111-8111-111111111111";
 const subjectId = "22222222-2222-4222-8222-222222222222";
+const topicOwn = "44444444-4444-4444-8444-444444444444";
+const topicForeign = "55555555-5555-4555-8555-555555555555";
+const topicMissing = "66666666-6666-4666-8666-666666666666";
 type Row = Record<string, any>;
 const rawUnit = (i: number, overrides: Row = {}) => ({
   unit_id: `u${i}`, role: "student_material", kind: "exercise", title: `Unit ${i}`,
@@ -24,6 +27,7 @@ function memoryDatabase(admin = true) {
   const tables: Record<string, Row[]> = {
     extractor_jobs: [{ id: jobId, file_sha256: sha, file_name: "isolated.txt", status: "succeeded", author: null, unit_decisions: {}, publish_report: null }],
     extractor_job_units: [], materials: [], subjects: [],
+    topics: [{ id: topicOwn, subject_id: subjectId }, { id: topicForeign, subject_id: "33333333-3333-4333-8333-333333333333" }],
   };
   let writes = 0;
   const sb = {
@@ -130,5 +134,38 @@ describe("isolated actual extractor handlers (mock DB + worker, not LIVE E2E)", 
     Object.assign(db.tables.extractor_jobs[0], { status: "fetching_result", result_next_offset: 0 });
     await invoke(refreshExtractorJob, db, { id: jobId });
     expect(db.tables.extractor_job_units).toHaveLength(45);
+  });
+});
+describe("explicit admin topic assignment (isolated mock DB)", () => {
+  const seed = (db: ReturnType<typeof memoryDatabase>) => {
+    const raws = [rawUnit(0), rawUnit(1, { role: "teacher_private", content_text: "27. answer" }), rawUnit(2, { answer: "42", usable_for_grading: true })];
+    db.tables.extractor_job_units = raws.map((raw, i) => ({ id: `row${i}`, job_id: jobId, unit_id: raw.unit_id, raw, publish_state: "pending" }));
+    db.tables.tasks = [];
+  };
+  it("assigns the chosen topic of the same subject to published materials only", async () => {
+    const db = memoryDatabase(); seed(db);
+    await invoke(publishExtractorJob, db, { ...publishInput, topic_id: topicOwn });
+    expect(db.tables.materials).toHaveLength(2);
+    expect(db.tables.materials.every(m => m.topic_id === topicOwn && m.subject_id === subjectId)).toBe(true);
+    expect(db.tables.materials[0].extractor_metadata.topic_assignment).toMatchObject({ topic_id: topicOwn, mode: "explicit_admin_batch" });
+    expect(db.tables.materials.find(m => m.extractor_metadata.unit_id === "u1")).toBeUndefined();
+    expect(db.tables.materials.every(m => m.extractor_metadata.usable_for_grading === false)).toBe(true);
+    expect(db.tables.tasks).toHaveLength(0);
+  });
+  it.each([["foreign subject", topicForeign], ["nonexistent", topicMissing]])("rejects %s topic before any write", async (_n, t) => {
+    const db = memoryDatabase(); seed(db);
+    await expect(invoke(publishExtractorJob, db, { ...publishInput, topic_id: t })).rejects.toThrow("тема");
+    expect(db.writes()).toBe(0); expect(db.tables.materials).toHaveLength(0);
+  });
+  it.each([null, undefined])("empty topic (%s) keeps topic_id null", async (t) => {
+    const db = memoryDatabase(); seed(db);
+    await invoke(publishExtractorJob, db, { ...publishInput, topic_id: t });
+    expect(db.tables.materials.length).toBeGreaterThan(0);
+    expect(db.tables.materials.every(m => m.topic_id === null && m.extractor_metadata.topic_assignment === null)).toBe(true);
+  });
+  it("rights gate still blocks even with a valid topic", async () => {
+    const db = memoryDatabase(); seed(db);
+    await expect(invoke(publishExtractorJob, db, { ...publishInput, topic_id: topicOwn, rights_basis: "unknown" })).rejects.toThrow("Права");
+    expect(db.writes()).toBe(0);
   });
 });

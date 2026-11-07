@@ -130,7 +130,7 @@ function UploadPage() {
             </div>
             {["queued", "processing", "fetching_result"].includes(j.status) && <><Progress value={j.progress} /><span className="text-xs text-muted-foreground">Этап: {j.stage ?? "—"}{j.result_total_units ? ` · блоков: ${j.result_total_units}` : ""}</span></>}
             {j.error && <p className="text-xs text-destructive">{j.error}</p>}
-            {openId === j.id && <JobDetail id={j.id} subjects={data.subjects} defaultSubject={j.subject_id} />}
+            {openId === j.id && <JobDetail id={j.id} subjects={data.subjects} topics={data.topics} defaultSubject={j.subject_id} />}
           </div>
         ))}
       </section>
@@ -138,7 +138,8 @@ function UploadPage() {
   );
 }
 
-function JobDetail({ id, subjects, defaultSubject }: { id: string; subjects: { id: string; name: string }[]; defaultSubject: string | null }) {
+function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subjects: { id: string; name: string }[]; topics: { id: string; title: string; subject_id: string }[]; defaultSubject: string | null }) {
+  const [topic, setTopic] = useState("");
   const qc = useQueryClient();
   const refresh = useServerFn(refreshExtractorJob);
   const decide = useServerFn(setExtractorUnitDecision);
@@ -154,10 +155,10 @@ function JobDetail({ id, subjects, defaultSubject }: { id: string; subjects: { i
   const pub = useMutation({
     mutationFn: async () => {
       if (q.data?.job.status === "published") await reopen({ data: { id } });
-      let r = await publish({ data: { id, subject_id: subject, rights_basis: rights, confirmed: true } });
+      let r = await publish({ data: { id, subject_id: subject, topic_id: topic || null, rights_basis: rights, confirmed: true } });
       while (r.remaining > 0) {
         setPubPct(`осталось ${r.remaining}`);
-        r = await publish({ data: { id, subject_id: subject, rights_basis: rights, confirmed: true } });
+        r = await publish({ data: { id, subject_id: subject, topic_id: topic || null, rights_basis: rights, confirmed: true } });
       }
       setPubPct(null);
       return r.total;
@@ -197,8 +198,11 @@ function JobDetail({ id, subjects, defaultSubject }: { id: string; subjects: { i
         ))}
       </details>
       <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-        <select className="h-9 rounded-md border bg-background px-2 text-sm" value={subject} onChange={(e) => setSubject(e.target.value)}>
+        <select className="h-9 rounded-md border bg-background px-2 text-sm" value={subject} onChange={(e) => { setSubject(e.target.value); setTopic(""); }}>
           <option value="">Предмет</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select aria-label="Тема" className="h-9 max-w-xs rounded-md border bg-background px-2 text-sm" value={topic} disabled={!subject} onChange={(e) => setTopic(e.target.value)}>
+          <option value="">Без темы</option>{topics.filter((t) => t.subject_id === subject).map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
         </select>
         <select className="h-9 rounded-md border bg-background px-2 text-sm" value={rights} onChange={(e) => setRights(e.target.value as typeof rights)}>
           <option value="unknown">Права не подтверждены</option><option value="own">Собственный материал</option>
@@ -208,6 +212,7 @@ function JobDetail({ id, subjects, defaultSubject }: { id: string; subjects: { i
           {pub.isPending ? `Публикация… ${pubPct ?? ""}` : job.status === "published" ? "Дополнить публикацию" : `Опубликовать для пользователей Pathy (${toPublish})`}
         </Button>
         <span className="text-xs text-muted-foreground">Видно только вошедшим пользователям Pathy. Существующие материалы и задания не изменяются.</span>
+        <p className="w-full text-xs text-muted-foreground">Тема (необязательно) назначается только материалам, публикуемым в этой партии, и только по вашему выбору. Экзаменационные задания, ключи ответов, уроки и события календаря не создаются. Если книга охватывает несколько тем, оставьте «Без темы».</p>
       </div>
     </div>
   );

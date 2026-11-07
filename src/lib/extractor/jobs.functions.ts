@@ -73,13 +73,14 @@ async function dispatch(sb: Sb, id: string) {
 export const getExtractorJobs = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.supabase, context.userId);
-    const [jobs, subjects] = await Promise.all([
+    const [jobs, subjects, topics] = await Promise.all([
       context.supabase.from("extractor_jobs").select("id,file_name,file_sha256,size_bytes,status,stage,progress,error,author,rights_basis,subject_id,created_at,updated_at,publish_report,result_total_units").order("created_at", { ascending: false }).limit(50),
       context.supabase.from("subjects").select("id,name").order("name"),
+      context.supabase.from("topics").select("id,title,subject_id").order("sort_order").limit(2000),
     ]);
     if (jobs.error) throw new Error(jobs.error.message);
     const w = worker();
-    return { jobs: jobs.data ?? [], subjects: subjects.data ?? [], workerConfigured: !!w && !("error" in w) };
+    return { jobs: jobs.data ?? [], subjects: subjects.data ?? [], topics: topics.data ?? [], workerConfigured: !!w && !("error" in w) };
   });
 
 export const registerExtractorUpload = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -259,13 +260,20 @@ export const getExtractorSourceLink = createServerFn({ method: "POST" }).middlew
 /** One batch per call; the client repeats until remaining = 0. Idempotent, never updates existing materials/tasks. */
 export const publishExtractorJob = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({
-    id: z.string().uuid(), subject_id: z.string().uuid(),
+    id: z.string().uuid(), subject_id: z.string().uuid(), topic_id: z.string().uuid().nullable().optional(),
     rights_basis: z.enum(["unknown", "own", "licensed", "public_domain"]), confirmed: z.literal(true),
   }).parse(v))
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
     await assertAdmin(sb, context.userId);
     if (!canPublishWithRights(data.rights_basis)) throw new Error("Права на использование не подтверждены — публикация заблокирована");
+    // Explicit admin choice only; applies to this batch call. Must belong to the chosen subject.
+    const topicId = data.topic_id ?? null;
+    if (topicId) {
+      const t = await sb.from("topics").select("id,subject_id").eq("id", topicId).maybeSingle();
+      if (t.error) throw new Error(t.error.message);
+      if (!t.data || t.data.subject_id !== data.subject_id) throw new Error("Выбранная тема не найдена или не относится к предмету — публикация остановлена");
+    }
     const job = await loadJob(sb, data.id);
     if (!["succeeded", "publishing", "published"].includes(job.status)) throw new Error("Результат обработки ещё не получен полностью");
     await update(sb, job.id, { status: "publishing", rights_basis: data.rights_basis, subject_id: data.subject_id });
@@ -288,13 +296,14 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
       const provenance = {
         unit_key: key, job_id: job.id, unit_id: u.unit_id, source_sha256: job.file_sha256, source_file: job.file_name, pages: u.pages,
         role: u.role, related_unit_ids: u.related_unit_ids, classification: u.decision, review_reasons: u.reasons,
-        admin_decision: decisions[u.unit_id] ?? null, usable_for_grading: false, review_status: eff.review_status,
+        admin_decision: decisions[u.unit_id] ?? null, usable_for_grading: false,
+        topic_assignment: topicId ? { topic_id: topicId, by: context.userId, mode: "explicit_admin_batch" } : null, review_status: eff.review_status,
         original_ocr_text: u.content_text, original_unit: raw as Json,
         human_correction: row.review_choice ? { choice: row.review_choice, text: row.review_choice === "accept_corrected" ? row.reviewed_text : null, by: row.reviewed_by, at: row.reviewed_at } : null,
       };
       // Visible only to signed-in users (materials SELECT is TO authenticated). Learning only, not grading.
       const mat = await sb.from("materials").insert({
-        subject_id: data.subject_id, topic_id: null, title: (u.title || u.unit_id).slice(0, 500), content_text: eff.text,
+        subject_id: data.subject_id, topic_id: topicId, title: (u.title || u.unit_id).slice(0, 500), content_text: eff.text,
         material_type: kindToMaterialType(u.kind, u.material_type), source_name: u.author, status: "published", is_public: true,
         license_type: data.rights_basis, license_note: `Источник: ${job.file_name}; стр. ${u.pages.join(", ") || "—"}${u.author ? "; автор: " + u.author : ""}; ${eff.review_status === "human_corrected" ? "исправлено вручную" : "автоизвлечено"}, не проверено для оценивания`,
         created_by: context.userId, extractor_metadata: provenance,
