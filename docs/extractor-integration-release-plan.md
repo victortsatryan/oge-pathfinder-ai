@@ -1,4 +1,4 @@
-# Pathy Content Extractor — completion checklist (2026-11-07)
+# Pathy Content Extractor — completion checklist (updated 2026-11-08)
 
 This is the canonical active sequence, retained in the app repo so the work is not lost.
 
@@ -12,17 +12,20 @@ This is the canonical active sequence, retained in the app repo so the work is n
 - Actual book: `1881_Учебник-Русский-язык-10-11-класс-Гольцова-Шамшин-Мищерина-часть-1.pdf`.
 - Pathy job `7aa99060-02c6-435d-87a9-743f3b207a7e`, status `published`.
 - 91 original materials published, 68 skipped, **0 failed** after source-bound dedup audit; all 159 raw source units preserved. Source-key uniqueness replaces OCR title collision.
-- All 91 source OCR blocks retain their original classification/IDs; 39 short and 3 oversized blocks are flagged for editorial quality review. 14 additional conservatively segmented paragraphs are published with 14 curriculum topics and 14 evidence-backed material-topic links. The other 4 numbered paragraphs await review.
-- Actual upload, worker processing, Supabase persistence, publication, topic/link creation and database queries are proven. Teacher/admin/student live UI visibility, production publish revision and authenticated lesson rendering still need a real signed-in acceptance receipt; do not conflate technical E2E with final release acceptance.
+- All 91 source OCR blocks retain their original classification/IDs; 39 short and 3 oversized blocks are flagged for editorial quality review. 14 additional conservatively segmented paragraphs remain published, but the 14 automatically-created OCR-heading topics and their links were **retracted** after methodology correction; all original topic IDs and audit metadata were preserved. Four ambiguous numbered paragraphs await review.
+- Actual upload, worker processing, Supabase persistence, publication, database creation and historical provenance are proven; live, post-approval canonical topic→material links remain to be demonstrated. Teacher/admin/student live UI visibility, production publish revision and authenticated lesson rendering still need a real signed-in acceptance receipt; do not conflate technical E2E with final release acceptance.
 
-## 3. Automatic curricular linking — IMPLEMENTED; FINAL LESSON/ROUTE USER RECEIPT OPEN
+## 3. Curriculum integration — WORKING CATALOG READY; METHODOLOGY APPROVAL & FINAL E2E OPEN
 - Keep conceptual **curriculum themes** separate from **exam question numbers** (ЕГЭ / ОГЭ).
 - Admin and teacher must be able to create subjects' curricular themes without overwriting legacy topics.
 - One published material may link to multiple topics; distinguish primary legacy `materials.topic_id` from additive `material_topic_links`.
 - Use existing `topic_prerequisites` for prerequisites (currently empty); model further relations (related / assessed_by / reinforces) with explicit provenance and review, no guessed grading keys.
 - Show actual published materials in an independent catalog; do not conflate with CSV/PCS imports, source registry, or community candidates.
-- High-confidence automatic topic/material creation is in the app, based solely on numbered § headings; low-confidence cases show up in admin source preview for review. On the actual book: 14 topics and 14 links created; four ambiguous section numbers excluded. No auto-generated answer keys. Newly generated routes include source-derived topics as not_started candidates even with no earlier diagnostics.
-- Validate in one real signed-in student lesson, then generate a new learning path. Existing 78 lessons were deliberately untouched: no retrospective user-progress changes. Never auto-modify existing mastery, attempts, grading, teacher assignments, calendar or user history.
+- **Revised rule:** source headings/notes/exercises NEVER create new curriculum topics. 224 normalized draft topics in 11 sections are seeded from Russian federal working programmes for grades 1–11, with broader grade bands and unapproved aliases. This is an editor-normalized draft, not a verbatim official codifier or validated year-by-year syllabus. See `docs/ru-curriculum-methodology-v01.md`.
+- Admin-only approval per theme. Automatic mapping uses only exact, unambiguous matches with an APPROVED existing topic; all OCR typos, ambiguous matches, and draft-only matches await review.
+- The 14 Goltsova source sections currently have `topic_id=null`, their false links were removed, and original OCR and provenance remain unchanged. No active learner lesson depends on those old links.
+- New routes accept only approved source-linked topics (never raw OCR headings); **no** topic has yet been methodologically approved. Exam question mappings and prerequisite graph are future methodological work.
+- After approving and mapping a known sample topic, validate in one real signed-in student lesson, then generate a new learning path. Existing 78 lessons were deliberately untouched: no retrospective user-progress changes. Never auto-modify existing mastery, attempts, grading, teacher assignments, calendar or user history.
 
 ## 4. 201-case Review — PENDING
 - Locate and provide the actual 201-case source-bound review file for the user's manual inspection.
