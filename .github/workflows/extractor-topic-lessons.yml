@@ -16,6 +16,6 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - run: npm install --legacy-peer-deps --no-save --package-lock=false --no-audit --no-fund
       - run: npx vitest run --config vitest.extractor.config.ts
       - run: npx tsc -b --noEmit
