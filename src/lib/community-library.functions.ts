@@ -199,7 +199,7 @@ export const listPublicLibrary = createServerFn({ method: "POST" })
       .from("materials")
       .select(
         sel(
-          "id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes, subject_id, topic_id, subjects(name), topics(title)",
+          "id, title, description, material_type, source_name, source_url, video_url, difficulty, estimated_time_minutes, subject_id, topic_id, subjects(name), topics:topics!materials_topic_id_fkey(title)",
         ),
         { count: "exact" },
       )
