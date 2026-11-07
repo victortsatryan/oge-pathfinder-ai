@@ -150,7 +150,7 @@ export const generateLearningPath = createServerFn({ method: "POST" })
     // A paragraph heading is NOT a curriculum topic. Only topics explicitly
     // approved by curriculum editors may be offered as new route candidates.
     const reviewed = sourceTopicIds.length
-      ? await sb.from("curriculum_topic_meta").select("topic_id")
+      ? await (sb as any).from("curriculum_topic_meta").select("topic_id")
           .in("topic_id",sourceTopicIds).eq("review_status","approved")
       : { data: [], error: null };
     if (reviewed.error) throw new Error(reviewed.error.message);
