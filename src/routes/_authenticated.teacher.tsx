@@ -9,7 +9,9 @@ const NAV: NavItem[] = [
   { label: "Занятия", to: "/teacher/lessons" },
   { label: "Аналитика", to: "/teacher/analytics" },
   { label: "Советник", to: "/teacher/advisor" },
-  { label: "Библиотека", to: "/teacher/library" },
+  { label: "Библиотека сообщества", to: "/teacher/library" },
+  { label: "Материалы Pathy", to: "/teacher/materials" },
+  { label: "Темы", to: "/teacher/topics" },
   { label: "Профиль", to: "/teacher/profile" },
 ];
 
