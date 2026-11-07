@@ -8,6 +8,7 @@ import {
   kindToMaterialType, magicMatches, parseResultPage, parseWorkerStatus, sourceExtension, stableUnitKey,
 } from "./pipeline";
 import { needsContentReview, topicBelongsToSubject } from "./topic-linking";
+import { sourceUnitQuality } from "./source-sections";
 
 type Sb = SupabaseClient<Database>;
 const BUCKET = "extractor-sources";
@@ -297,7 +298,7 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
       const provenance = {
         unit_key: key, job_id: job.id, unit_id: u.unit_id, source_sha256: job.file_sha256, source_file: job.file_name, pages: u.pages,
         role: u.role, related_unit_ids: u.related_unit_ids, classification: u.decision, review_reasons: u.reasons,
-        admin_decision: decisions[u.unit_id] ?? null, usable_for_grading: false,
+        admin_decision: decisions[u.unit_id] ?? null, usable_for_grading: false, quality_status: sourceUnitQuality(eff.text, u.title, u.kind),
         topic_assignment: topicId ? { topic_id: topicId, by: context.userId, mode: "explicit_admin_batch" } : null, review_status: eff.review_status,
         original_ocr_text: u.content_text, original_unit: raw as Json,
         human_correction: row.review_choice ? { choice: row.review_choice, text: row.review_choice === "accept_corrected" ? row.reviewed_text : null, by: row.reviewed_by, at: row.reviewed_at } : null,
