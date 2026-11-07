@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSourceSections } from "../src/lib/extractor/source-sections";
+import { parseSourceSections, sourceUnitQuality } from "../src/lib/extractor/source-sections";
 
 const section = (n: number, title: string, body = "Содержимое учебного параграфа с примерами и объяснением. ".repeat(12)) =>
   "\n§ " + n + ". " + title + "\n" + body;
@@ -27,5 +27,20 @@ describe("evidence-bound curriculum extraction", () => {
     const content=section(8,"Происхождение лексики", "Русский язык и его история. ".repeat(650));
     const result=parseSourceSections([{id:"a",title:"Книга",content_text:content}]);
     expect(result[0].confidence).toBe("review");
+  });
+});
+
+describe("source publication quality gates", () => {
+  it("flags short and merged OCR independently of successful publication", () => {
+    expect(sourceUnitQuality("|","|","artifact")).toBe("needs_review_short_ocr");
+    expect(sourceUnitQuality("текст".repeat(3000),"Глава","paragraph")).toBe("needs_review_merged_sections");
+    expect(sourceUnitQuality("Объяснение ".repeat(30),"Состав слова","paragraph")).toBe("source_ocr_unverified");
+  });
+  it("rejects headings whose OCR line terminates mid-phrase", () => {
+    const raw = section(9, "Лексика общеупотребительная и лексика,") + section(10,"Употребление устаревшей лексики и неологизмов");
+    const result = parseSourceSections([{ id: "src", title: "Гольцова", content_text: raw }]);
+    expect(result.find(x=>x.number===9)?.confidence).toBe("review");
+    expect(result.find(x=>x.number===9)?.review_reason).toBe("truncated_section_heading");
+    expect(result.find(x=>x.number===10)?.confidence).toBe("high");
   });
 });
