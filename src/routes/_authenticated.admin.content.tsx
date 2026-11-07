@@ -31,15 +31,17 @@ function ContentLayout() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Pathy Studio</h1>
-          <p className="text-sm text-muted-foreground">Управление образовательным контентом (PCS v1)</p>
+          <p className="text-sm text-muted-foreground">Учебная программа, темы, опубликованные материалы и загрузка книг</p>
         </div>
         <nav className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm"><Link to="/admin/content">Dashboard</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content">Обзор</Link></Button>
           <Button asChild variant="outline" size="sm"><Link to="/admin/content/upload">Загрузка источника</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/import">Импорт</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/content/programs">Программы</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/content/objectives">Learning Objectives</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link to="/admin/content/history">История импортов</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/import">CSV / PCS импорт</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content/materials">Материалы Pathy</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content/topics">Управление темами</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content/programs">Дерево программ</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content/objectives">Результаты обучения</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/admin/content/history">Журнал CSV / PCS</Link></Button>
         </nav>
       </div>
       <Outlet />
