@@ -129,7 +129,7 @@ export function canCreateTask(_raw: Record<string, any>): boolean {
 }
 
 /** Worker OCR post-correction version required before any reprocess revision is dispatched. */
-export const OCR_CORRECTION_VERSION = "pathy-ocr-postcorrection-v1";
+export const OCR_CORRECTION_VERSION = "pathy-ocr-postcorrection-v2";
 
 /** GET /health must report exactly the supported correction version; anything else fails safe. */
 export function workerCorrectionVersion(health: unknown): string | null {
