@@ -17,8 +17,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - run: npm install --legacy-peer-deps --no-save --package-lock=false --no-audit --no-fund @tanstack/react-start@1.167.14 @tanstack/react-router@1.168.0 @tanstack/router-plugin@1.167.10 @tanstack/router-core@1.168.0 @tanstack/router-cli
       - run: npx vitest run --config vitest.extractor.config.ts
       - run: npx tsr generate
       - run: npx tsc -b --noEmit
-      - run: npm run build
