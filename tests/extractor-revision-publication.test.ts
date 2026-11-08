@@ -27,7 +27,7 @@ function machineRaw() {
     },
   };
 }
-const approved = (raw = machineRaw()) => ({
+const approved = (raw: Record<string, any> = machineRaw()) => ({
   raw, review_choice: "accept_corrected", reviewed_text: raw.content_text,
   reviewed_by: "user-admin-1", reviewed_at: "2026-11-08T10:03:00Z",
 });
