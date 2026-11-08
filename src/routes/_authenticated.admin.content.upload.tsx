@@ -442,7 +442,8 @@ function PublishedTopicLinker({ jobId, topics }: {
 }
 
 type ReviewUnit = { unit_id: string; title: string; pages: number[]; reasons: string[]; content_text: string; reviewed_text: string | null; review_choice: string | null; reviewed_at: string | null; state: string;
-  original_content_text?: string | null; machine_patch_count?: number; material_id?: string | null };
+  original_content_text?: string | null; machine_patch_count?: number; material_id?: string | null;
+  machine_changes?: { before: string; after: string; page: number | null; reason: string; source_verified: boolean }[] };
 
 /** Built-in review: full raw OCR (read-only) beside an editable correction. Raw unit is never changed. */
 function UnitReview({ jobId, unit, isRevision, canApplyRevision, onSaved }: {
@@ -495,7 +496,22 @@ function UnitReview({ jobId, unit, isRevision, canApplyRevision, onSaved }: {
       </div>
       <ul className="text-xs text-destructive list-disc pl-4">{unit.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
       {isRevision && !unit.material_id && <p className="text-xs text-muted-foreground">У этого блока нет соответствующего опубликованного материала исходной версии. Автоматическая замена не выполняется.</p>}
-      {isRevision && unit.machine_patch_count && <p className="text-xs text-muted-foreground">Слева сохранён исходный OCR, справа — машинное предложение. Перед применением сверьте его с печатной страницей.</p>}
+      {isRevision && unit.machine_patch_count && <>
+        <p className="text-xs text-muted-foreground">Слева сохранён исходный OCR, справа — машинное предложение. Перед применением сверьте его с печатной страницей.</p>
+        <details className="rounded-md border p-2 text-xs">
+          <summary className="cursor-pointer font-medium">Список замен ({unit.machine_changes?.length ?? 0}) — исходное → исправленное</summary>
+          <div className="mt-2 max-h-72 space-y-1 overflow-auto">
+            {unit.machine_changes?.map((change, index) => (
+              <div key={index} className="flex flex-wrap gap-x-2 gap-y-1 border-b py-1">
+                <span className="font-mono text-destructive">{change.before}</span>
+                <span aria-hidden>→</span>
+                <span className="font-mono">{change.after}</span>
+                <span className="ml-auto text-muted-foreground">стр. {change.page ?? "—"} · {change.source_verified ? "сверено с печатью" : "без визуальной сверки"}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      </>}
       <div className="grid gap-2 md:grid-cols-2">
         <label className="space-y-1"><span className="text-xs text-muted-foreground">Исходный OCR (не изменяется)</span>
           <textarea readOnly className="h-64 w-full rounded-md border bg-muted/40 p-2 font-mono text-xs" value={originalText} /></label>
