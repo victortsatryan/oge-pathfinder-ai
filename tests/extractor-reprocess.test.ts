@@ -111,8 +111,8 @@ afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("pure revision rules", () => {
   it("accepts only the exact correction version", () => {
-    expect(workerCorrectionVersion(goodHealth)).toBe("pathy-ocr-postcorrection-v1");
-    for (const h of [{ status: "live" }, { ocr_correction_version: "pathy-ocr-postcorrection-v2" }, { ocr_correction_version: " pathy-ocr-postcorrection-v1" }, null, "x"]) {
+    expect(workerCorrectionVersion(goodHealth)).toBe(OCR_CORRECTION_VERSION);
+    for (const h of [{ status: "live" }, { ocr_correction_version: "pathy-ocr-postcorrection-v1" }, { ocr_correction_version: " pathy-ocr-postcorrection-v2" }, null, "x"]) {
       expect(workerCorrectionVersion(h)).toBeNull();
     }
   });
@@ -135,7 +135,7 @@ describe("reprocessExtractorJob (isolated mock DB + worker)", () => {
     ["other version", { ocr_correction_version: "pathy-ocr-postcorrection-v0" }],
   ])("fails safe on %s: no job created, nothing dispatched", async (_n, health) => {
     const db = memoryDb(); const calls = stubWorker(health);
-    await expect(invoke(reprocessExtractorJob, db, { id: rootId })).rejects.toThrow("pathy-ocr-postcorrection-v1");
+    await expect(invoke(reprocessExtractorJob, db, { id: rootId })).rejects.toThrow("не создана");
     expect(db.tables.extractor_jobs).toHaveLength(1);
     expect(calls.map((c) => c.url)).toEqual(["https://worker.invalid/health"]);
     expect(db.writes()).toBe(0); expect(db.unchanged()).toBe(true);
@@ -205,7 +205,7 @@ describe("reprocessExtractorJob (isolated mock DB + worker)", () => {
     const db = memoryDb(); stubWorker(goodHealth, { postStatus: 500 });
     const r = await invoke(reprocessExtractorJob, db, { id: rootId });
     const calls = stubWorker({ status: "live" });
-    await expect(invoke(retryExtractorJob, db, { id: r.id })).rejects.toThrow("pathy-ocr-postcorrection-v1");
+    await expect(invoke(retryExtractorJob, db, { id: r.id })).rejects.toThrow("не создана");
     expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 });
