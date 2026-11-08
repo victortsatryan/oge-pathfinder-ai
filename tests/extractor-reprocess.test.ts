@@ -244,7 +244,7 @@ describe("revision-safe upload dedup and publication guard", () => {
 describe("admin revision update of existing published materials", () => {
   function makeReviewed(db: ReturnType<typeof memoryDb>, revisionId: string, overrides: Row = {}) {
     db.tables.extractor_jobs.find(j => j.id === revisionId)!.status = "succeeded";
-    const unit = {
+    const unit: Row = {
       id: "revision-unit", job_id: revisionId, unit_id: "u1", publish_state: "pending",
       raw: { unit_id: "u1", title: "Учебник", kind: "theory",
         role: "student_material", usable_for_learning: true, usable_for_grading: false,
