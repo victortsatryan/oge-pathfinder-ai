@@ -290,6 +290,14 @@ export const refreshExtractorJob = createServerFn({ method: "POST" }).middleware
         content_text: currentDecision === "confident" ? "" : c.content_text,
         original_content_text: originalText,
         machine_patch_count: machine ? raw.machine_correction.patches?.length ?? 0 : 0,
+        machine_changes: machine && Array.isArray(raw.machine_correction.patches)
+          ? raw.machine_correction.patches.map((p: Record<string, any>) => ({
+              before: String(p.before ?? ""), after: String(p.after ?? ""),
+              page: Number.isInteger(p.page) ? p.page : null,
+              reason: String(p.reason ?? "machine_candidate"),
+              source_verified: p.printed_glyph_verified === true,
+            }))
+          : [],
         material_id: fresh.revision > 1 ? rootMaterialByUnit.get(c.unit_id) ?? null : null,
         reviewed_text: r.reviewed_text, review_choice: r.review_choice, reviewed_at: r.reviewed_at,
         admin: decisions[c.unit_id] ?? null,
