@@ -21,3 +21,4 @@ jobs:
       - run: npx vitest run --config vitest.extractor.config.ts
       - run: npx tsr generate
       - run: npx tsc -b --noEmit
+      - run: npm run build
