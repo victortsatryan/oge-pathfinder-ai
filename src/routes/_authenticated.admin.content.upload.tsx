@@ -222,8 +222,13 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
   const revisionNote = isRevision && (
     <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-1">
       <p className="font-medium">Повторная обработка · версия {job.revision}{job.worker_rule_version ? ` · корректор ${job.worker_rule_version}` : ""}</p>
-      <p>Текст в этой версии исправлен машинно и не проверен человеком. Публикация этой версии запрещена до отдельного аудита и явного решения о замене.</p>
-      <p className="text-muted-foreground">Исходная обработка (версия 1) и уже опубликованные материалы не изменяются.</p>
+      {job.worker_rule_version === "pathy-ocr-postcorrection-v2" ? <>
+        <p>Машинные исправления сами по себе не проверены. Пакетная публикация запрещена; применять можно только конкретные исправления после сохранённого ручного подтверждения.</p>
+        <p className="text-muted-foreground">Исходный OCR сохраняется. При применении отдельной правки предыдущий опубликованный текст записывается в историю изменений.</p>
+      </> : <>
+        <p>Текст в этой версии исправлен машинно и не проверен человеком. Публикация этой версии запрещена до отдельного аудита и явного решения о замене.</p>
+        <p className="text-muted-foreground">Исходная обработка (версия 1) и уже опубликованные материалы не изменяются.</p>
+      </>}
     </div>
   );
   if (!units.length || !["succeeded", "publishing", "published"].includes(job.status)) return <div className="space-y-2 border-t pt-3">{revisionNote}<p className="text-sm text-muted-foreground">Результат разбора ещё не получен полностью{units.length ? ` (получено блоков: ${units.length})` : ""}.</p></div>;
