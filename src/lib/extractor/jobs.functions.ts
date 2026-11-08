@@ -10,6 +10,10 @@ import {
 } from "./pipeline";
 import { needsContentReview, topicBelongsToSubject } from "./topic-linking";
 import { sourceUnitQuality } from "./source-sections";
+import {
+  REVISION_CORRECTION_VERSION, approvedRevisionText, appendCorrectionHistory,
+  correctionAlreadyApplied, sha256Text,
+} from "./revision-publication.server";
 
 type Sb = SupabaseClient<Database>;
 const BUCKET = "extractor-sources";
@@ -53,7 +57,7 @@ async function correctionWorkerVersion(): Promise<string> {
   try { health = await call(w, "/health"); }
   catch (e) { throw new Error("Не удалось проверить обработчик (" + (e instanceof Error ? e.message : "нет ответа") + ") — повторная обработка не создана"); }
   const version = workerCorrectionVersion(health);
-  if (!version) throw new Error("На обработчике не развернута версия корректора pathy-ocr-postcorrection-v1 — повторная обработка не создана");
+  if (!version) throw new Error("На обработчике не развернута утверждённая версия OCR-корректора — повторная обработка не создана");
   return version;
 }
 
@@ -260,14 +264,37 @@ export const refreshExtractorJob = createServerFn({ method: "POST" }).middleware
     const decisions = (fresh.unit_decisions ?? {}) as Record<string, "accept" | "reject">;
     const rows = await sb.from("extractor_job_units").select("unit_id,raw,publish_state,reviewed_text,review_choice,reviewed_at").eq("job_id", fresh.id).order("position").limit(5000);
     if (rows.error) throw new Error(rows.error.message);
+    // Reprocess revisions must expose source before/after even when the
+    // legacy extractor confidently classified the unit. They never publish
+    // without explicit review. Match only materials from the original job.
+    const originals = fresh.revision > 1
+      ? await sb.from("materials").select("id,extractor_metadata")
+          .eq("extractor_metadata->>job_id", fresh.parent_job_id!).limit(5000)
+      : null;
+    if (originals?.error) throw new Error(originals.error.message);
+    const rootMaterialByUnit = new Map<string, string>();
+    for (const m of originals?.data ?? []) {
+      const meta = m.extractor_metadata as Record<string, any> | null;
+      if (meta?.unit_id && meta?.source_sha256 === fresh.file_sha256)
+        rootMaterialByUnit.set(String(meta.unit_id), m.id);
+    }
     const units = (rows.data ?? []).map((r) => {
-      const c = classifyUnit(r.raw as Record<string, any>, fresh.author);
-      return { unit_id: c.unit_id, title: c.title, kind: c.kind, pages: c.pages, role: c.role, decision: c.decision, reasons: c.reasons,
-        // Full OCR text for units needing review (no truncation); confident units are not edited.
-        content_text: c.decision === "confident" ? "" : c.content_text,
+      const raw = r.raw as Record<string, any>;
+      const c = classifyUnit(raw, fresh.author);
+      const machine = fresh.revision > 1 && !!raw.machine_correction && c.decision !== "private" && c.decision !== "invalid";
+      const currentDecision = machine ? "review" as const : c.decision;
+      const originalText = machine && typeof raw.original_presentation_text === "string" ? raw.original_presentation_text : null;
+      return { unit_id: c.unit_id, title: c.title, kind: c.kind, pages: c.pages, role: c.role,
+        decision: currentDecision, reasons: machine ? [...c.reasons, "Машинная коррекция — сверить с оригиналом"] : c.reasons,
+        // Full text for review, including previously 'confident' machine edits.
+        content_text: currentDecision === "confident" ? "" : c.content_text,
+        original_content_text: originalText,
+        machine_patch_count: machine ? raw.machine_correction.patches?.length ?? 0 : 0,
+        material_id: fresh.revision > 1 ? rootMaterialByUnit.get(c.unit_id) ?? null : null,
         reviewed_text: r.reviewed_text, review_choice: r.review_choice, reviewed_at: r.reviewed_at,
         admin: decisions[c.unit_id] ?? null,
-        publish: effectivePublication(c, r.review_choice as any, r.reviewed_text, decisions[c.unit_id]).publish, state: r.publish_state };
+        publish: fresh.revision > 1 ? false : effectivePublication(c, r.review_choice as any, r.reviewed_text, decisions[c.unit_id]).publish,
+        state: r.publish_state };
     });
     const { result: _r, ...meta } = fresh;
     return { job: meta, units, workerConfigured: ok !== null };
