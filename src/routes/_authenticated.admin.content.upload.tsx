@@ -13,6 +13,7 @@ import {
   getExtractorJobs, publishExtractorJob, refreshExtractorJob, registerExtractorUpload,
   getExtractorSourceLink, getPublishedExtractorMaterials, addPublishedExtractorMaterialTopicLinks,
   reopenSkippedUnits, reprocessExtractorJob, retryExtractorJob, saveExtractorUnitReview,
+  publishApprovedExtractorCorrections,
   setExtractorUnitDecision, setPublishedExtractorMaterialsTopic,
 } from "@/lib/extractor/jobs.functions";
 import { MAX_SOURCE_BYTES, SOURCE_EXTENSIONS, sourceExtension } from "@/lib/extractor/pipeline";
@@ -237,7 +238,9 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
       {review.length > 0 && <h3 className="text-sm font-semibold">Требуют решения</h3>}
       {units.filter((u) => u.decision === "review" || u.decision === "invalid").map((u) => (
         u.decision === "review"
-          ? <UnitReview key={u.unit_id} jobId={id} unit={u} onSaved={() => q.refetch()} />
+          ? <UnitReview key={u.unit_id} jobId={id} unit={u} isRevision={isRevision}
+               canApplyRevision={isRevision && job.worker_rule_version === "pathy-ocr-postcorrection-v2"}
+               onSaved={() => q.refetch()} />
           : (
             <div key={u.unit_id} className="rounded border p-2 text-sm space-y-1">
               <span className="font-medium">{u.title || u.unit_id}</span>
@@ -438,22 +441,37 @@ function PublishedTopicLinker({ jobId, topics }: {
   );
 }
 
-type ReviewUnit = { unit_id: string; title: string; pages: number[]; reasons: string[]; content_text: string; reviewed_text: string | null; review_choice: string | null; reviewed_at: string | null; state: string };
+type ReviewUnit = { unit_id: string; title: string; pages: number[]; reasons: string[]; content_text: string; reviewed_text: string | null; review_choice: string | null; reviewed_at: string | null; state: string;
+  original_content_text?: string | null; machine_patch_count?: number; material_id?: string | null };
 
 /** Built-in review: full raw OCR (read-only) beside an editable correction. Raw unit is never changed. */
-function UnitReview({ jobId, unit, onSaved }: { jobId: string; unit: ReviewUnit; onSaved: () => void }) {
+function UnitReview({ jobId, unit, isRevision, canApplyRevision, onSaved }: {
+  jobId: string; unit: ReviewUnit; isRevision: boolean; canApplyRevision: boolean; onSaved: () => void;
+}) {
   const save = useServerFn(saveExtractorUnitReview);
   const link = useServerFn(getExtractorSourceLink);
+  const applyApproved = useServerFn(publishApprovedExtractorCorrections);
   const [text, setText] = useState(unit.reviewed_text ?? unit.content_text);
   const [busy, setBusy] = useState(false);
   const locked = unit.state === "published";
-  const changed = text.trim() !== unit.content_text.trim();
+  const originalText = unit.original_content_text ?? unit.content_text;
+  const changed = text.trim() !== originalText.trim();
   const act = async (choice: "accept_corrected" | "keep_original" | "reject" | null) => {
     setBusy(true);
     try {
       await save({ data: { id: jobId, unit_id: unit.unit_id, choice, reviewed_text: choice === "accept_corrected" || (choice === null && changed) ? text : null } });
       toast.success("Решение сохранено"); onSaved();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка"); } finally { setBusy(false); }
+  };
+  const publishChecked = async () => {
+    if (!window.confirm("Применить именно этот подтверждённый текст к существующему материалу Pathy?\n\nПредыдущий текст сохранится в журнале изменений. Другие материалы не изменятся.")) return;
+    setBusy(true);
+    try {
+      const r = await applyApproved({ data: { id: jobId, unit_ids: [unit.unit_id], confirmed: true } });
+      toast.success(r.applied ? "Исправление опубликовано; предыдущий текст сохранён" : "Исправление уже применено");
+      onSaved();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка публикации"); }
+    finally { setBusy(false); }
   };
   const open = async (page: number | null) => {
     const w = window.open("about:blank", "_blank"); if (w) w.opener = null;
@@ -467,6 +485,7 @@ function UnitReview({ jobId, unit, onSaved }: { jobId: string; unit: ReviewUnit;
         <span className="font-medium">{unit.title || unit.unit_id}</span>
         <span className="text-xs text-muted-foreground">ID {unit.unit_id} · стр. {unit.pages.join(", ") || "—"}</span>
         {unit.review_choice && <Badge variant="secondary">{CHOICE[unit.review_choice]}{unit.reviewed_at ? " · " + new Date(unit.reviewed_at).toLocaleString("ru-RU") : ""}</Badge>}
+        {unit.machine_patch_count ? <Badge variant="outline">Машинных замен: {unit.machine_patch_count}</Badge> : null}
         {locked && <Badge>Опубликован</Badge>}
         <div className="ml-auto flex flex-wrap gap-1">
           {(unit.pages.length ? unit.pages : [null]).slice(0, 4).map((p) => (
@@ -475,9 +494,11 @@ function UnitReview({ jobId, unit, onSaved }: { jobId: string; unit: ReviewUnit;
         </div>
       </div>
       <ul className="text-xs text-destructive list-disc pl-4">{unit.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+      {isRevision && !unit.material_id && <p className="text-xs text-muted-foreground">У этого блока нет соответствующего опубликованного материала исходной версии. Автоматическая замена не выполняется.</p>}
+      {isRevision && unit.machine_patch_count && <p className="text-xs text-muted-foreground">Слева сохранён исходный OCR, справа — машинное предложение. Перед применением сверьте его с печатной страницей.</p>}
       <div className="grid gap-2 md:grid-cols-2">
         <label className="space-y-1"><span className="text-xs text-muted-foreground">Исходный OCR (не изменяется)</span>
-          <textarea readOnly className="h-64 w-full rounded-md border bg-muted/40 p-2 font-mono text-xs" value={unit.content_text} /></label>
+          <textarea readOnly className="h-64 w-full rounded-md border bg-muted/40 p-2 font-mono text-xs" value={originalText} /></label>
         <label className="space-y-1"><span className="text-xs text-muted-foreground">Исправленный текст {changed ? "· изменён" : "· совпадает с исходным"}</span>
           <textarea disabled={locked} className="h-64 w-full rounded-md border bg-background p-2 font-mono text-xs" value={text} onChange={(e) => setText(e.target.value)} /></label>
       </div>
@@ -488,6 +509,9 @@ function UnitReview({ jobId, unit, onSaved }: { jobId: string; unit: ReviewUnit;
           <Button size="sm" variant="destructive" disabled={busy} onClick={() => act("reject")}>Отклонить</Button>
           <Button size="sm" variant="ghost" disabled={busy || !changed} onClick={() => act(null)}>Сохранить черновик правки</Button>
           {unit.review_choice && <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(null)}>Снять решение</Button>}
+          {isRevision && canApplyRevision && unit.material_id && ["accept_corrected", "keep_original"].includes(unit.review_choice ?? "") && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={publishChecked}>Применить к опубликованному материалу</Button>
+          )}
         </div>
       )}
     </div>
