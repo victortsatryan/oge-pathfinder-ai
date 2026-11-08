@@ -128,6 +128,24 @@ export function canCreateTask(_raw: Record<string, any>): boolean {
   return false; // v0.6 is learning-only; even a supplied answer is not grading authorization.
 }
 
+/** Worker OCR post-correction version required before any reprocess revision is dispatched. */
+export const OCR_CORRECTION_VERSION = "pathy-ocr-postcorrection-v1";
+
+/** GET /health must report exactly the supported correction version; anything else fails safe. */
+export function workerCorrectionVersion(health: unknown): string | null {
+  const b = (health ?? {}) as Record<string, unknown>;
+  return b.ocr_correction_version === OCR_CORRECTION_VERSION ? OCR_CORRECTION_VERSION : null;
+}
+
+/** Only the original upload (revision 1) may publish; reprocess revisions are audit-only for now. */
+export function canPublishRevision(revision: number | null | undefined): boolean {
+  return (revision ?? 1) === 1;
+}
+
+/** Jobs that already ran to completion (or failed) and may be used to start a new revision. */
+export const REPROCESS_ROOT_STATUSES = ["succeeded", "published"] as const;
+export const IN_FLIGHT_STATUSES = ["uploaded", "queued", "processing", "fetching_result"] as const;
+
 /** Stable identity across re-runs: source SHA + extractor unit id. */
 export function stableUnitKey(sha: string, unitId: string): string {
   return `${sha}:${unitId}`;

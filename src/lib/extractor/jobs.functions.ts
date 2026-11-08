@@ -4,8 +4,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import {
-  MAX_SOURCE_BYTES, PUBLISH_BATCH, RESULT_PAGE_LIMIT, canPublishWithRights, classifyUnit, effectivePublication,
-  kindToMaterialType, magicMatches, parseResultPage, parseWorkerStatus, sourceExtension, stableUnitKey,
+  IN_FLIGHT_STATUSES, MAX_SOURCE_BYTES, PUBLISH_BATCH, REPROCESS_ROOT_STATUSES, RESULT_PAGE_LIMIT, canPublishRevision,
+  canPublishWithRights, classifyUnit, effectivePublication, kindToMaterialType, magicMatches, parseResultPage,
+  parseWorkerStatus, sourceExtension, stableUnitKey, workerCorrectionVersion,
 } from "./pipeline";
 import { needsContentReview, topicBelongsToSubject } from "./topic-linking";
 import { sourceUnitQuality } from "./source-sections";
@@ -43,6 +44,19 @@ async function call(w: { url: string; token: string }, path: string, init?: Requ
   return body as Record<string, any>;
 }
 
+/** Server-only gate: worker configured AND GET /health reports the exact OCR correction version. Throws otherwise. */
+async function correctionWorkerVersion(): Promise<string> {
+  const w = worker();
+  if (!w) throw new Error("Обработчик не подключён — повторная обработка не создана");
+  if ("error" in w) throw new Error(w.error + " — повторная обработка не создана");
+  let health: unknown;
+  try { health = await call(w, "/health"); }
+  catch (e) { throw new Error("Не удалось проверить обработчик (" + (e instanceof Error ? e.message : "нет ответа") + ") — повторная обработка не создана"); }
+  const version = workerCorrectionVersion(health);
+  if (!version) throw new Error("На обработчике не развернута версия корректора pathy-ocr-postcorrection-v1 — повторная обработка не создана");
+  return version;
+}
+
 async function loadJob(sb: Sb, id: string) {
   const r = await sb.from("extractor_jobs").select("*").eq("id", id).single();
   if (r.error) throw new Error(r.error.message);
@@ -76,7 +90,7 @@ export const getExtractorJobs = createServerFn({ method: "GET" }).middleware([re
   .handler(async ({ context }) => {
     await assertAdmin(context.supabase, context.userId);
     const [jobs, subjects, topics] = await Promise.all([
-      context.supabase.from("extractor_jobs").select("id,file_name,file_sha256,size_bytes,status,stage,progress,error,author,rights_basis,subject_id,created_at,updated_at,publish_report,result_total_units").order("created_at", { ascending: false }).limit(50),
+      context.supabase.from("extractor_jobs").select("id,file_name,file_sha256,size_bytes,status,stage,progress,error,author,rights_basis,subject_id,created_at,updated_at,publish_report,result_total_units,revision,parent_job_id,worker_rule_version").order("created_at", { ascending: false }).limit(50),
       context.supabase.from("subjects").select("id,name").eq("is_public", true).order("name"),
       context.supabase.from("topics").select("id,title,subject_id").order("sort_order").limit(2000),
     ]);
@@ -97,7 +111,8 @@ export const registerExtractorUpload = createServerFn({ method: "POST" }).middle
     const ext = sourceExtension(data.file_name);
     if (!ext) throw new Error("Неподдерживаемый тип файла");
     if (!data.storage_path.startsWith(`${data.file_sha256}/`)) throw new Error("Путь файла не соответствует SHA-256");
-    const prior = await sb.from("extractor_jobs").select("id").eq("file_sha256", data.file_sha256).maybeSingle();
+    // Dedup on the root upload only: later reprocess revisions share the SHA.
+    const prior = await sb.from("extractor_jobs").select("id").eq("file_sha256", data.file_sha256).eq("revision", 1).maybeSingle();
     if (prior.error) throw new Error(prior.error.message);
     if (prior.data) return { id: prior.data.id, duplicate: true };
     // No full download: check size and magic bytes only. The SHA is verified by the worker against source_sha256.
@@ -112,11 +127,11 @@ export const registerExtractorUpload = createServerFn({ method: "POST" }).middle
     if (!magicMatches(ext, bytes)) throw new Error("Содержимое файла не соответствует расширению ." + ext);
     const ins = await sb.from("extractor_jobs").insert({
       file_sha256: data.file_sha256, file_name: data.file_name, mime_type: data.mime_type, size_bytes: size,
-      storage_path: data.storage_path, subject_id: data.subject_id, author: data.author || null, created_by: context.userId,
+      storage_path: data.storage_path, subject_id: data.subject_id, author: data.author || null, created_by: context.userId, revision: 1,
     }).select("id").single();
     if (ins.error) {
       if (ins.error.code === "23505") {
-        const again = await sb.from("extractor_jobs").select("id").eq("file_sha256", data.file_sha256).single();
+        const again = await sb.from("extractor_jobs").select("id").eq("file_sha256", data.file_sha256).eq("revision", 1).single();
         if (again.error || !again.data) throw new Error("Не удалось найти повторную загрузку");
         return { id: again.data.id, duplicate: true };
       }
@@ -132,8 +147,58 @@ export const retryExtractorJob = createServerFn({ method: "POST" }).middleware([
     await assertAdmin(context.supabase, context.userId);
     const job = await loadJob(context.supabase, data.id);
     if (!["failed", "worker_not_configured", "uploaded"].includes(job.status)) throw new Error("Повтор возможен только после ошибки");
+    // A reprocess revision may only be re-sent to a worker that still runs the verified corrector.
+    if ((job.revision ?? 1) > 1) {
+      const version = await correctionWorkerVersion();
+      await update(context.supabase, job.id, { worker_rule_version: version });
+    }
     await dispatch(context.supabase, data.id);
     return { ok: true };
+  });
+
+/**
+ * Admin-only: start a NEW processing revision of an already completed source.
+ * The original job, its units and its published materials are never modified.
+ * The new revision is audit-only (publication is blocked in code and by a DB check).
+ */
+export const reprocessExtractorJob = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ id: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    await assertAdmin(sb, context.userId);
+    const picked = await loadJob(sb, data.id);
+    if (![...REPROCESS_ROOT_STATUSES, "failed"].includes(picked.status as any)) throw new Error("Повторная обработка доступна только для завершённых обработок");
+    const root = picked.parent_job_id ? await loadJob(sb, picked.parent_job_id) : picked;
+    if ((root.revision ?? 1) !== 1 || root.parent_job_id) throw new Error("Исходная обработка не найдена");
+    if (root.file_sha256 !== picked.file_sha256) throw new Error("SHA-256 версии не совпадает с исходной обработкой");
+    if (!(REPROCESS_ROOT_STATUSES as readonly string[]).includes(root.status)) throw new Error("Исходная обработка ещё не завершена");
+    if (!root.storage_path.startsWith(`${root.file_sha256}/`)) throw new Error("Путь исходного файла не соответствует SHA-256");
+    // Health gate BEFORE any write: no row is created unless the corrector is actually deployed.
+    const version = await correctionWorkerVersion();
+    const info = await sb.storage.from(BUCKET).info(root.storage_path);
+    if (info.error || !info.data) throw new Error("Исходный файл не найден в хранилище — повторная обработка не создана");
+    if (Number(info.data.size ?? 0) !== Number(root.size_bytes)) throw new Error("Размер исходного файла изменился — повторная обработка не создана");
+    let newId: string | null = null;
+    for (let attempt = 0; attempt < 3 && !newId; attempt++) {
+      const revs = await sb.from("extractor_jobs").select("id,revision,status").eq("file_sha256", root.file_sha256).order("revision", { ascending: false }).limit(50);
+      if (revs.error) throw new Error(revs.error.message);
+      const rows = revs.data ?? [];
+      if (rows.some((r) => r.revision > 1 && (IN_FLIGHT_STATUSES as readonly string[]).includes(r.status))) {
+        throw new Error("Повторная обработка этого источника уже выполняется");
+      }
+      const next = Math.max(1, ...rows.map((r) => r.revision)) + 1;
+      const ins = await sb.from("extractor_jobs").insert({
+        file_sha256: root.file_sha256, file_name: root.file_name, mime_type: root.mime_type, size_bytes: root.size_bytes,
+        storage_path: root.storage_path, subject_id: root.subject_id, author: root.author, rights_basis: root.rights_basis,
+        created_by: context.userId, revision: next, parent_job_id: root.id, worker_rule_version: version, status: "uploaded",
+      }).select("id").single();
+      if (ins.error) { if (ins.error.code === "23505") continue; throw new Error(ins.error.message); }
+      newId = ins.data.id;
+    }
+    if (!newId) throw new Error("Не удалось выделить номер версии — повторите позже");
+    await dispatch(sb, newId);
+    const fresh = await loadJob(sb, newId);
+    return { id: newId, revision: fresh.revision, status: fresh.status, error: fresh.error, worker_rule_version: version };
   });
 
 /** Pull a bounded number of result pages and persist them; resumes from result_next_offset. */
@@ -277,6 +342,7 @@ export const publishExtractorJob = createServerFn({ method: "POST" }).middleware
       if (!t.data || t.data.subject_id !== data.subject_id) throw new Error("Выбранная тема не найдена или не относится к предмету — публикация остановлена");
     }
     const job = await loadJob(sb, data.id);
+    if (!canPublishRevision(job.revision)) throw new Error("Повторная обработка (версия " + job.revision + ") не публикуется: нужен отдельный аудит и явное решение о замене");
     if (!["succeeded", "publishing", "published"].includes(job.status)) throw new Error("Результат обработки ещё не получен полностью");
     await update(sb, job.id, { status: "publishing", rights_basis: data.rights_basis, subject_id: data.subject_id });
     const decisions = (job.unit_decisions ?? {}) as Record<string, "accept" | "reject">;

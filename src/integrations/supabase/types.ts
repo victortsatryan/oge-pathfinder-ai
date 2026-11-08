@@ -1235,12 +1235,14 @@ export type Database = {
           file_sha256: string
           id: string
           mime_type: string | null
+          parent_job_id: string | null
           progress: number
           publish_report: Json | null
           result: Json | null
           result_next_offset: number | null
           result_summary: Json | null
           result_total_units: number | null
+          revision: number
           rights_basis: string
           size_bytes: number
           stage: string | null
@@ -1249,6 +1251,7 @@ export type Database = {
           subject_id: string | null
           unit_decisions: Json
           updated_at: string
+          worker_rule_version: string | null
         }
         Insert: {
           attempts?: number
@@ -1261,12 +1264,14 @@ export type Database = {
           file_sha256: string
           id?: string
           mime_type?: string | null
+          parent_job_id?: string | null
           progress?: number
           publish_report?: Json | null
           result?: Json | null
           result_next_offset?: number | null
           result_summary?: Json | null
           result_total_units?: number | null
+          revision?: number
           rights_basis?: string
           size_bytes: number
           stage?: string | null
@@ -1275,6 +1280,7 @@ export type Database = {
           subject_id?: string | null
           unit_decisions?: Json
           updated_at?: string
+          worker_rule_version?: string | null
         }
         Update: {
           attempts?: number
@@ -1287,12 +1293,14 @@ export type Database = {
           file_sha256?: string
           id?: string
           mime_type?: string | null
+          parent_job_id?: string | null
           progress?: number
           publish_report?: Json | null
           result?: Json | null
           result_next_offset?: number | null
           result_summary?: Json | null
           result_total_units?: number | null
+          revision?: number
           rights_basis?: string
           size_bytes?: number
           stage?: string | null
@@ -1301,8 +1309,17 @@ export type Database = {
           subject_id?: string | null
           unit_decisions?: Json
           updated_at?: string
+          worker_rule_version?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "extractor_jobs_parent_job_id_fkey"
+            columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "extractor_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       extractor_review_decisions: {
         Row: {

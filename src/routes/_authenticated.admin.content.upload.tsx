@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   getExtractorJobs, publishExtractorJob, refreshExtractorJob, registerExtractorUpload,
   getExtractorSourceLink, getPublishedExtractorMaterials, addPublishedExtractorMaterialTopicLinks,
-  reopenSkippedUnits, retryExtractorJob, saveExtractorUnitReview,
+  reopenSkippedUnits, reprocessExtractorJob, retryExtractorJob, saveExtractorUnitReview,
   setExtractorUnitDecision, setPublishedExtractorMaterialsTopic,
 } from "@/lib/extractor/jobs.functions";
 import { MAX_SOURCE_BYTES, SOURCE_EXTENSIONS, sourceExtension } from "@/lib/extractor/pipeline";
@@ -65,6 +65,19 @@ function UploadPage() {
   const list = useServerFn(getExtractorJobs);
   const register = useServerFn(registerExtractorUpload);
   const retry = useServerFn(retryExtractorJob);
+  const reprocess = useServerFn(reprocessExtractorJob);
+  const [reprocessing, setReprocessing] = useState<string | null>(null);
+  const startReprocess = async (id: string) => {
+    if (!window.confirm("Создать новую версию обработки этого источника исправленным OCR-корректором?\n\nИсходная обработка и уже опубликованные материалы не изменяются. Новая версия не публикуется автоматически: машинно исправленный текст не проверен человеком.")) return;
+    setReprocessing(id);
+    try {
+      const r = await reprocess({ data: { id } });
+      if (r.status === "failed" || r.status === "worker_not_configured") toast.error(`Версия ${r.revision} создана, но не запущена: ${r.error ?? r.status}`);
+      else toast.success(`Версия ${r.revision} отправлена в обработку (${r.worker_rule_version})`);
+      setOpenId(r.id);
+    } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); }
+    finally { setReprocessing(null); qc.invalidateQueries({ queryKey: ["extractor-jobs"] }); }
+  };
   const [file, setFile] = useState<File | null>(null);
   const [author, setAuthor] = useState("");
   const [subjectId, setSubjectId] = useState("");
@@ -123,8 +136,15 @@ function UploadPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{j.file_name}</span>
               <Badge variant={j.status === "failed" || j.status === "worker_not_configured" ? "destructive" : "secondary"}>{STATUS[j.status] ?? j.status}</Badge>
+              <Badge variant="outline">Версия {j.revision}{j.revision > 1 ? " · повторная обработка" : " · исходная"}</Badge>
+              {j.worker_rule_version && <Badge variant="outline">Корректор: {j.worker_rule_version}</Badge>}
               <span className="text-xs text-muted-foreground">SHA {j.file_sha256.slice(0, 12)} · {(j.size_bytes / 1024).toFixed(0)} KB · автор: {j.author ?? "не указан"}</span>
               <div className="ml-auto flex gap-2">
+                {(["succeeded", "published"].includes(j.status) || (j.status === "failed" && j.revision > 1)) && (
+                  <Button size="sm" variant="outline" disabled={reprocessing !== null} onClick={() => startReprocess(j.id)}>
+                    {reprocessing === j.id ? "Проверка обработчика…" : "Повторно обработать новой версией"}
+                  </Button>
+                )}
                 {["failed", "worker_not_configured"].includes(j.status) && (
                   <Button size="sm" variant="outline" onClick={async () => { try { await retry({ data: { id: j.id } }); qc.invalidateQueries({ queryKey: ["extractor-jobs"] }); } catch (e) { toast.error(String(e)); } }}>Повторить</Button>
                 )}
@@ -197,13 +217,22 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
   if (q.isLoading) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
   if (q.isError || !q.data) return <p className="text-sm text-destructive">{String(q.error)}</p>;
   const { units, job } = q.data;
-  if (!units.length || !["succeeded", "publishing", "published"].includes(job.status)) return <p className="text-sm text-muted-foreground">Результат разбора ещё не получен полностью{units.length ? ` (получено блоков: ${units.length})` : ""}.</p>;
+  const isRevision = (job.revision ?? 1) > 1;
+  const revisionNote = isRevision && (
+    <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-1">
+      <p className="font-medium">Повторная обработка · версия {job.revision}{job.worker_rule_version ? ` · корректор ${job.worker_rule_version}` : ""}</p>
+      <p>Текст в этой версии исправлен машинно и не проверен человеком. Публикация этой версии запрещена до отдельного аудита и явного решения о замене.</p>
+      <p className="text-muted-foreground">Исходная обработка (версия 1) и уже опубликованные материалы не изменяются.</p>
+    </div>
+  );
+  if (!units.length || !["succeeded", "publishing", "published"].includes(job.status)) return <div className="space-y-2 border-t pt-3">{revisionNote}<p className="text-sm text-muted-foreground">Результат разбора ещё не получен полностью{units.length ? ` (получено блоков: ${units.length})` : ""}.</p></div>;
   const review = units.filter((u) => u.decision === "review");
   const toPublish = units.filter((u) => u.publish).length;
   const setD = async (unit_id: string, decision: "accept" | "reject" | null) => { await decide({ data: { id, unit_id, decision } }); q.refetch(); };
 
   return (
     <div className="space-y-3 border-t pt-3">
+      {revisionNote}
       <p className="text-sm">Блоков: {units.length} · уверенных: {units.filter((u) => u.decision === "confident").length} · требуют решения: {review.length} · только для учителя (не публикуются): {units.filter((u) => u.decision === "private").length} · некорректных: {units.filter((u) => u.decision === "invalid").length} · к публикации: {toPublish}. Задания с автопроверкой не создаются: экстрактор не даёт проверенных ответов.</p>
       {review.length > 0 && <h3 className="text-sm font-semibold">Требуют решения</h3>}
       {units.filter((u) => u.decision === "review" || u.decision === "invalid").map((u) => (
@@ -225,7 +254,7 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
           </div>
         ))}
       </details>
-      <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+      {!isRevision && <div className="flex flex-wrap items-center gap-2 border-t pt-3">
         <select className="h-9 rounded-md border bg-background px-2 text-sm" value={subject} onChange={(e) => { setSubject(e.target.value); setTopic(""); }}>
           <option value="">Предмет</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -241,7 +270,7 @@ function JobDetail({ id, subjects, topics, defaultSubject }: { id: string; subje
         </Button>
         <span className="text-xs text-muted-foreground">Видно только вошедшим пользователям Pathy. Существующие материалы и задания не изменяются.</span>
         <p className="w-full text-xs text-muted-foreground">Тема (необязательно) назначается только материалам, публикуемым в этой партии, и только по вашему выбору. Экзаменационные задания, ключи ответов, уроки и события календаря не создаются. Если книга охватывает несколько тем, оставьте «Без темы».</p>
-      </div>
+      </div>}
       {job.status === "published" && <SourceTopicSections jobId={id} />}
       {job.status === "published" && <PublishedTopicLinker jobId={id} topics={topics} />}
     </div>
