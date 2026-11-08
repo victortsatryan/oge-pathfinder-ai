@@ -436,6 +436,116 @@ export const reopenSkippedUnits = createServerFn({ method: "POST" }).middleware(
  * Admin-only list of already published extractor material blocks.
  * This is a separate workflow from publication: one textbook can cover many topics.
  */
+/**
+ * Apply ONLY individually human-approved text from a completed reprocess
+ * revision to an EXISTING material from revision 1. Keep the original material
+ * identity, its curricular links, and an append-only prior-text audit trail.
+ * No batch auto-accept; no new materials, exam keys or teacher content.
+ */
+export const publishApprovedExtractorCorrections = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({
+    id: z.string().uuid(),
+    unit_ids: z.array(z.string().min(1).max(500)).min(1).max(20),
+    confirmed: z.literal(true),
+  }).parse(v))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase;
+    await assertAdmin(sb, context.userId);
+    if (new Set(data.unit_ids).size !== data.unit_ids.length) throw new Error("Повтор unit_id в запросе");
+    const job = await loadJob(sb, data.id);
+    if (job.revision <= 1 || !job.parent_job_id || job.status !== "succeeded"
+        || job.worker_rule_version !== REVISION_CORRECTION_VERSION) {
+      throw new Error("Доступна только законченная обработка с проверенным новым корректором");
+    }
+    const root = await loadJob(sb, job.parent_job_id);
+    if (root.revision !== 1 || root.status !== "published"
+        || root.file_sha256 !== job.file_sha256
+        || root.storage_path !== job.storage_path
+        || !canPublishWithRights(root.rights_basis)) {
+      throw new Error("Нет подтверждённого опубликованного оригинала с действующими правами");
+    }
+    const fetched = await sb.from("extractor_job_units")
+      .select("id,unit_id,raw,publish_state,reviewed_text,review_choice,reviewed_by,reviewed_at")
+      .eq("job_id", job.id).in("unit_id", data.unit_ids);
+    if (fetched.error) throw new Error(fetched.error.message);
+    if ((fetched.data ?? []).length !== data.unit_ids.length)
+      throw new Error("Некоторые блоки отсутствуют в выбранной версии источника");
+
+    type Plan = {
+      unitRowId: string; unitId: string; materialId: string; oldText: string; text: string;
+      previousMetadata: Record<string, any>; reviewer: string; reviewedAt: string;
+      alreadyApplied: boolean; machinePatchCount: number;
+    };
+    const plans: Plan[] = [];
+    // Full preflight BEFORE writing any rows: reject mixed, private, unreviewed
+    // or wrong-source material batches without partial material mutation.
+    for (const row of fetched.data ?? []) {
+      const raw = row.raw as Record<string, any>;
+      if (raw?.source?.sha256 !== job.file_sha256 || raw?.usable_for_grading !== false)
+        throw new Error("Не совпадает SHA исходника или запрещены оценочные задания");
+      const c = classifyUnit(raw, job.author);
+      if (c.decision === "private" || c.decision === "invalid")
+        throw new Error("Приватный или невалидный блок не может быть опубликован");
+      const text = approvedRevisionText({
+        raw, review_choice: row.review_choice,
+        reviewed_text: row.reviewed_text, reviewed_by: row.reviewed_by,
+        reviewed_at: row.reviewed_at,
+      });
+      const key = stableUnitKey(job.file_sha256, row.unit_id);
+      const lookup = await sb.from("materials")
+        .select("id,content_text,subject_id,status,is_public,extractor_metadata")
+        .eq("extractor_metadata->>unit_key", key).maybeSingle();
+      if (lookup.error) throw new Error(lookup.error.message);
+      const mat = lookup.data;
+      const meta = mat?.extractor_metadata as Record<string, any> | null;
+      if (!mat || mat.status !== "published" || !mat.is_public
+          || mat.subject_id !== root.subject_id
+          || meta?.job_id !== root.id || meta?.source_sha256 !== job.file_sha256
+          || meta?.unit_id !== row.unit_id || typeof mat.content_text !== "string")
+        throw new Error("Для блока не найден точный опубликованный материал первой версии");
+      plans.push({
+        unitRowId: row.id, unitId: row.unit_id, materialId: mat.id,
+        oldText: mat.content_text, text, previousMetadata: meta!,
+        reviewer: row.reviewed_by!, reviewedAt: row.reviewed_at!,
+        alreadyApplied: correctionAlreadyApplied(meta!, job.id, row.unit_id),
+        machinePatchCount: Array.isArray(raw.machine_correction?.patches) ? raw.machine_correction.patches.length : 0,
+      });
+    }
+    let applied = 0, existing = 0;
+    for (const p of plans) {
+      if (p.alreadyApplied) {
+        // Idempotent retry after a successful previous material update.
+        existing++;
+      } else {
+        const at = new Date().toISOString();
+        const auditEntry = {
+          job_id: job.id, source_revision: job.revision, worker_rule_version: job.worker_rule_version,
+          unit_id: p.unitId, previous_text: p.oldText, previous_text_sha256: sha256Text(p.oldText),
+          approved_text_sha256: sha256Text(p.text), human_reviewer: p.reviewer,
+          reviewed_at: p.reviewedAt, applied_by: context.userId, applied_at: at,
+          machine_patch_count: p.machinePatchCount, grading_authorized: false,
+        };
+        const nextMeta = appendCorrectionHistory(p.previousMetadata, auditEntry);
+        const updated = await sb.from("materials")
+          .update({ content_text: p.text, extractor_metadata: nextMeta as Json, updated_at: at })
+          .eq("id", p.materialId).eq("content_text", p.oldText)
+          .eq("status", "published").eq("is_public", true)
+          .select("id").maybeSingle();
+        if (updated.error) throw new Error(updated.error.message);
+        if (!updated.data) throw new Error("Материал изменился параллельно — публикация остановлена");
+        applied++;
+      }
+      const mark = await sb.from("extractor_job_units")
+        .update({ publish_state: "published", material_id: p.materialId })
+        .eq("id", p.unitRowId).eq("job_id", job.id);
+      if (mark.error) throw new Error(mark.error.message);
+    }
+    // Intentionally do NOT set a revision>1 extractor_jobs.status to published:
+    // DB enforces that only the source job itself may be marked published.
+    return { applied, existing, total: plans.length };
+  });
+
 export const getPublishedExtractorMaterials = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({ job_id: z.string().uuid() }).parse(v))
