@@ -659,6 +659,92 @@ export type Database = {
         }
         Relationships: []
       }
+      curriculum_topic_aliases: {
+        Row: {
+          alias_normalized: string
+          alias_text: string
+          created_at: string
+          is_approved: boolean
+          origin: string
+          subject_id: string
+          topic_id: string
+        }
+        Insert: {
+          alias_normalized: string
+          alias_text: string
+          created_at?: string
+          is_approved?: boolean
+          origin?: string
+          subject_id: string
+          topic_id: string
+        }
+        Update: {
+          alias_normalized?: string
+          alias_text?: string
+          created_at?: string
+          is_approved?: boolean
+          origin?: string
+          subject_id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_topic_aliases_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "curriculum_topic_aliases_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_topic_meta: {
+        Row: {
+          catalog_key: string
+          created_at: string
+          grade_bands: string[]
+          review_status: string
+          reviewed_at: string | null
+          reviewer_id: string | null
+          source_urls: string[]
+          topic_id: string
+        }
+        Insert: {
+          catalog_key: string
+          created_at?: string
+          grade_bands?: string[]
+          review_status?: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          source_urls?: string[]
+          topic_id: string
+        }
+        Update: {
+          catalog_key?: string
+          created_at?: string
+          grade_bands?: string[]
+          review_status?: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          source_urls?: string[]
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_topic_meta_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: true
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diagnostic_answers: {
         Row: {
           checked_by: string
@@ -2135,6 +2221,48 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_topic_links: {
+        Row: {
+          link_source: string
+          link_type: string
+          linked_at: string
+          linked_by: string | null
+          material_id: string
+          topic_id: string
+        }
+        Insert: {
+          link_source?: string
+          link_type?: string
+          linked_at?: string
+          linked_by?: string | null
+          material_id: string
+          topic_id: string
+        }
+        Update: {
+          link_source?: string
+          link_type?: string
+          linked_at?: string
+          linked_by?: string | null
+          material_id?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_topic_links_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_topic_links_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
             referencedColumns: ["id"]
           },
         ]
