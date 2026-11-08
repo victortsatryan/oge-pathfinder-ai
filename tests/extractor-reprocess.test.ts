@@ -10,7 +10,8 @@ vi.mock("@tanstack/react-start", () => ({
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 
 import {
-  publishExtractorJob, registerExtractorUpload, reprocessExtractorJob, retryExtractorJob,
+  publishExtractorJob, publishApprovedExtractorCorrections,
+  registerExtractorUpload, reprocessExtractorJob, retryExtractorJob,
 } from "../src/lib/extractor/jobs.functions";
 import { OCR_CORRECTION_VERSION, canPublishRevision, workerCorrectionVersion } from "../src/lib/extractor/pipeline";
 
@@ -21,7 +22,9 @@ const subjectId = "22222222-2222-4222-8222-222222222222";
 const path = `${sha}/goltsova.pdf`;
 
 function memoryDb(admin = true) {
-  const material = { id: "mat1", content_text: "original OCR", extractor_metadata: { job_id: rootId, unit_key: `${sha}:u1`, unit_id: "u1" } };
+  const material = { id: "mat1", content_text: "original OCR", subject_id: subjectId,
+    status: "published", is_public: true,
+    extractor_metadata: { job_id: rootId, source_sha256: sha, unit_key: sha + ":u1", unit_id: "u1" } };
   const tables: Record<string, Row[]> = {
     extractor_jobs: [{
       id: rootId, file_sha256: sha, file_name: "goltsova.pdf", mime_type: "application/pdf", size_bytes: 5250121,
@@ -234,5 +237,72 @@ describe("revision-safe upload dedup and publication guard", () => {
     expect(db.tables.materials).toHaveLength(1);
     expect(db.tables.materials[0].content_text).toBe("original OCR");
     expect(db.unchanged()).toBe(true);
+  });
+});
+
+
+describe("admin revision update of existing published materials", () => {
+  function makeReviewed(db: ReturnType<typeof memoryDb>, revisionId: string, overrides: Row = {}) {
+    db.tables.extractor_jobs.find(j => j.id === revisionId)!.status = "succeeded";
+    const unit = {
+      id: "revision-unit", job_id: revisionId, unit_id: "u1", publish_state: "pending",
+      raw: { unit_id: "u1", title: "Учебник", kind: "theory",
+        role: "student_material", usable_for_learning: true, usable_for_grading: false,
+        source: { sha256: sha }, content_text: "предлагаемый машиной текст" },
+      review_choice: "accept_corrected", reviewed_text: "проверенный текст",
+      reviewed_by: "admin-1", reviewed_at: "2026-11-08T12:00:00Z", ...overrides,
+    };
+    db.tables.extractor_job_units.push(unit);
+    return unit;
+  }
+
+  it("applies only the approved unit, with original text preserved in history; a retry is idempotent", async () => {
+    const db = memoryDb(); stubWorker(goodHealth);
+    const rev = await invoke(reprocessExtractorJob, db, { id: rootId });
+    const unit = makeReviewed(db, rev.id);
+    const rootSnapshot = JSON.stringify(db.tables.extractor_jobs[0]);
+    const oldUnitSnapshot = JSON.stringify(db.tables.extractor_job_units[0]);
+    const result = await invoke(publishApprovedExtractorCorrections, db,
+      { id: rev.id, unit_ids: ["u1"], confirmed: true });
+    expect(result).toEqual({ applied: 1, existing: 0, total: 1 });
+    const m = db.tables.materials[0];
+    expect(m.id).toBe("mat1");
+    expect(m.content_text).toBe("проверенный текст");
+    expect(m.extractor_metadata.correction_history).toHaveLength(1);
+    expect(m.extractor_metadata.correction_history[0]).toMatchObject({
+      previous_text: "original OCR", source_revision: 2, job_id: rev.id, unit_id: "u1",
+      human_reviewer: "admin-1", grading_authorized: false,
+    });
+    expect(unit.publish_state).toBe("published");
+    expect(JSON.stringify(db.tables.extractor_jobs[0])).toBe(rootSnapshot);
+    expect(JSON.stringify(db.tables.extractor_job_units[0])).toBe(oldUnitSnapshot);
+    expect(db.tables.extractor_jobs.find(j => j.id === rev.id)!.status).toBe("succeeded");
+    const retry = await invoke(publishApprovedExtractorCorrections, db,
+      { id: rev.id, unit_ids: ["u1"], confirmed: true });
+    expect(retry).toEqual({ applied: 0, existing: 1, total: 1 });
+    expect(m.extractor_metadata.correction_history).toHaveLength(1);
+  });
+
+  it("never applies v1 OCR or unreviewed/teacher-private/wrong SHA corrections", async () => {
+    const db = memoryDb(); stubWorker(goodHealth);
+    const rev = await invoke(reprocessExtractorJob, db, { id: rootId });
+    const unit = makeReviewed(db, rev.id);
+    const job = db.tables.extractor_jobs.find(j => j.id === rev.id)!;
+    const before = db.writes();
+    const apply = () => invoke(publishApprovedExtractorCorrections, db,
+      { id: rev.id, unit_ids: ["u1"], confirmed: true });
+    job.worker_rule_version = "pathy-ocr-postcorrection-v1";
+    await expect(apply()).rejects.toThrow("новым корректором");
+    job.worker_rule_version = OCR_CORRECTION_VERSION;
+    unit.review_choice = null;
+    await expect(apply()).rejects.toThrow("сохранённая проверка");
+    unit.review_choice = "accept_corrected";
+    unit.raw.role = "teacher_private";
+    await expect(apply()).rejects.toThrow("Приватный");
+    unit.raw.role = "student_material";
+    unit.raw.source.sha256 = "b".repeat(64);
+    await expect(apply()).rejects.toThrow("SHA");
+    expect(db.writes()).toBe(before);
+    expect(db.tables.materials[0].content_text).toBe("original OCR");
   });
 });
