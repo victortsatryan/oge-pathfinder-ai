@@ -83,7 +83,7 @@ export function correctionAlreadyApplied(metadata: Record<string, any>,
   return history.some((x: any) => x.job_id === jobId && x.unit_id === unitId);
 }
 
-export function appendCorrectionHistory(metadata: Record<string, any>, entry: Record<string, any>) {
+export function appendCorrectionHistory(metadata: Record<string, any>, entry: Record<string, any>): Record<string, any> {
   const history = Array.isArray(metadata.correction_history) ? metadata.correction_history : [];
   if (history.length >= 40) throw new Error("Превышен лимит истории коррекций материала");
   if (correctionAlreadyApplied(metadata, entry.job_id, entry.unit_id)) {
