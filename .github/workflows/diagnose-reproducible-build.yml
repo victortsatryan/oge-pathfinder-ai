@@ -5,7 +5,7 @@ on:
       - fix/reproducible-pathy-build-20261114
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   production-build:
@@ -36,6 +36,15 @@ jobs:
           npm ci --legacy-peer-deps --no-audit --no-fund
           npx tsc -b --noEmit
           npm run build
+      - name: Save verified reproducible dependency lock
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build: lock validated TanStack dependency graph"
+            git push origin HEAD:fix/reproducible-pathy-build-20261114
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
