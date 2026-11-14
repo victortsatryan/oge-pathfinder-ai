@@ -1,0 +1,44 @@
+name: Pathy production build repair (isolated branch)
+on:
+  push:
+    branches:
+      - fix/reproducible-pathy-build-20261114
+
+permissions:
+  contents: read
+
+jobs:
+  production-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Regenerate lockfile from declared dependencies
+        run: |
+          rm -f package-lock.json
+          npm install --legacy-peer-deps --no-audit --no-fund
+      - name: Report exact TanStack versions
+        run: |
+          npm ls @tanstack/react-start @tanstack/react-router @tanstack/router-core @tanstack/router-plugin @tanstack/start-plugin-core nitro --all --depth=2 || true
+      - name: Test all extractor integration cases
+        run: npx vitest run --config vitest.extractor.config.ts
+      - name: Generate TanStack route tree
+        run: npx tsr generate
+      - name: Typecheck
+        run: npx tsc -b --noEmit
+      - name: Build full Pathy production bundle
+        run: npm run build
+      - name: Verify clean install from regenerated lockfile
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npx tsc -b --noEmit
+          npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: proposed-pathy-package-lock
+          path: package-lock.json
+          retention-days: 3
