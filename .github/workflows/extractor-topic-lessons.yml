@@ -1,23 +1,38 @@
-name: Extractor topic lesson integration checks
+name: Pathy tests, TypeScript and production build
+
 on:
   push:
     branches:
-      - feat/extractor-topic-lesson-linking-20261107
       - main
+      - feat/extractor-topic-lesson-linking-20261107
   pull_request:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: pathy-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  tests:
+  tests-and-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-      - run: npm install --legacy-peer-deps --no-save --package-lock=false --no-audit --no-fund @tanstack/react-start@1.167.14 @tanstack/react-router@1.168.0 @tanstack/router-plugin@1.167.10 @tanstack/router-core@1.168.0 @tanstack/router-cli
-      - run: npx vitest run --config vitest.extractor.config.ts
-      - run: npx tsr generate
-      - run: npx tsc -b --noEmit
+      - name: Install exactly the locked dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Run Pathy extractor integration tests
+        run: npx vitest run --config vitest.extractor.config.ts
+      - name: Generate routes with the declared TanStack CLI
+        run: npx tsr generate
+      - name: Typecheck all application code
+        run: npx tsc -b --noEmit
+      - name: Build production application
+        run: npm run build
